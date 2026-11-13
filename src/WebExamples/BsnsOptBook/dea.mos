@@ -1,0 +1,69 @@
+(!*********************************************************************
+   Mosel Example Problems
+   ======================
+
+   file dea.mos
+   ````````````
+   DEA model 
+   
+     Example solution to exercise 5.2 in section 5.3 of
+     J. Kallrath: Business Optimization Using Mathematical Programming -
+     An Introduction with Case Studies and Solutions in Various Algebraic 
+     Modeling Languages. 2nd edition, Springer Nature, Cham, 2021 
+
+   author: S. Heipcke, June 2018
+
+   (c) Copyright 2020 Fair Isaac Corporation
+  
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+*********************************************************************!)
+
+model 'dea'
+  uses "mmxprs"
+
+  declarations
+    UNITS: set of string                 ! Set of locations
+    OUTPUTS: set of string               ! Set of products
+    VAL: array(UNITS,OUTPUTS) of real    ! Sales values
+    COST: array(UNITS) of real           ! Total costs per location
+    COEF: array(OUTPUTS) of real         ! Sales/total_cost(u)
+  end-declarations
+
+  VAL::(['Paris','London','Bonn'],['A','B','C'])[50,50,50,50,100,40,100,90,60]
+  COST::(['Paris','London','Bonn'])[110,150,200]
+ 
+  declarations
+    w: array(OUTPUTS) of mpvar          ! Weights
+  end-declarations
+
+  forall(u in UNITS) do
+    writeln("****Solving for ", u)
+   ! Calculate coefficients
+    forall(j in OUTPUTS) COEF(j):=VAL(u,j)/COST(u)
+
+   ! Objective: Maximise efficiency for unit u
+    Effcy:=sum(j in OUTPUTS) COEF(j)*w(j)   
+
+  ! Efficiency must not exceed 1
+    forall(i in UNITS)
+      Cstr(i):= sum(j in OUTPUTS) VAL(i,j)*w(j)<= COST(i)
+  ! Lower limit on weights
+    forall(j in OUTPUTS) Lim(j):=w(j)>= 0.001                     
+
+    maximise(Effcy)
+    writeln("Solution: Efficiency(", u, ")=", getobjval)
+    forall(i in UNITS-{u}) writeln("  ", i, ":", Cstr(i).act/COST(i))
+    forall(j in OUTPUTS) writeln("  ", j, ":", w(j).sol)
+  end-do
+end-model

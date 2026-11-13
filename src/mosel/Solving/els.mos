@@ -1,0 +1,301 @@
+(!*******************************************************
+  * Mosel Example Problems                              *
+  * ======================                              *
+  *                                                     *
+  * file els.mos                                        *
+  * ````````````                                        *
+  * Example for the use of the Mosel language           *
+  * (Economic lot sizing, ELS, problem, solved by       *
+  *  adding(l,S)-inequalities in one or several rounds  *
+  *  looping over the root node or at tree nodes)       *
+  *                                                     *
+  * ELS considers production planning over a horizon    *
+  * of T periods. In period t, t=1,...,T, there is a    *
+  * given demand DEMAND[p,t] that must be satisfied by  *
+  * production produce[p,t] in period t and by          *
+  * inventory carried over from previous periods.       *
+  * A set-up cost SETUPCOST[t] is associated with       *
+  * production in period t, and the total production    *
+  * capacity per period is limited. The unit production *
+  * cost in period t is PRODCOST[p,t]. There is no      *
+  * inventory or stock-holding cost.                    *
+  * The model implements a configurable cutting plane   *
+  * algorithm for this problem.                         *
+  *                                                     *
+  * (c) 2008 Fair Isaac Corporation                     *
+  *     author: S. Heipcke, 2001, rev. July 2023        *
+  *******************************************************!)
+
+model Els                             ! Start a new model
+ uses "mmxprs","mmsystem"             ! Load the optimizer library
+
+ parameters
+  ALG = 6                             ! Algorithm choice [default settings: 0]
+  CUTDEPTH = 10                       ! Maximum tree depth for cut generation
+  EPS = 1e-6                          ! Zero tolerance
+ end-parameters 
+
+ forward procedure lp_cut_gen         ! Declare a procedure that is 
+                                      ! defined later
+ forward function cb_node:boolean
+ forward procedure tree_cut_gen
+
+ declarations
+  TIMES = 1..15                              ! Range of time
+  PRODUCTS = 1..4                            ! Set of products
+
+  DEMAND: array(PRODUCTS,TIMES) of integer   ! Demand per period
+  SETUPCOST: array(TIMES) of integer         ! Setup cost per period
+  PRODCOST: array(PRODUCTS,TIMES) of integer ! Production cost per period
+  CAP: array(TIMES) of integer               ! Production capacity per period
+  D: array(PRODUCTS,TIMES,TIMES) of integer  ! Total demand in periods t1 - t2
+
+  produce: array(PRODUCTS,TIMES) of mpvar    ! Production in period t
+  setup: array(PRODUCTS,TIMES) of mpvar      ! Setup in period t
+
+  solprod: array(PRODUCTS,TIMES) of real     ! Sol. values for var.s produce 
+  solsetup: array(PRODUCTS,TIMES) of real    ! Sol. values for var.s setup
+  starttime: real
+ end-declarations
+
+ initializations from "Data/els.dat"
+  DEMAND SETUPCOST PRODCOST CAP
+ end-initializations
+
+ forall(p in PRODUCTS,s,t in TIMES) D(p,s,t):= sum(k in s..t) DEMAND(p,k)
+
+! Objective: minimize total cost
+ MinCost:= sum(t in TIMES) (SETUPCOST(t) * sum(p in PRODUCTS) setup(p,t) + 
+                            sum(p in PRODUCTS) PRODCOST(p,t) * produce(p,t) )
+
+! Satisfy the total demand
+ forall(p in PRODUCTS,t in TIMES) 
+   Dem(p,t):= sum(s in 1..t) produce(p,s) >= sum (s in 1..t) DEMAND(p,s)
+
+! If there is production during t then there is a setup in t
+ forall(p in PRODUCTS, t in TIMES) 
+  ProdSetup(p,t):= produce(p,t) <= D(p,t,getlast(TIMES)) * setup(p,t)
+
+! Capacity limits
+ forall(t in TIMES) Capacity(t):= sum(p in PRODUCTS) produce(p,t) <= CAP(t)
+
+! Variables setup are 0/1
+ forall(p in PRODUCTS, t in TIMES) setup(p,t) is_binary 
+
+! Uncomment to get detailed MIP output
+ setparam("XPRS_VERBOSE", true)
+ 
+! All cost data are integer, we therefore only need to search for integer 
+! solutions
+ setparam("XPRS_MIPADDCUTOFF", -0.999)
+
+! Set Mosel comparison tolerance to a sufficiently small value
+ setparam("ZEROTOL", EPS/100)
+ 
+ writeln("**************ALG=",ALG,"***************")
+
+ starttime:=gettime
+ SEVERALROUNDS:=false; TOPONLY:=false
+
+ case ALG of
+  1: setparam("XPRS_CUTSTRATEGY", 0)  ! No cuts
+  2: setparam("XPRS_PRESOLVE", 0)     ! No presolve
+  3: tree_cut_gen                     ! User branch-and-cut + automatic cuts
+  4: do                               ! User branch-and-cut (several rounds),
+      tree_cut_gen                    ! no automatic cuts
+      setparam("XPRS_CUTSTRATEGY", 0)
+      SEVERALROUNDS:=true
+     end-do
+  5: do                               ! User cut-and-branch (several rounds)
+      tree_cut_gen                    ! + automatic cuts
+      SEVERALROUNDS:=true
+      TOPONLY:=true
+     end-do
+  6: do                               ! User branch-and-cut (several rounds)
+      tree_cut_gen                    ! + automatic cuts
+      SEVERALROUNDS:=true
+     end-do
+  7: lp_cut_gen                       ! User cut-and-branch using loop
+                                      ! around LP solving and save/load basis
+ end-case
+
+ minimize(MinCost)                    ! Solve the problem
+                                       
+ writeln("Time: ", gettime-starttime, "sec,  Nodes: ", getparam("XPRS_NODES"),
+         ",  Solution: ", getobjval) 
+ writeln(" "*15, "|    Prod. Quantity (Demand)")
+ write("Period  Setup  |   ")
+ forall(p in PRODUCTS) write(strfmt(p,-8))
+ write("\n", "-"*50)
+ forall(t in TIMES) do
+  write("\n ", strfmt(t,2), strfmt(getsol(sum(p in PRODUCTS) setup(p,t)),8), "    |")
+  forall(p in PRODUCTS) 
+   write(strfmt(produce(p,t).sol,4,0), " (", DEMAND(p,t), ")")
+ end-do
+ writeln 
+
+!*************************************************************************
+!  Cut generation loop at the top node:                                 
+!    solve the LP and save the basis                                    
+!    get the solution values                                            
+!    identify and set up violated constraints                           
+!    load the modified problem and load the saved basis                 
+!*************************************************************************
+
+ procedure lp_cut_gen
+  declarations
+   ncut,npass,npcut:integer            ! Counters for cuts and passes
+   objval,ds: real
+   cut: array(range) of linctr
+   bas: basis
+  end-declarations
+
+  setparam("XPRS_CUTSTRATEGY", 0)      ! Disable automatic cuts (optional)
+  setparam("XPRS_PRESOLVE", 0)         ! Switch presolve off (required)
+  ncut:=0 
+  npass:=0
+
+  repeat
+    npass+=1
+    npcut:= 0
+    minimize(XPRS_LIN+XPRS_PRI, MinCost) ! Solve the LP using primal simplex
+    savebasis(bas)                       ! Save the current basis
+    objval:= getobjval                   ! Get the objective value
+
+    forall(p in PRODUCTS,t in TIMES) do  ! Get the solution values
+      solprod(p,t):=produce(p,t).sol
+      solsetup(p,t):=setup(p,t).sol
+    end-do
+  
+      ! Search for violated constraints:
+    forall(p in PRODUCTS,l in TIMES) do
+      ds:=0 
+      forall(t in 1..l)
+        if(solprod(p,t) < D(p,t,l)*solsetup(p,t) + EPS) then ds += solprod(p,t)
+        else  ds += D(p,t,l)*solsetup(p,t)
+        end-if
+  
+      ! Add the violated inequality: the minimum of the actual production
+      ! prod(p,t) and the maximum potential production D(p,t,l)*setup(p,t) 
+      ! in periods 1 to l must at least equal the total demand in periods 
+      ! 1 to l.
+    
+      if(ds < D(p,1,l) - EPS) then
+        ncut+=1
+        npcut+=1
+        cut(ncut):= sum(t in 1..l) 
+         if(solprod(p,t)<(D(p,t,l)*solsetup(p,t))+EPS, produce(p,t),
+	    D(p,t,l)*setup(p,t)) >= D(p,1,l)
+      end-if   
+    end-do
+   
+    writeln("Pass ", npass, " (", gettime-starttime, " sec), objective value ", 
+            objval, ", cuts added: ", npcut, " (total ", ncut,")")
+
+    if(npcut=0) then
+      writeln("Optimal integer solution found:")
+    else
+      loadprob(MinCost)                ! Reload the problem
+      loadbasis(bas)                   ! Load the saved basis
+    end-if
+  until (npcut<=0 or npass>15)
+
+ end-procedure
+
+!*************************************************************************
+!  Cut generation loop:                         
+!    get the solution values                                            
+!    identify and set up violated constraints                           
+!    load the modified problem and load the saved basis                 
+!*************************************************************************
+
+ function cb_node:boolean
+  declarations
+   ncut:integer                        ! Counter for cuts
+   cut: array(range) of linctr         ! Cuts
+   cutid: array(range) of integer      ! Cut type identification
+   type: array(range) of integer       ! Cut constraint type 
+   ds: real
+  end-declarations
+
+  returned:=false                      ! OPTNODE: This node is not infeasible
+
+  depth:=getparam("XPRS_NODEDEPTH")
+  cnt:=getparam("XPRS_CALLBACKCOUNT_OPTNODE")
+
+  if ((TOPONLY and depth<1) or (not TOPONLY and depth<=CUTDEPTH)) and 
+     (SEVERALROUNDS or cnt<=1) then
+   ncut:=0 
+
+ ! Get the solution values
+   forall(t in TIMES, p in PRODUCTS) do
+     solprod(p,t):=produce(p,t).sol
+     solsetup(p,t):=setup(p,t).sol
+   end-do
+  
+ ! Search for violated constraints
+   forall(p in PRODUCTS,l in TIMES) do
+    ds:=0 
+    forall(t in 1..l)
+      if(solprod(p,t) < D(p,t,l)*solsetup(p,t) + EPS) then ds += solprod(p,t)
+      else  ds += D(p,t,l)*solsetup(p,t)
+      end-if
+  
+   ! Generate the violated inequality    
+    if(ds < D(p,1,l) - EPS) then
+      cut(ncut):= sum(t in 1..l) 
+       if(solprod(p,t)<(D(p,t,l)*solsetup(p,t))+EPS, produce(p,t), 
+          D(p,t,l)*setup(p,t)) - D(p,1,l)
+      cutid(ncut):= 1
+      type(ncut):= CT_GEQ
+      ncut+=1
+    end-if   
+  end-do
+
+ ! Add cuts to the problem
+   if(ncut>0) then 
+    addcuts(cutid, type, cut);  
+    if(getparam("XPRS_VERBOSE")=true) then
+     writeln("Cuts added : ", ncut, " (depth ", depth, ", node ", 
+            getparam("XPRS_NODES"), ", obj. ", getparam("XPRS_LPOBJVAL"), ")")
+    end-if
+   end-if
+  end-if
+ end-function
+
+! ****Optimizer settings for using the cut manager****
+
+ procedure tree_cut_gen
+  setparam("XPRS_PRESOLVE", 0)        ! Switch presolve off
+  setparam("XPRS_EXTRAROWS", 5000)    ! Reserve extra rows in matrix  
+  setcallback(XPRS_CB_OPTNODE, ->cb_node)  ! Set the optnode callback function
+ end-procedure
+
+end-model
+
+Economic Lot-Sizing (ELS)
+=========================
+
+A well-known class of valid inequalities for ELS are the
+(l,S)-inequalities.  Let D(pq) denote the total demand in periods p 
+to q and y(t) be a binary variable indicating whether there is any 
+production in period t.  For each period l and each subset of periods S 
+of 1 to l, the (l,S)-inequality is
+
+    sum (t=1:l | t in S) x(t) + sum (t=1:l | t not in S) D(tl) * y(t)
+        >= D(1l)
+
+It says that actual production x(t) in periods included S plus maximum 
+potential production D(tl)*y(t) in the remaining periods (those not in 
+S) must at least equal total demand in periods 1 to l.  Note that in 
+period t at most D(tl) production is required to meet demand up to 
+period l.
+
+Based on the observation that
+
+    sum (t=1:l | t in S) x(t) + sum (t=1:l | t not in S) D(tl) * y(t)
+        >= sum (t=1:l) min(x(t), D(tl) * y(t))
+        >= D(1l)
+
+it is easy to develop a separation algorithm and thus a cutting plane
+algorithm based on these (l,S)-inequalities.

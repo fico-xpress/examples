@@ -1,0 +1,152 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file d1wagon2.mos
+   `````````````````
+   Load balancing of train wagons
+   (second version, using heuristic solution as 
+    start solution for MIP via 'addmipsol')
+    
+   Sixteen boxes must be loaded on three railway wagons.
+   Each wagon has a weight limit of 100 quintals. Which wagon
+   should each box be assigned so that the heaviest wagon load
+   is minimized.
+   
+   The heuristic solution is used as the starting point for
+   MIP. Instead of a custom sorting procedure, the heuristic
+   uses a form of 'qsort' which sorts the index array of an array.
+ 
+   (c) 2008-2022 Fair Isaac Corporation
+       author: S. Heipcke, Sep. 2007, rev. Mar. 2022
+*******************************************************!)
+
+model "D-1 Wagon load balancing (2)"
+ uses "mmxprs", "mmsystem"
+
+ forward function solveheur:real
+ forward procedure solnotify(id:string, status:integer)
+ 
+ declarations   
+  BOXES = 1..16                        ! Set of boxes
+  WAGONS = 1..3                        ! Set of wagons
+
+  WEIGHT: array(BOXES) of integer      ! Box weights
+  WMAX: integer                        ! Weight limit per wagon
+
+  ifload: array(BOXES,WAGONS) of mpvar ! 1 if box loaded on wagon, 0 otherwise
+  maxweight: mpvar                     ! Weight of the heaviest wagon load
+  MaxWeight: linctr                    ! Objective function
+
+  HeurSol: array(BOXES) of integer     ! Heuristic solution
+  AllSol: array(mpvar) of real         ! Start solution for MIP
+ end-declarations
+
+ initializations from 'd1wagon.dat'
+  WEIGHT WMAX
+ end-initializations
+
+! Solve the problem heuristically and terminate the program if the
+! heuristic solution is good enough, otherwise, load heuristic solution
+! as start solution into the Optimizer
+ if solveheur<=WMAX then
+  writeln("Heuristic solution fits capacity limits")
+  exit(0)
+ end-if
+
+! Every box into one wagon
+ forall(b in BOXES) sum(w in WAGONS) ifload(b,w) = 1
+ 
+! Limit the weight loaded into every wagon 
+ forall(w in WAGONS) sum(b in BOXES) WEIGHT(b)*ifload(b,w) <= maxweight
+ 
+! Lower bound on maximum weight
+ maxweight >= ceil((sum(b in BOXES) WEIGHT(b))/3)
+
+ forall(b in BOXES,w in WAGONS) ifload(b,w) is_binary
+
+! Alternative to lower bound on maxweight: adapt the optimizer cutoff value 
+! setparam("XPRS_MIPADDCUTOFF",-0.99999)
+
+! Uncomment the following line to see the optimizer log
+! setparam("XPRS_VERBOSE",true) 
+
+! Set the solution values for all discrete variables that are non-zero
+ forall(b in BOXES) AllSol(ifload(b,HeurSol(b))):= 1
+
+! Minimize the heaviest load
+ MaxWeight:= maxweight                  ! Objective must be a constraint
+                                        ! otherwise 'minimize' reloads problem
+ loadprob(MaxWeight)                    ! Load problem into the Optimizer
+ addmipsol("HeurSol", AllSol)           ! Load the heuristic solution
+
+ setcallback(XPRS_CB_SOLNOTIFY,->solnotify)  ! Reporting use of user solution
+
+! Re-inforce use of user solution in local search heuristics 
+ setparam("XPRS_USERSOLHEURISTIC",3)
+
+ minimize(MaxWeight)                    ! Start optimization
+ 
+! Solution printing
+ writeln("Optimal solution:\n Max weight: ", getobjval)
+ forall(w in WAGONS) do
+  write(" ", w, ":")
+  forall(b in BOXES | ifload(b,w).sol=1) write(" ", b)
+  writeln(" (total weight: ", getsol(sum(b in BOXES) WEIGHT(b)*ifload(b,w)), ")")
+ end-do
+
+!-----------------------------------------------------------------
+
+(! LPT (Longest processing time) heuristic: 
+   One at a time place the heaviest unassigned box onto the wagon with 
+   the least load
+!)
+   
+ function solveheur:real
+  declarations
+   ORDERW: array(BOXES) of integer      ! Box indices in decreasing weight order
+   Load: array(WAGONS,range) of integer ! Boxes loaded onto the wagons 
+   CurWeight: array(WAGONS) of integer  ! Current weight of wagon loads 
+   CurNum: array(WAGONS) of integer     ! Current number of boxes per wagon
+  end-declarations
+
+ ! Copy the box indices into array ORDERW and sort them in decreasing 
+ ! order of box weights (the sorted indices are returned in array ORDERW) 
+  forall(b in BOXES) ORDERW(b):=b
+  qsort(SYS_DOWN, WEIGHT, ORDERW)
+
+ ! Distribute the loads to the wagons using the LPT heuristic 
+  forall(b in BOXES) do
+   v:=1                                 ! Find wagon with the smallest load
+   forall(w in WAGONS) v:=if(CurWeight(v)<CurWeight(w), v, w)     
+   CurNum(v)+=1                         ! Increase the counter of boxes on v
+   Load(v,CurNum(v)):=ORDERW(b)         ! Add box to the wagon
+   CurWeight(v)+=WEIGHT(ORDERW(b))      ! Update current weight of the wagon
+  end-do
+ 
+  returned:= max(w in WAGONS) CurWeight(w)  ! Return the solution value
+
+ ! Solution printing
+  writeln("Heuristic solution:\n Max weight: ", returned)
+  forall(w in WAGONS) do
+   write(" ", w, ":")
+   forall(b in 1..CurNum(w)) write(" ", Load(w,b))
+   writeln(" (total weight: ", CurWeight(w), ")")
+  end-do
+
+ ! Save the heuristic solution
+  forall(w in WAGONS,b in 1..CurNum(w)) HeurSol(Load(w,b)):= w
+
+ end-function
+
+!-----------------------------------------------------------------
+
+(! Optimizer callback function: 
+   Report on the use of the user solution (optional logging function)
+!)
+
+ procedure solnotify(id:string, status:integer)
+  writeln("Optimiser loaded solution '", id, "' status=", status)
+ end-procedure
+
+end-model

@@ -1,0 +1,109 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file goalctrp.mos 
+   ````````````````` 
+   Pre-emptive Goal Programming with constraints,
+   using function 'sethidden'.
+ 
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2001, rev. Jun. 2022
+*******************************************************!)
+
+model GoalCtrPreempt
+ uses "mmxprs", "mmsystem"
+
+ forward procedure preemptive
+ forward procedure printsol(i:integer)
+
+ declarations
+   NGOALS=3                          ! Number of goals
+   x,y: mpvar                        ! Variables
+   dev: array(1..2*NGOALS) of mpvar  ! Deviation from goals
+   MinDev: linctr                    ! Objective function
+   Goal: array(1..NGOALS) of linctr  ! Goal constraints
+ end-declarations
+ 
+ 100*x + 60*y <= 600                 ! Define a constraint
+ 
+! Define the goal constraints
+ Goal(1):=  7*x + 3*y >= 40
+ Goal(2):= 10*x + 5*y = 60
+ Goal(3):=  5*x + 4*y >= 35
+  
+ preemptive                          ! Pre-emptive Goal Programming
+
+!***********************************************************************
+
+ procedure preemptive
+(! 
+  Add successively the goals to the problem and solve it, until all
+  goals have been added or a goal cannot be satisfied. This assumes that
+  the goals are given ordered by priority.
+!)
+
+! Remove (=hide) goal constraint from the problem
+  forall(i in 1..NGOALS) sethidden(Goal(i), true)
+
+  i:=0
+  while (i<NGOALS) do
+    i+=1
+    sethidden(Goal(i), false)        ! Add (=unhide) the next goal
+    case Goal(i).type of             ! Add deviation variable(s)
+     CT_GEQ: do
+              Deviation:= dev(2*i)
+              MinDev += Deviation 
+             end-do
+     CT_LEQ: do
+              Deviation:= -dev(2*i-1)
+              MinDev += dev(2*i-1) 
+             end-do
+     CT_EQ : do
+              Deviation:= dev(2*i) - dev(2*i-1)
+              MinDev += dev(2*i) + dev(2*i-1) 
+             end-do
+     else    writeln("Wrong constraint type")
+             break
+    end-case  
+    Goal(i)+= Deviation
+   
+    minimize(MinDev)                 ! Solve the LP-problem
+    writeln(" Solution(", i, "): x: ", x.sol, ", y: ", y.sol)
+
+    if getobjval>0 then
+      writeln("Cannot satisfy goal ", i)
+      break
+    end-if  
+    Goal(i)-= Deviation              ! Remove deviation variable(s) from goal
+  end-do
+
+  printsol(i)                        ! Solution printout
+
+ end-procedure
+
+!***********************************************************************
+
+ procedure printsol(i:integer)
+   declarations
+     STypes={CT_GEQ, CT_LEQ, CT_EQ}
+     ATypes: array(STypes) of string
+   end-declarations
+ 
+   ATypes::([CT_GEQ, CT_LEQ, CT_EQ])[">=", "<=", "="]
+ 
+   writeln(" Goal", textfmt("Target",11), textfmt("Value",7))
+   forall(g in 1..i) 
+     writeln(formattext("%4d %3s %5g %7g", g, ATypes(Goal(g).type), 
+       -Goal(g).coeff, Goal(g).act-dev(2*g).sol+dev(2*g-1).sol)) 
+
+   forall(g in 1..NGOALS)
+     if dev(2*g).sol>0 then
+       writeln(" Goal(", g, ") deviation from target: -", dev(2*g).sol)
+     elif dev(2*g-1).sol>0 then
+       writeln(" Goal(", g, ") deviation from target: +", dev(2*g-1).sol) 
+     end-if
+ 
+ end-procedure
+
+end-model

@@ -1,0 +1,92 @@
+(!*******************************************************
+  Mosel Example Problems
+  ======================
+
+  file contract.mos
+  `````````````````
+  Contract Allocation example.
+
+     Example discussed in section 10.2.1 of
+     J. Kallrath: Business Optimization Using Mathematical Programming -
+     An Introduction with Case Studies and Solutions in Various Algebraic 
+     Modeling Languages. 2nd edition, Springer Nature, Cham, 2021 
+
+   See https://examples.xpress.fico.com/example.pl?id=contractgr
+   for additional versions.
+
+   author: S. Heipcke, 2001
+
+   (c) Copyright 2020 Fair Isaac Corporation
+  
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+*********************************************************!)
+
+model Contract                     ! Start a new model
+uses "mmxprs"                      ! Load the optimizer library
+
+ declarations
+  District =  6                    ! Number of districts
+  Contract = 10                    ! Number of contracts
+  RD = 1..District
+  RC = 1..Contract
+  OUTPUT: array(RD) of integer     ! Max. output per district
+  COST  : array(RD) of integer     ! Cost per district
+  VOLUME: array(RC) of integer     ! Volume of contracts
+  MINLEV: array(RD) of integer     ! Min power level per district and contract
+
+  choose: array(RD,RC) of mpvar    ! =1 if a project is chosen
+  quant: array(RD,RC) of mpvar     ! Quantities allocated to contractors
+ end-declarations
+
+ OUTPUT :: [50, 40, 10, 20, 70, 50]
+ MINLEV :: [ 5,  5,  5,  5,  5,  5]
+ COST   :: [50, 20, 25, 30, 45, 40]
+ VOLUME :: [20, 10, 30, 15, 20, 30, 10, 50, 10, 20]
+ 
+ Cost:= sum(d in RD, c in RC) COST(d)*quant(d,c)
+                                   ! Objective function: total cost
+
+ forall(c in RC) do                ! Cover the required contract volume
+  Size(c) := sum(d in RD) quant(d,c) >= VOLUME(c)
+                                   ! At least 2 districts per contract
+  MinD(c) := sum(d in RD) choose(d,c) >= 2
+ end-do 
+
+! Do not exceed max. output of any district
+ forall(d in RD) Output(d) := sum(c in RC) quant(d,c) <= OUTPUT(d)
+
+! If a contract is allocated to a district, then at least 1 unit is 
+! allocated to it
+ forall(d in RD, c in RC) XY(d,c) := choose(d,c) <= quant(d,c) 
+
+ forall(d in RD, c in RC) do
+  choose(d,c) is_binary           ! Binary variables
+  quant(d,c) is_semcont MINLEV(d) ! Semi-continuous variables:
+  quant(d,c) <= OUTPUT(d)         ! quant(d,c) in {0}+[MINLEV(d),OUTPUT(d)]
+ end-do
+   
+ minimize(Cost)                   ! Solve the MIP-problem
+
+! Solution reporting
+ writeln("Objective: ", getobjval)
+ forall(d in RD | Output(d).act>0) do
+  write("District ", d, " is allocated contract volumes: ")
+  forall(c in RC) 
+   if(getsol(quant(d,c))>0) then 
+    write("C", c, ":", strfmt(getsol(quant(d,c)),-2), " ")
+   end-if 
+  writeln
+ end-do
+                   
+end-model

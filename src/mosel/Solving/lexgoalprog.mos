@@ -1,0 +1,118 @@
+(!*******************************************************
+   Mosel Example Problems
+   ======================
+
+   file lexgoalprog.mos
+   ````````````````````
+   An example of lexicographic goal programming using the 
+   Xpress multi-objective functionality
+
+   Problem description:
+   A company produces two electrical products, A and B. Both require
+   two stages of production: wiring and assembly. 
+   The production plan must meet several goals:
+   1. A profit of $200
+   2. A contractual requirement of 40 units of product B
+   3. To fully utilize the available wiring department hours
+   4. To avoid overtime in the assembly department
+
+   (c) 2022 Fair Isaac Corporation
+       author: S. Heipcke, June 2022
+  *******************************************************!)
+model "lexGP" 
+ uses "mmxprs"
+
+ public declarations
+  ! Decision variables for the number of products to make of each type
+   produceA,produceB: mpvar
+  ! Deviational variables:
+  ! There is a penalty for both under- and over-utilizing each department
+   surfeit_wiring, deficit_wiring: mpvar
+   surfeit_assembly, deficit_assembly: mpvar
+  ! There is no penalty for surfeit in profit or in production of product B, 
+  ! only for deficits
+   deficit_profit, deficit_productB: mpvar
+   Goals: list of linctr or mpvar    ! or also:  list of any
+ end-declarations
+
+ produceA is_integer; produceB is_integer
+
+ ! **** Production constraints:
+ ! Meet or exceed profit goal of $200
+ ! Profit for products A and B are $7 and $6 respectively
+ Profit:= 7 * produceA + 6 * produceB 
+ Profit + deficit_profit >= 200
+ ! Meet or exceed production goal for product B
+ produceB + deficit_productB >= 40
+ ! Utilize wiring department:
+ ! Products A and B require 2 and 3 hours of wiring, 120 hours are available
+ 2 * produceA + 3 * produceB - surfeit_wiring + deficit_wiring = 120
+ ! Utilize assembly department:
+ ! Products A and B require 6 and 5 hours of assembly, 300 hours are available
+ 6 * produceA + 5 * produceB - surfeit_assembly + deficit_assembly = 300
+
+ ! Objective configuration
+ Goals:=[deficit_profit, deficit_productB, surfeit_wiring + deficit_wiring,
+         surfeit_assembly + deficit_assembly]
+(!  Cfg:= [objconfig("priority=4 abstol=0 reltol=0"),
+         objconfig("priority=3 abstol=0 reltol=0"),
+         objconfig("priority=2 abstol=0 reltol=0"),
+         objconfig("priority=1 abstol=0 reltol=0")] !)
+ ! Same as:
+ forall(i in 1..4) Cfg+=[objconfig(5-i,1,0,0)]
+
+ ! Uncomment this line to try out the effect of inversing priority order:
+ ! forall(i in 1..4) Cfg(i).priority:=i
+ 
+! setparam("XPRS_VERBOSE", true)
+
+ ! Minimize deviations, in priority order
+ minimize(Goals,Cfg)
+
+ ! **** Solution reporting
+ declarations
+   SolStat,SolvStat: array(integer) of string    ! Status messages
+ end-declarations
+
+ SolvStat:: ([XPRS_SOLVESTATUS_UNSTARTED, XPRS_SOLVESTATUS_STOPPED, 
+   XPRS_SOLVESTATUS_FAILED, XPRS_SOLVESTATUS_COMPLETED])  
+  ["The solve has not been started.", "Optimization has been interrupted.",
+   "Optimization has run into a nonrecoverable problem and failed.",
+   "Search completed."] 
+
+ SolStat:: ([XPRS_SOLSTATUS_NOTFOUND, XPRS_SOLSTATUS_OPTIMAL, 
+   XPRS_SOLSTATUS_FEASIBLE, XPRS_SOLSTATUS_INFEASIBLE, XPRS_SOLSTATUS_UNBOUNDED])
+  ["No solution available.", "An optimal solution has been found.",
+   "A solution that is not proven optimal is found.",
+   "No solution exists.", "The problem is unbounded, if feasible."]
+
+ writeln("Problem solve status: ", SolvStat(getparam("XPRS_SOLVESTATUS")), 
+         " Solution status: ", SolStat(getparam("XPRS_SOLSTATUS")), 
+         " Objectives solved: ", getparam("XPRS_SOLVEDOBJS"))
+ if getparam("XPRS_SOLVESTATUS")=XPRS_SOLVESTATUS_COMPLETED and
+    getparam("XPRS_SOLSTATUS")=XPRS_SOLSTATUS_OPTIMAL and
+    getparam("XPRS_SOLVEDOBJS")=4 then
+   writeln('Production plan:')
+   writeln('Product A: ', produceA.sol, ' units')
+   writeln('Product B: ', produceB.sol, ' units')
+   writeln('Profit: $', Profit.sol)
+
+   if deficit_profit.sol > 0: 
+     writeln('Profit goal missed by $', deficit_profit.sol)
+   if deficit_profit.sol > 0:
+     writeln('Profit goal missed by $', deficit_profit.sol)
+   if deficit_productB.sol > 0:
+     writeln('Contractual goal for product B missed by ', deficit_productB.sol, ' units')
+   if surfeit_wiring.sol > 0:
+     writeln('Unused wiring department hours: ', surfeit_wiring.sol)
+   if deficit_wiring.sol > 0:
+     writeln('Wiring department overtime: ', deficit_wiring.sol)
+   if surfeit_assembly.sol > 0:
+     writeln('Unused assembly department hours: ', surfeit_assembly.sol)
+   if deficit_assembly.sol > 0:
+     writeln('Assembly department overtime: ', deficit_assembly.sol)
+ else
+   writeln('Problem could not be solved')
+ end-if
+end-model  
+

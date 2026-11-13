@@ -1,0 +1,155 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file foliohttpsrv.mos
+   `````````````````````
+   HTTP server receiving requests for model runs with
+   XML-format data and running instances of model 
+   folioxml.mos for every request (on the same Mosel
+   instance that is running this http server model).
+   
+  (c) 2013 Fair Isaac Corporation
+      author: S.Heipcke, July 2013, rev. Apr. 2014
+*******************************************************!)
+
+model "HTTP server launching portfolio model"
+ uses "mmhttp"                       ! Use HTTP functions
+ uses "mmjobs"                       ! Use multiple model handling
+
+ parameters
+  MODELFILE = "folioxml"             ! Optimization model
+ end-parameters 
+
+ declarations
+  foliomod = record
+   m: Model                          ! Mosel model  
+   id: integer                       ! Model index 
+   rid: integer                      ! Request index
+   tempdir: string                   ! Name of temporary data directory
+  end-record
+  modqueue: list of foliomod         ! Active models
+                       
+  DATAFILE, bimfile: string
+  MAXRISK, MAXVAL, MINAM: real  
+ end-declarations
+
+! Compile the optimization model
+ bimfile:=getparam("tmpdir")+"/"+MODELFILE+".bim"
+ if compile("g",MODELFILE+".mos",bimfile) <> 0 then
+  writeln("Error during model compilation")
+  exit(1)
+ end-if
+
+
+!**** Create a new model instance and start running it ****
+ function newfoliomod(rid: integer): foliomod
+    ! Load the optimization model 
+    load(returned.m, bimfile)
+    returned.id:= getid(returned.m)
+    returned.rid:= rid
+
+    ! Extract the data file from the tar archive
+    returned.tempdir:=getparam("tmpdir")+"/tartemp"+rid
+    makedir(returned.tempdir)
+    untar("zlib.gzip:"+httpreqfile(rid), returned.tempdir)   ! Untar the data
+  
+    ! The configuration data is held in a fixed-name file
+    initializations from returned.tempdir+"/folioconfig.dat"
+      MAXRISK
+      MAXVAL
+      MINAM
+      DATAFILE
+    end-initializations
+
+    ! Run model, disabling output
+    setdefstream(returned.m,F_OUTPUT, "null:") 
+    run(returned.m, "MAXRISK=" + MAXRISK + ",MAXVAL=" + MAXVAL + 
+        ",MINAM=" + MINAM + ",DATAFILE='" + returned.tempdir+"/"+DATAFILE +
+        "',OUTFILE="+httpreqfile(rid))
+ end-function
+
+!**** Locate an entry in the queue of active models ****
+ function findmodel(mid: integer): integer
+   ct:=0
+   returned:=-1
+   forall(p in modqueue, ct as counter)
+    if p.id=mid then
+     returned:= p.rid
+
+     ! Delete temporary files
+     removefiles(SYS_RECURS, p.tempdir, "*")
+     removedir(p.tempdir)
+
+     ! Delete entries from list
+     unload(p.m)
+     
+     break
+    end-if
+ 
+   if returned<0 then
+    writeln("Queue entry not found")
+   elif ct=1 then
+    cuthead(modqueue,1)
+   elif ct=modqueue.size then
+    cuttail(modqueue,1)
+   elif ct>1 and ct<modqueue.size then
+    tqueue:=splittail(modqueue,-ct+1)
+    cuthead(tqueue,1)
+    modqueue+=tqueue
+   end-if
+
+ end-function
+
+!**** Server: receive optimization requests, start submodel, send back results
+
+! Server configuration
+ setparam("http_defport",2533)          ! Set server port (2533)
+ setparam("http_maxreq", 4)             ! Max. number of simultaneous requests
+ setparam("http_srvconfig",HTTP_POST)   ! Only POST requests
+ setparam("workdir",getparam("tmpdir")) ! Move to temporary directory
+
+ httpstartsrv                           ! Start the server
+
+! Handle events received by the server
+ repeat
+  wait                                  ! Wait for an event
+  ev:=getnextevent
+  if ev.class=EVENT_HTTPNEW then        ! Request pending
+   r:=integer(ev.value)                 ! Get request ID
+
+   if httpreqtype(r)=HTTP_POST and      ! This is redundant (only POST expected)
+      httpreqlabel(r)="runmodel" then
+   !**** Extract data and start model run **** 
+     writeln(time(SYS_NOW), " Request ", r, " received from ", httpreqfrom(r))
+     if httpreqstat(r)<>2 then          ! Whether data file exists
+      httpreplycode(r,400,"Missing data archive")   ! Reply "Bad request"
+     else 
+      modqueue += [newfoliomod(r)]
+     end-if
+
+   else
+    httpreplycode(r,400)                ! "Bad request"             
+   end-if
+
+  elif ev.class=EVENT_END then
+   !**** Retrieve results file and return it to the client; cleaning up **** 
+    ! Retrieve sender model ID
+    evmodid:= ev.fromid
+
+    ! Find model in queue and remove it
+    rid:=findmodel(evmodid)
+   ! fcopy(httpreqfile(rid),"")        ! Display file contents
+
+    ! Reply to client
+    writeln(time(SYS_NOW), " Reply to request ", rid)
+    if ev.value=RT_OK then
+     httpreply(rid,httpreqfile(rid))
+    else
+     httpreplycode(rid, 500, "Error during model execution")
+    end-if 
+  end-if 
+ 
+ until false
+
+end-model

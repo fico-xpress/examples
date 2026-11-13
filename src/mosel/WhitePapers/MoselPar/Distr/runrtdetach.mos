@@ -1,0 +1,60 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file runrtdetach.mos
+   ````````````````````
+   Running a submodel on a remote machine,
+   retrieve information about the submodels detaching
+   themselves from their parent model.
+
+   Before running this model, you need to set up the 
+   NODENAME with a machine name/address of your local network.
+   The node that is used needs to have the same version of
+   Xpress installed and suitably licensed, and the server 
+   "xprmsrv" must have been started on this machine.
+       
+   (c) 2014 Fair Isaac Corporation
+       author: S. Heipcke, Feb. 2014
+*******************************************************!)
+
+model "Run model rtparams4 remotely"
+ uses "mmjobs", "mmsystem"
+
+ declarations
+  modPar: Model
+  mosInst: Mosel
+  event: Event
+ end-declarations
+                                   ! Compile the model file
+ if compile("rtparams4.mos")<>0 then exit(1); end-if
+
+       !!! Use the name or IP address of a machine in
+       !!! your local network, or "" for current node
+ NODENAME:= ""
+                                   ! Open connection to a remote node:
+ if connect(mosInst, NODENAME)<>0 then exit(2); end-if
+
+                                   ! Redirect streams (elsewhere than main)
+ setdefstream(mosInst, "null:", string(expandpath("rt4log.txt")), "sysfd:2")
+
+                                   ! Load the bim file into the remote instance
+ load(mosInst, modPar, "rmt:[-1]rtparams4.bim") 
+ fdelete("rtparams4.bim")
+                                   ! Start model execution
+ run(modPar, "PARAM1=" + 2 + ",PARAM2=" + 3.4 + 
+             ",PARAM3='a string'" + ",PARAM4=" + true)
+ wait                              ! Wait for model termination
+
+ event:=getnextevent               ! An event is available
+ if getclass(event) = EVENT_END then
+   writeln("Termination event received.")
+ else
+   writeln("Event received: ", event) 
+ end-if
+ 
+ if getstatus(modPar) = RT_DETACHED then
+   writeln("Submodel 'rtparams4' detached.")
+ end-if
+
+end-model 

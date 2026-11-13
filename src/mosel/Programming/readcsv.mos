@@ -1,0 +1,50 @@
+(!*******************************************************
+  * Mosel Example Problems                              *
+  * ======================                              *
+  *                                                     *
+  * file readcsv.mos                                    *
+  * ````````````````                                    *
+  * Example for the use of the Mosel language           *
+  * (Read a data file in CSV format)                    *
+  *                                                     *
+  * (c) 2014 Fair Isaac Corporation                     *
+  *     author: Y. Colombani                            *
+  *******************************************************!)
+
+model readcsv
+
+uses 'mmsystem'
+
+declarations
+ public example_file=`
+1|Estaque|1/2/1980|13.2
+2|Endoume|23/5/2001|-77.3
+23|wrongly formatted line
+3|Lodi|12/12/1999|1
+`
+ l:text
+ ndx:integer
+ word:text
+ when:date
+ number:real
+end-declarations
+
+fopen("text:example_file",F_INPUT)
+setparam("sys_sepchar",getchar("|",1))     ! field separator
+setparam("datefmt","%d/%m/%y")             ! date format
+while (readtextline(l)>0) do
+ trim(l,SYS_RIGHT)                         ! remove end of line character
+ setparam("sys_endparse",0)                ! start parsing
+ b:=nextfield(l)                           ! jump to first field
+ ndx:=parseint(l); b:=b and nextfield(l)   ! parse an integer,
+ word:=parsetext(l); b:=b and nextfield(l) ! some text,
+ parseextn(l,when); b:=b and nextfield(l)  ! a date,
+ number:=parsereal(l)                      ! and a number
+ 
+ if not b then
+  writeln("!! Line not properly formatted")
+ else
+  writeln("->",ndx,"\t",word,"\t",when,"\t",number)
+ end-if
+end-do
+end-model

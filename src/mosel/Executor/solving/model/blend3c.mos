@@ -1,0 +1,72 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file blend3c.mos
+   ````````````````
+   Reading data from an Excel spreadsheet
+   - using the CSV driver -
+   
+   (c) 2013 Fair Isaac Corporation
+       author: S. Heipcke, Jan. 2013
+*******************************************************!)
+
+model "Blend 3" 
+ uses  "mmxprs", "mmsheet" 
+
+ parameters
+  INPUTFILE="../data/blend.csv"
+  RESULTFILE="result.csv"
+ end-parameters
+
+ declarations
+  REV = 125                      ! Unit revenue of product
+  MINGRADE = 4                   ! Minimum permitted grade of product
+  MAXGRADE = 5                   ! Maximum permitted grade of product
+  ORES = 1..2                    ! Range of ores
+
+  COST: array(ORES) of real      ! Unit cost of ores
+  AVAIL: array(ORES) of real     ! Availability of ores
+  GRADE: array(ORES) of real     ! Grade of ores (measured per unit of mass)
+
+  use: array(ORES) of mpvar      ! Quantities of ores used
+ end-declarations
+
+!*** Read data from spreadsheet blend.csv ***
+! Spreadsheet range contains data only (no header line):
+ initializations from "mmsheet.csv:"+INPUTFILE
+  [COST,AVAIL,GRADE] as "[B3:E4]"    ! or: "[R3C2:R4C5]"
+ end-initializations
+
+(! Or (spreadsheet range includes a header line as with ODBC):
+ initializations from "mmsheet.csv:"+INPUTFILE
+  [COST,AVAIL,GRADE] as "skiph;[B2:E4]" 
+ end-initializations
+!)
+
+! Objective: maximize total profit
+ Profit:= sum(o in ORES) (REV-COST(o))* use(o)
+
+! Lower and upper bounds on ore quality
+ sum(o in ORES) (GRADE(o)-MINGRADE)*use(o) >= 0
+ sum(o in ORES) (MAXGRADE-GRADE(o))*use(o) >= 0
+
+! Set upper bounds on variables
+ forall(o in ORES) use(o) <= AVAIL(o)
+
+ maximize(Profit)                 ! Solve the LP-problem
+
+ ! Print out the solution
+ writeln("Solution:\n Objective: ", getobjval)
+ forall(o in ORES)  writeln(" use(" + o + "): ", getsol(use(o)))
+
+ ! Write solution to CSV file
+ declarations
+  solvalues: array(ORES) of real
+ end-declarations
+ forall (o in ORES) solvalues(o) := getsol(use(o))
+ initializations to "mmsheet.csv:"+RESULTFILE
+  solvalues as "grow;[A1:B1]"
+ end-initializations
+
+end-model

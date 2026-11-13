@@ -1,0 +1,78 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file runrtpardistr.mos
+   ``````````````````````
+   Running several instances of a model from another
+   Mosel model.
+   - Parallel submodels in distributed architecture -
+   - Using 'setmodpar' -
+
+   Before running this model, you need to set up the array
+   NODENAMES with machine names/addresses of your local network.
+   All nodes that are used need to have the same version of
+   Xpress installed and suitably licensed, and the server 
+   "xprmsrv" must have been started on these machines.
+   
+   All files are local to the root node, no write access is
+   required at remote nodes.
+       
+   (c) 2010 Fair Isaac Corporation
+       author: S. Heipcke, May 2010, rev. Sep. 2014
+*******************************************************!)
+
+model "Run model rtparams in distributed architecture"
+ uses "mmjobs", "mmsystem"
+
+ declarations
+  NUMI = 5
+  A = 1..2*NUMI
+  B = 1..NUMI
+  modPar: array(A) of Model
+  moselInst: array(B) of Mosel
+  NODENAMES: array(B) of string
+  params: text
+ end-declarations
+
+                                 !!! Select the (remote) machines to be used:
+				 !!! Use names, IP addresses, or empty string
+				 !!! for the node running this model
+ forall(i in B) NODENAMES(i):= if(isodd(i), "localhost", "xssh:127.0.0.1")
+! NODENAMES:: (1..5)["localhost","","","rcmd:mosel -r","rcmd:mosel -r"] 
+
+ writeln("Node: ", getparam("NODENUMBER"))
+ 
+                                   ! Compile the model file locally on root
+ if compile("rtparams3.mos")<>0 then exit(1); end-if
+
+ instct:=0
+ forall(i in A) do            
+  if isodd(i) then
+   instct+=1                       ! Connect to a remote machine
+   forall(j in 1..5)
+    if connect(moselInst(instct), NODENAMES(instct))=0: break
+   if moselInst(instct).status<>0 then
+    writeln("Failed to connect to ",NODENAMES(instct))
+    exit(2)
+   end-if
+  end-if
+  
+  writeln("Current node: ", getsysinfo(SYS_NODE), 
+          " submodel node: ", getsysinfo(moselInst(instct), SYS_NODE))
+  
+                                   ! Load the bim file (located at root node)
+  load(moselInst(instct), modPar(i), "rmt:[-1]rtparams3.bim")  
+                                   ! Set submodel parameters
+  setmodpar(params, "PARAM1", i); setmodpar(params, "PARAM2", 0.1*i)
+  setmodpar(params, "PARAM3", "string "+i)
+  setmodpar(params, "PARAM4", isodd(i))                          
+  run(modPar(i), params)           ! Start remote model execution
+ end-do
+ 
+ forall(i in A)
+  waitforend(modPar(i))            ! Wait for model termination
+
+ fdelete("rtparams3.bim")          ! Cleaning up
+ 
+end-model 

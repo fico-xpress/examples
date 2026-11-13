@@ -1,0 +1,78 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file purchase_pwl.mos
+   `````````````````````
+   TYPE:         Purchasing with price breaks
+   DIFFICULTY:   3
+   FEATURES:     MIP problem, using 'pwlin' for piecewise linear function
+   DESCRIPTION:  There are three suppliers of a good, and they have quoted 
+                 various prices for various quantities of product. We want 
+                 to buy at least total cost, yet not buy too much from any 
+                 one supplier. Each supplier offers decreasing prices for
+                 increased lot size, in the form of incremental discounts.
+                 We wish to buy 600 items in total.     
+   FURTHER INFO: `Applications of optimization with Xpress-MP teaching 
+                 material', Section 2.4 `SOS-2: Purchasing with price breaks';
+                 `Applications of optimization with Xpress-MP', 
+                 Section 3.4.5 `Special Ordered Sets of type 2'
+
+   (c) 2020 Fair Isaac Corporation
+       author: S. Heipcke, July 2020
+*******************************************************!)
+
+model "Purchase pwl"
+ uses "mmxnlp"
+
+ declarations
+  NB = 3
+  BREAK1 = 1..NB                     ! Price breaks
+  BREAK0 = 0..NB                     ! Price breaks including 0
+  SUPPL = 1..3                       ! Suppliers
+ 
+  COST: array(SUPPL,BREAK1) of real  ! Unit cost
+  B: array(SUPPL,BREAK0) of real    ! Breakpoints (quantities at which unit 
+                                     ! cost changes)
+  CB: array(SUPPL,BREAK0) of real   ! Total cost at break points
+  MAXPERC: array(SUPPL) of real      ! Maximum percentages for each supplier
+  REQ: real                          ! Total quantity required
+
+  buy: array(SUPPL) of mpvar         ! Quantity to purchase from supplier s
+  pay: array(SUPPL) of mpvar         ! Cost incurred from supplier s
+ end-declarations
+
+ initializations from 'purchase.dat'
+  COST B MAXPERC REQ
+ end-initializations
+
+! Calculate total cost at breakpoints
+ forall(s in SUPPL) do
+  CB(s,0):= 0
+  forall(b in BREAK1) CB(s,b):= CB(s,b-1) + COST(s,b)*(B(s,b)-B(s,b-1))
+ end-do
+
+! Objective: sum of costs*weights
+ MinCost:= sum(s in SUPPL) pay(s)
+
+! Define relation between bought quantities and price paid per supplier
+ forall(s in SUPPL) 
+ ! Formulation of pwlin via breakpoint coordinates 
+   pay(s) = pwlin(buy(s), union(b in BREAK0) [B(s,b),CB(s,b)]) 
+ ! Formulation of pwlin via slopes
+!   pay(s) = pwlin(buy(s), union(b in 1..(NB-1)) [B(s,b)], union(b in BREAK1) [COST(s,b)])
+ ! Formulation of pwlin via segments 
+!   pay(s) = pwlin(union(b in 0..(NB-1)) [pws(B(s,b),CB(s,b)+COST(s,b+1)*(buy(s)-B(s,b)))]) 
+
+! The minimum quantity that must be bought
+ Demand:= sum(s in SUPPL) buy(s) >= REQ
+
+! No more than the maximum percentage from each supplier
+ forall(s in SUPPL) buy(s) <= MAXPERC(s)*REQ/100.0
+
+ minimize(MinCost)              ! Solve the MIP-problem
+
+ writeln("Minimum total cost: ", getobjval)
+ forall(s in SUPPL) writeln(" buy(",s,"): ", getsol(buy(s)), " cost: ", pay(s).sol)
+
+end-model

@@ -1,0 +1,430 @@
+(!*********************************************************************
+   Mosel Example Problems
+   ======================
+
+   file optgrid2.mos
+   `````````````````
+   Computes the optimal number and distribution of grid points 
+   for a nonlinear function (configurable selection)
+
+     Example discussed in section 14.2.3 of
+     J. Kallrath: Business Optimization Using Mathematical Programming -
+     An Introduction with Case Studies and Solutions in Various Algebraic 
+     Modeling Languages. 2nd edition, Springer Nature, Cham, 2021 
+
+   Mosel version of optGrid.gms (J. Kallrath, 2011)
+
+   -- The program computes the optimal number and distribution
+      of grid points for nonlinear functions. It allows to consider
+      shift variables at the breakpoints.
+      The implementation discretizes the continuum constraints by 
+      gridpoints for which we know that they are between certain breakpoints.
+   -- Optional graphical output via Gnuplot
+   -- Function selection via input parameter
+
+   author: S. Heipcke, June 2020, rev. Dec. 2021
+
+   (c) Copyright 2020 Fair Isaac Corporation
+  
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+*********************************************************************!)
+
+model "optgrid"
+ uses "math", "mmxnlp" 
+  
+ parameters
+   FCT="sin"       ! sin|cos|square|log|tanh|tan|userfunc1-4
+   ALG="AP"        ! AP - approximation, UE - uderestimator, OE - overestimator
+   DISPLAY="TERM"  ! TERM - terminal, PDF - generate PDF, PNG - generate PNG 
+   NB=4            ! Number of breakpoints (not counting b0) 
+ end-parameters
+
+!**********************************************************************
+! Declaration of selected function and the corresponding bounds for plots
+! (this input could be provided through a Mosel package)
+
+ function userfuncsq(x:linctr): nlctr
+   returned:=x*x
+ end-function
+ function userfuncsqc(x:real): real
+   returned:=x*x
+ end-function
+
+ function userfunc1(x:linctr): nlctr
+   returned:=2*x*x+x*x*x
+ end-function
+ function userfunc1c(x:real): real
+   returned:=2*x*x+x*x*x
+ end-function
+
+ function userfunc2(x:linctr): nlctr
+   returned:=exp(-x)*sin(x)
+ end-function
+ function userfunc2c(x:real): real
+   returned:=exp(-x)*sin(x)
+ end-function
+
+ function userfunc3(x:linctr): nlctr
+   returned:=exp(-100*(x-2)*(x-2))
+ end-function
+ function userfunc3c(x:real): real
+   returned:=exp(-100*(x-2)*(x-2))
+ end-function
+
+ function userfunc4(x:linctr): nlctr
+   returned:=1.03*exp(-100*(x-1.2)*(x-1.2))+exp(-100*(x-2)*(x-2))
+ end-function
+ function userfunc4c(x:real): real
+   returned:=1.03*exp(-100*(x-1.2)*(x-1.2))+exp(-100*(x-2)*(x-2))
+ end-function
+
+ function userfunctanh(x:linctr): nlctr
+   returned:=(exp(2*x)-1)/(exp(2*x)+1)
+ end-function
+
+ declarations
+   LB, UB: real        ! Lower and upper border of interval for x
+   f: function(linctr): nlctr
+   fconst: function(real): real
+ end-declarations
+
+ procedure selfunc(fsel: string)
+  case fsel of
+  "sin": do
+         f:= ->sin
+         fconst:= ->sin
+        end-do
+  "cos": do         
+         f:= ->cos
+         fconst:= ->cos
+         LB:=-0.5*M_PI; UB:=1.5*M_PI
+        end-do 
+  "tanh": do
+         f:= ->userfunctanh
+         fconst:= ->tanh
+         LB:=-M_PI/2; UB:=M_PI
+        end-do
+  "tan": do
+         f:= ->tan
+         fconst:= ->tan
+         UB:=M_PI*3/8
+        end-do
+  "log": do
+         f:= ->log
+         fconst:= ->log
+         LB:=1; UB:=10
+        end-do
+  "square": do
+         f:= ->userfuncsq
+         fconst:= ->userfuncsqc
+         UB:=5
+        end-do
+  "userfunc1": do
+         f:= ->userfunc1
+         fconst:= ->userfunc1c
+         UB:=10
+        end-do
+  "userfunc2": do
+         f:= ->userfunc2
+         fconst:= ->userfunc2c
+         UB:=2
+        end-do
+  "userfunc3": do
+         f:= ->userfunc3
+         fconst:= ->userfunc3c
+         LB:=1.5; UB:=2.5    !!! Why does this look odd with larger bounds ???
+        end-do
+  "userfunc4": do
+         f:= ->userfunc4
+         fconst:= ->userfunc4c
+         LB:=1.5; UB:=2.5    !!! Why does this look odd with UB=3 ???
+        end-do
+  else  writeln("Unknown function selection: '", fsel, "' (possible choices: ",
+         "sin|cos|square|log|tanh|tan|userfunc1-4)")
+        exit(1)
+  end-case
+ end-procedure
+
+! Default lower and upper bounds on the x-axis interval
+  LB:=0; UB:=M_PI
+
+! Selecting the function we want to approximate (may also redefine LB/UB)
+ selfunc(FCT)
+
+!**********************************************************************
+
+ declarations
+ ! **** Breakpoint system
+   NP = 200
+   BPLOT = 0..NP       ! Set of break points for graph drawing
+   BSTATIC = 0..NB     ! Set of break points
+   BFUN: array(BSTATIC) of real   ! Y-value at breakpoint
+
+  ! **** Constants
+   NCeps = 0.00125     ! Numerical constant avoiding division by zero
+   NCdelta = 0.05      ! Approximation bound 
+
+   MaxDev: real        ! Maximal deviation obtained
+ end-declarations
+
+! **** Direct computation of breakpoints (discretized version) ****
+
+ public declarations
+   GCMAX=20         ! Number of discretization points in a break point interval
+   IMAX=GCMAX*NB    ! Total number of discretization points
+   BPTS=1..IMAX     ! Set of discretization breakpoints
+   GC=1..GCMAX      ! Grid point counter in breakpoint interval 
+
+   s: array(BSTATIC) of mpvar       ! Shift value at breakpoint 
+   sSol: array(BSTATIC) of real     ! Solution values 
+   xBD: array(BPTS) of mpvar        ! Argument at grid discretization point 
+   xB: array(BSTATIC) of mpvar      ! Argument of breakpoint 
+   xBsol: array(BSTATIC) of real    ! Solution values 
+   y: mpvar                         ! Objective func. variable (maximal deviation)
+   sL: array(BSTATIC) of mpvar      ! Slope at interval b
+   lD: array(BSTATIC,BPTS) of mpvar ! Approximator value for x(i) if it were in interval b
+   lA: array(BPTS) of mpvar         ! Linear approximation value for x(i) 
+
+   Delta: array(BSTATIC,BPTS) of integer  ! Known relationship between breakpoints and grid
+ end-declarations
+
+  GCsz:=GC.size
+  forall(i in BSTATIC,i2 in BPTS,i3 in GC | i>BSTATIC.first)
+    if i2 = i3 + GCsz*(i-1) then
+      Delta(i,i2):= 1 
+    end-if
+
+ ! Constraints
+ public declarations
+   Dev: array(BPTS) of nlctr             ! Compute deviation at grid point b
+   DevBP1: array(BSTATIC) of linctr      ! Compute deviation at the break points
+   DevBP2: array(BSTATIC) of linctr      ! Compute deviation at the break points
+   CxBD: array(BPTS) of linctr           ! Compute value of the grid point variable
+   SepBP: array(BSTATIC) of linctr       ! Keep breakpoints apart (to avoid division by zero)
+   Cslope: array(BSTATIC) of nlctr       ! Compute the approximator slope for interval b
+   Capprox: array(BSTATIC,BPTS) of nlctr ! Compute approximator value at discretization points
+   Select: array(BPTS) of linctr         ! Select one breakpoint interval
+   LinApprox: array(BPTS) of linctr      ! Select the linear approximation value
+ end-declarations
+
+! Deviation (normalized to NCdelta for better scaling) at the discretization points
+ forall(i in BPTS) Dev(i):= abs( lA(i) - f(xBD(i)) ) <= y 
+
+! Deviations in the breakpoints if shift variables are allowed   
+ forall(i in BSTATIC) do
+   DevBP1(i):=  s(i) <= y 
+   DevBP2(i):= -s(i) <= y 
+ end-do
+
+! Relate x(i) to a breakpoint interval
+ forall(i in BPTS) CxBD(i):= 
+   xBD(i) = sum(i2 in BSTATIC,i3 in GC | Delta(i2,i)=1 and i2>=1 and i = i3 +GCsz*(i2-1)) (xB(i2-1) + ( xB(i2) - xB(i2-1) ) / (GCsz+1) * i3)
+
+! Keep breakpoints apart (to avoid division by zero)
+ forall(i in BSTATIC | i>BSTATIC.first) SepBP(i):= xB(i) >= xB(i-1) + NCeps
+
+! Compute the slope for interval b
+ forall(i in BSTATIC | i>BSTATIC.first)  
+   Cslope(i):= ( xB(i) - xB(i-1) ) * sL(i) =
+       ( f(xB(i)) + s(i) ) - ( f(xB(i-1)) + s(i-1) ) 
+
+! Compute approximator value at discretization points
+ forall(i in BSTATIC,i2 in BPTS | Delta(i,i2)=1) 
+   Capprox(i,i2):= lD(i,i2) = ( f(xB(i-1)) + s(i-1) ) +
+                                  sL(i) * ( xBD(i2) - xB(i-1) ) 
+
+! Select one breakpoint interval for discretization point i - not needed
+!  forall(i in BPTS) 
+!    Select(i):= sum(i2 in BSTATIC | i2>BSTATIC.first) Delta(i2,i) = 1 
+
+! Select the linear approximation value
+ forall(i in BPTS) LinApprox(i):=
+   lA(i) = sum(i2 in BSTATIC | Delta(i2,i)=1) lD(i2,i)*Delta(i2,i)
+
+! Bounds on shift values
+ forall(i in BSTATIC) do
+   s(i) >= - NCdelta ; s(i) <= + NCdelta 
+ end-do
+
+! Bounds on the breakpoints
+ forall(i in BSTATIC | i>BSTATIC.first) do
+   xB(i) >= LB + NCeps ; xB(i) <= UB
+ end-do
+
+! Initialize the breakpoints to avoid division by zero
+ xB(0) = LB 
+ ct:=0
+ forall(ct as counter, i in BSTATIC | i>BSTATIC.first)
+   xB(i) >= LB + (UB-LB)/NB * ct
+ xB(BSTATIC.last) = UB 
+
+ forall(i in BPTS) xBD(i) >= LB + NCeps 
+ forall(i in BPTS) xBD(i) <= UB 
+
+! Unbounded variables
+ forall(i in BSTATIC) sL(i) is_free
+ forall(i in BSTATIC,i2 in BPTS) lD(i,i2) is_free
+ forall(i in BPTS) lA(i) is_free
+
+! Solve the NLP problem
+ setparam("XNLP_verbose", true)
+! Use multi-start heuristic 
+ addmultistart("random points", XNLP_MSSET_INITIALVALUES, 20)  !)
+
+ minimize(y)
+ if getparam("XNLP_STATUS") not in 1..2 then
+   writeln("No solution found"); exit(1)
+ end-if  
+
+! Get the maximal deviation (scale back)
+ MaxDev := y.sol 
+ forall(i in BSTATIC) xBsol(i):=xB(i).sol
+ forall(i in BSTATIC) sSol(i):=s(i).sol
+
+! **** Derive upper bound (lower bound is MaxDev) ****
+! **** Nonlinear optimization problem ****
+
+ declarations
+   X0: real       ! Left point
+   X1: real       ! Right point
+   F0: real       ! Function value at X0
+   F1: real       ! Function value at X1
+   S0: real       ! Shift at X0
+   S1: real       ! Shift at X1
+   SLOPE: real    ! Slope of the secant
+   UBD: real      ! Upper bound on deviation delta
+
+   yC: mpvar      ! Global problem objective function variable
+   x: mpvar       ! Variable 
+   OptGrid: mpproblem
+ end-declarations
+
+ with OptGrid do
+
+  ! Set bound
+   UBD:= -1 ;
+
+  ! Check each interval [xi, xi+1]
+   forall(i in BSTATIC | i>BSTATIC.first) do
+    ! Store bounds
+     X0:= xBsol(i-1); X1:= xBsol(i) 
+
+    ! Assign shift variables
+     S0:= s(i-1).sol; S1:= s(i).sol
+
+    ! Evaluate function
+     F0:= fconst(X0); F1:= fconst(X1)
+
+    ! Calculate the slope
+     SLOPE:= ( (F1+S1) - (F0+S0) ) / (X1 - X0)
+
+    ! Reset bounds  
+     XLbd:= x >= X0
+     XUbd:= x <= X1 
+
+     case ALG of
+      ! Objective function: deviation between approximator and function
+       "AP":   DefObjA:= yC = abs(f(x) - ( (F0+S0) + SLOPE * (x - X0) )) 
+      ! Objective function difference for underestimator
+       "UE":   DiffU:=   yC = f(x) - (( (F0+S0) + SLOPE * (x - X0) )) 
+      ! Objective function difference for overestimator
+       "OE":   DiffO:=   yC = ( (F0+S0) + SLOPE * (x - X0) ) - f(x)
+     end-case
+
+     if ALG="AP" then
+      ! Compute the maximal deviation for fixed S0 and S1
+       maximize(yC)    
+      ! Check if bound needs to be updated
+       if yC.sol > UBD then
+         UBD := yC.sol
+       end-if
+     else
+      ! First check feasibility of under- or overestimator
+       if UB<>INFINITY then
+         minimize(yC)
+         if yC.sol < -NCeps then
+           UBD := INFINITY   ! under- or overestimator is NOT feasible
+         else
+          ! Compute the maximal deviation for fixed S0 and S1
+           maximize(yC)    
+          ! Check if bound needs to be updated
+           if yC.sol > UBD then
+             UBD := yC.sol
+           end-if
+         end-if
+       end-if
+     end-if
+
+   end-do
+ end-do
+
+!**** Adjust values for under- and overestimators
+ case ALG of
+  "AP": forall(i in BSTATIC) BFUN(i) := fconst(xB(i).sol)+s(i).sol 
+  "UE": do
+          forall(i in BSTATIC) BFUN(i) := fconst(xB(i).sol)+s(i).sol-MaxDev
+          UBD:= 2*UBD
+        end-do
+  "OE": do
+          forall(i in BSTATIC) BFUN(i) := fconst(xB(i).sol)+s(i).sol+MaxDev
+          UBD:= 2*UBD
+        end-do
+ end-case
+ writeln("Solution: ", MaxDev, "  ", UBD)
+ writeln(BFUN)
+
+ forall(i in BSTATIC)
+   writeln(i, " s:", s(i).sol, " x:", xB(i).sol, " f(x):", fconst(xB(i).sol))
+
+
+!******** Output as Gnuplot graphic ********
+! Generate temporary output data files
+ pp:=getparam("tmpdir")+'/optgrid_1.txt'
+ fopen(pp, F_OUTPUT)
+ forall(i in BPLOT) writeln(LB+(UB-LB)*i/NP, " ", fconst(LB+(UB-LB)*i/NP))
+ fclose(F_OUTPUT)
+ pp2:=getparam("tmpdir")+'/optgrid_2.txt'
+ fopen(pp2, F_OUTPUT)
+ forall(i in BSTATIC) writeln(xB(i).sol, " ", fconst(xB(i).sol)+s(i).sol)
+ fclose(F_OUTPUT)
+
+! Create Gnuplot graphic
+ setparam("ioctrl", true)
+ fopen("mmsystem.pipe:gnuplot -p",F_OUTPUT+F_LINBUF)
+ if getparam("iostatus")<>0 then
+   writeln("'gnuplot' command not found")
+   exit(1)
+ end-if
+ case DISPLAY of
+ "TERM": if getsysinfo(SYS_NAME)="Windows" then
+           writeln("set terminal wxt")
+         else
+           writeln("set terminal x11")
+         end-if 
+ "PNG": do
+          writeln("set terminal png truecolor transparent size 800,600")
+          writeln("set output 'optgrid.png'")
+        end-do
+ "PDF": do 
+          writeln("set terminal pdf color size 8,6")    
+          writeln("set output 'optgrid.pdf'")
+        end-do
+ end-case
+ writeln('set grid')
+ writeln("plot '"+pp+"' title '" +FCT+ "' with lines lc rgb '#FF0000'," +
+         "'"+pp2+"' title 'Approximation' with lines lc rgb '#0000BB'")
+ if DISPLAY="TERM" then writeln("pause mouse keypress,close"); end-if 
+ fclose(F_OUTPUT)
+end-model
+

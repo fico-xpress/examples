@@ -1,0 +1,61 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file runmat.mos
+   ```````````````
+   Use Optimizer 'command' to read+solve a matrix file
+   -- Read solution output into Mosel structures --
+   
+  (c) 2017-2022 Fair Isaac Corporation
+      author: S.Heipcke, 11 Sep 2017, rev. Oct. 2022
+*******************************************************!)
+model "running Optimizer command line"
+ uses "mmsystem", "mmxprs"
+
+! Load+run on MPS format matrix
+ scriptmps:=`
+readprob folio10
+chgobjsense max
+mipoptimize
+writesol optsol.asc
+`
+
+! Load+run on LP format matrix
+ scriptlp:=`
+readprob -l folio10
+chgobjsense max
+mipoptimize
+writesol optsol.asc
+`
+
+! Uncomment to show the solver log
+ setparam("XPRS_verbose", true)
+
+! Uncomment one of the following 2 lines
+! command(scriptmps)
+ command(scriptlp)
+
+ if getparam("XPRS_SOLSTATUS")=XPRS_SOLSTATUS_OPTIMAL then
+   writeln_("Optimal solution: ", getparam("XPRS_MIPOBJVAL"))
+ else
+   writeln_("No solution found")
+   exit(0)
+ end-if
+
+! Load the solution output into Mosel  
+ declarations
+  Fields=1..3
+  SolVals: array(R:range,Fields) of any
+ end-declarations
+
+! Selecting the fields index, name, type, activity value from the solver output
+ initializations from "mmsheet.csv:optsol.asc"
+   SolVals as "partndx;[](#1,#2,#3,#5)"
+ end-initializations
+
+! Display all non-zero valued variables
+ forall(i in R | SolVals(i,2)="C" and SolVals(i,3)<>0)
+   writeln(SolVals(i,1), "=", SolVals(i,3))
+
+end-model 

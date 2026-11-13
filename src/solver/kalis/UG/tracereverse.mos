@@ -1,0 +1,65 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file tracereverse.mos
+   `````````````````````
+   Tracing the values of reversible numbers.
+
+   (c) 2010 Artelys S.A. and Fair Isaac Corporation
+       Creation: 2010, rev. Apr. 2022        
+*****************************************************************!)
+model "Tracing reversible numbers"
+ uses "kalis", "mmsystem"
+ 
+ forward procedure save_node_state
+ forward procedure branch_up
+ forward procedure branch_down
+
+ declarations
+   N = 5
+   R = 1..N
+   C: array(R) of integer
+
+   x: array(R) of cpvar
+
+   k,depth: cpreversible
+   ka: cpreversiblearray
+ end-declarations
+
+ C::(1..5)[-7,15,-3,19,-45]
+
+! Initialization: all reversible numbers at 0 
+ set_reversible_attributes(depth, 0)
+ set_reversible_attributes(k, 0)
+ set_reversible_attributes(ka, 1, N, 0)
+ 
+! Decision variables and constraints 
+ forall(i in R) setdomain(x(i), 0, 1)
+ sum(i in R) x(i) >= 3
+
+ cp_set_node_callback(->save_node_state)
+ cp_set_branch_callback(->branch_down, ->branch_up)
+
+ cp_set_branching(assign_var(KALIS_SMALLEST_DOMAIN, KALIS_MAX_TO_MIN))
+ setparam("KALIS_MAX_SOLUTIONS", 3)
+ while (cp_find_next_sol) do
+  writeln(" "*2*round(depth.val), "Solution: ", x)
+ end-do    
+
+!************ Callback functions ************
+ procedure save_node_state 
+  setval(depth, getval(depth)+1)
+  k.val:= sum(i in R) if(is_fixed(x(i)), C(i)*x(i).val, 0)
+  forall(i in R) setelt(ka,i, if(is_fixed(x(i)), C(i)*x(i).val, 0))   
+ end-procedure
+
+ procedure branch_up      
+  writeln(textfmt(" "*2*round(depth.val)+ "up  ",-20), k, "\t", ka)    
+ end-procedure
+
+ procedure branch_down      
+  writeln(textfmt(" "*2*round(depth.val)+ "down  ",-20), k, "\t", ka)    
+ end-procedure
+ 
+end-model

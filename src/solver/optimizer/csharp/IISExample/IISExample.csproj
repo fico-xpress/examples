@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+
+    <IsPackable>false</IsPackable>
+    <XpressExampleFiles Condition="'$(XpressExampleFiles)'==''">../../data</XpressExampleFiles>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="$(XpressExampleFiles)/iisexample.mps">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FICO.Xpress.XPRSdn" Version="48.1.1"/> <!-- Version 48.01.01 or later -->
+  </ItemGroup>
+  
+  <!-- This is for execution with "dotnet run" and friends which runs from the project directory rather than the output directory. -->
+  <Target AfterTargets="AfterBuild" Name="CopyExampleData">
+    <Copy DestinationFolder="$(ProjectDir)" SourceFiles="$(XpressExampleFiles)/iisexample.mps"/>
+  </Target>
+
+</Project>

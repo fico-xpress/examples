@@ -1,0 +1,52 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file runsubshmdistr.mos
+   ```````````````````````
+   Running a model on a remote machine.
+   Communication of data to/from submodel
+   using 'shmem' IO driver with 'bin' and 'rmt'.
+       
+   (c) 2017 Fair Isaac Corporation
+       author: S. Heipcke, June 2017
+*******************************************************!)
+
+model "Run model testsubshm remotely"
+ uses "mmjobs"
+
+ declarations
+  mosInst: Mosel
+  modSub: Model
+  A = 30..40 
+  B: array(A) of real
+  nd: integer
+ end-declarations
+                                   ! Compile the model file
+ if compile("testsubshm.mos")<>0 then exit(1); end-if
+
+       !!! Use the name or IP address of a machine in
+       !!! your local network, or "" for current node
+ NODENAME:= ""
+                                   ! Open connection to a remote node:
+ if connect(mosInst, NODENAME)<>0 then exit(2); end-if
+ nd:=mosInst.node
+                                   ! Load the bim file into the remote instance
+ load(mosInst, modSub, "rmt:[-1]testsubshm.bim")
+
+                                   ! Write data onto the instance of the submod.
+ initializations to "bin:rmt:["+nd+"]shmem:indata"
+  A
+ end-initializations
+
+ run(modSub)                       ! Start model execution
+ wait                              ! Wait for model termination
+ dropnextevent                     ! Ignore termination event message
+
+ initializations from "bin:rmt:["+nd+"]shmem:resdata"
+  B
+ end-initializations
+
+ writeln(B)
+ 
+end-model 

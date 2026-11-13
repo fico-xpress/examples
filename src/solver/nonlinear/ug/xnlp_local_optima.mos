@@ -1,0 +1,54 @@
+! XNLP example demonstrating the presence of locally optimal solutions, and the 
+! role of initial points
+!
+! This example performs a series of solves for the exact same problem having 
+! several local optimas
+!
+! This example demonstrates a particular non-linear optimization concept as related 
+! to Xpress NonLinear.
+! The version of the example is for Xpress 7.5.
+!
+!  (c) 2013-2026 Fair Isaac Corporation
+!       author: Zsolt Csizmadia
+model mmxnlp_nlp_duals
+uses "mmxnlp"; 
+
+declarations
+ x,y: mpvar
+end-declarations
+
+!setparam("xnlp_verbose",1)
+
+! A function with several local valleys
+x^2*sin(x) >= y
+
+! Observe the regions of attractions
+setparam("XPRS_NLPSOLVER",1)
+writeln("Locally optimal solutions found:")	
+writeln("------------------------------------------")
+writeln("        x            y         objective  ")
+writeln("------------------------------------------")
+forall (i in -5..40) do
+	setinitval(x,i)
+	setinitval(y,i)
+	minimize(x+y)
+	if (getparam("xnlp_nlpstatus") = XNLP_STATUS_LOCALLY_OPTIMAL) then
+		writeln(strfmt(getsol(x),13),",",strfmt(getsol(y),13),": ",
+		        strfmt(getobjval,13))
+    else
+		writeln("Status is not locally optimal")	
+	end-if
+end-do
+
+writeln("Global Optimum:")
+setparam("XPRS_NLPSOLVER",2)
+minimize(x+y)
+if (getparam("xnlp_nlpstatus") = XNLP_STATUS_OPTIMAL) then
+		writeln(strfmt(getsol(x),13),",",strfmt(getsol(y),13),": ",
+		        strfmt(getobjval,13))
+    else
+		writeln("Status is not globally optimal")	
+	end-if
+
+end-model
+

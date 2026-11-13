@@ -1,0 +1,85 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file folioloop.mos
+   ``````````````````
+   Modeling a small LP problem 
+   to perform portfolio optimization.
+   -- Re-solving with varied parameter settings --
+   
+  (c) 2008 Fair Isaac Corporation
+      author: S.Heipcke, Aug. 2003
+*******************************************************!)
+
+model "Portfolio optimization with LP"
+ uses "mmxprs"
+
+ parameters
+  DATAFILE= "folio.dat"              ! File with problem data
+  DEVDATA= "foliodev.dat"            ! File with deviation data
+  MAXVAL = 0.3                       ! Max. investment per share
+  MINAM = 0.5                        ! Min. investment into N.-American values
+ end-parameters
+
+ declarations
+  SHARES: set of string              ! Set of shares
+  RISK: set of string                ! Set of high-risk values among shares
+  NA: set of string                  ! Set of shares issued in N.-America
+  RET: array(SHARES) of real         ! Estimated return in investment
+  DEV: array(SHARES) of real         ! Standard deviation
+  SOLRET: array(range) of real       ! Solution values (total return)
+  SOLDEV: array(range) of real       ! Solution values (average deviation)
+ end-declarations
+
+ initializations from DATAFILE
+  RISK RET NA
+ end-initializations
+
+ initializations from DEVDATA
+  DEV
+ end-initializations
+
+ declarations
+  frac: array(SHARES) of mpvar       ! Fraction of capital used per share
+  Return, Risk: linctr
+ end-declarations
+
+! Objective: total return
+ Return:= sum(s in SHARES) RET(s)*frac(s) 
+
+! Minimum amount of North-American values
+ sum(s in NA) frac(s) >= MINAM
+
+! Spend all the capital
+ sum(s in SHARES) frac(s) = 1
+ 
+! Upper bounds on the investment per share
+ forall(s in SHARES) frac(s) <= MAXVAL
+
+! Solve the problem for different limits on high-risk shares
+ ct:=0
+ forall(r in 0..20) do
+  ! Limit the percentage of high-risk values
+   Risk:= sum(s in RISK) frac(s) <= r/20
+
+   maximize(Return)                  ! Solve the problem
+   
+   if (getprobstat = XPRS_OPT) then  ! Save the optimal solution value
+    ct+=1
+    SOLRET(ct):= getobjval
+    SOLDEV(ct):= getsol(sum(s in SHARES) DEV(s)*frac(s))
+    writeln(r/20, "%: ret ", SOLRET(ct), " dev ", SOLDEV(ct))
+   else
+    writeln("No solution for high-risk values <= ", 100*r/20, "%")
+   end-if
+ end-do
+
+! Print the data 
+ writeln("Low risk shares:")
+ forall (s in SHARES - RISK) writeln(s, ": ret ", RET(s), " dev ", DEV(s))
+ 
+ writeln("High risk shares:")
+ forall (s in RISK) writeln(s, ": ret ", RET(s), " dev ", DEV(s))
+  
+end-model 

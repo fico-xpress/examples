@@ -1,0 +1,23 @@
+#***********************************************
+# Mosel examples makefile  
+#                          
+# (c) 2024 Fair Isaac Corporation 
+#     author: Y. Colombani, 2001, rev. July 2026
+#***********************************************
+.SUFFIXES: .bim .mos .java .class
+
+ALL=batch2 dataafterexec datafromc datainout datatoc dataafterexec.class datafromj.class datatoj.class exitvalue
+
+all: $(ALL)
+
+.c:
+	$(CC) -g -I$(XPRESSDIR)/include $(CFLAGS) $(LDFLAGS) $< -o $* -L$(XPRESSDIR)/lib -lxprm
+
+.mos.bim:
+	mosel compile -g $*
+
+.java.class:	
+	javac -classpath $(XPRESSDIR)/lib/xprm.jar:. $*.java
+
+clean:
+	rm -f $(ALL) *.o *.bim *.class

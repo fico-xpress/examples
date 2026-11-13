@@ -1,0 +1,97 @@
+(!****************************************************************
+
+   CP example problems
+   ===================
+   
+   file bridgescheduling_alt.mos
+   `````````````````````````````
+   Project scheduling problem with disjunctive resource constraints. 
+   - Alternative formulation using resource and task objects -        
+ 
+   We wish to schedule a set of tasks for the construction of a     
+   bridge. Each task uses a particular resource (excavator,        
+   pileDriver, ...) and can only start after the completion of its 
+   predecessor(s). A resource can only be used by one task at a    
+   time (disjunctive resources).                                   
+   The aim is to minimize the total duration of the schedule (PE).    
+
+   *** This model cannot be run with a Community Licence 
+       for the provided data instance ***
+
+   Copyright(C) 2008 Artelys S.A. and Fair Isaac Corporation
+                     Creation: 2005
+*****************************************************************!)
+
+model "Bridge Construction Schedule"  
+ uses "kalis"
+
+ declarations       
+  RESOURCES: set of string             ! Set of resources
+  TASKS: set of string                 ! Set of tasks   
+  DUR  : array(TASKS) of integer       ! Durations of tasks      
+  USE  : array(TASKS) of string        ! Resource used by a task
+  PRECS: dynamic array(TASKS) of set of string ! Predecessors of each task
+
+  SetEE, SetES, SetSS, SetSE: range    ! Index sets of distance data
+  DISTEE: array(SetEE,1..2) of string  ! End-to-end max. distance
+  DISTES: array(SetES,1..2) of string  ! End-to-start max. distance
+  DISTSS: array(SetSS,1..2) of string  ! Start-to-start min. distance
+  DISTSE: array(SetSE,1..2) of string  ! Start-to-end min. distance
+ end-declarations
+
+ initializations from "Data/bridgescheduling_alt.dat"
+  [DUR, USE] as "TASKDATA"
+  PRECS
+  DISTEE DISTES DISTSS DISTSE
+ end-initializations
+
+ finalize(TASKS)
+ forall(t in TASKS | USE(t)<>"") RESOURCES += {USE(t)}
+ finalize(RESOURCES)
+ 
+ declarations  
+  res: array(RESOURCES) of cpresource ! Declaration of resources
+  task: array(TASKS) of cptask        ! Declaration of tasks
+ end-declarations
+
+! Setting up disjunctive resources (only one task at a time can be processed)
+ forall(r in RESOURCES)
+  set_resource_attributes(res(r), KALIS_UNARY_RESOURCE, 1)
+
+! Setting the task attributes (duration, resource use and predecessors)
+ forall(t in TASKS) do
+  setduration(task(t), DUR(t))
+  if USE(t)<>"" then
+   requires(task(t), 1, res(USE(t)))
+  end-if
+  if exists(PRECS(t)) then
+   setpredecessors(task(t), union(j in PRECS(t)) {task(j)})
+  end-if
+ end-do
+
+! Additional distance constraints between tasks
+  forall(i in SetEE)                    ! End-to-end max. distance
+   getend(task(DISTEE(i,1))) + 4 >= getend(task(DISTEE(i,2)))
+  forall(i in SetES)                    ! End-to-start max. distance
+   getend(task(DISTES(i,1))) + 3 >= getstart(task(DISTES(i,2))) 
+  forall(i in SetSS)                    ! Start-to-start min. distance
+   getstart(task(DISTSS(i,1))) + 6 <= getstart(task(DISTSS(i,2)))
+  forall(i in SetSE)                    ! Start-to-end min. distance
+   getend(task(DISTSE(i,1))) - 2 <= getstart(task(DISTSE(i,2)))
+
+! Find the optimal schedule (minimizing the makespan)
+ if cp_schedule(getmakespan) = 0 then
+  writeln("Inconsistent schedule")
+ else
+! Print the solution
+  ct:= 0 
+  forall(t in TASKS) do
+   write(t, "=", getsol(getstart(task(t))), if(ct mod 10=9, ",\n", ", "))
+   ct+=1
+  end-do
+  writeln("\nMakespan: ", getsol(getmakespan))
+  !cp_show_sol 
+  cp_show_stats
+ end-if
+
+end-model

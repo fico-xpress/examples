@@ -1,0 +1,71 @@
+(!*********************************************************************
+   Mosel Example Problems
+   ======================
+
+   file burglar.mos
+   ````````````````
+   Burglar problem 
+   
+     Example discussed in section 7.1.1 of
+     J. Kallrath: Business Optimization Using Mathematical Programming -
+     An Introduction with Case Studies and Solutions in Various Algebraic 
+     Modeling Languages. 2nd edition, Springer Nature, Cham, 2021 
+
+   See https://examples.xpress.fico.com/example.pl?id=burgdatamos
+   for additional versions.
+
+   author: S. Heipcke, June 2018
+
+   (c) Copyright 2020 Fair Isaac Corporation
+  
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+**********************************************************************!)
+
+model 'burglar'
+  uses "mmxprs"
+
+  declarations
+    NItems=8                   ! Number of items
+    WTMAX= 102                 ! Maximum weight
+    RItems=1..NItems
+    V: array(RItems) of real   ! Value of items
+    W: array(RItems) of real   ! Weight of items
+    x: array(RItems) of mpvar  ! 1 if we take item i; 0 otherwise
+  end-declarations
+
+ ! Item 1   2   3   4   5   6   7   8
+  V::[15,100, 90, 60, 40, 15, 10, 1]
+  W::[2, 20, 20, 30, 40, 30, 60, 10]
+
+ ! Objective: maximise the value 
+  ValMax:= sum(i in RItems) V(i)*x(i)
+ 
+ ! Weight restriction
+  Wmax:= sum(i in RItems) W(i)*x(i)<= WTMAX  
+
+ ! All x are 0/1
+  forall(i in RItems) x(i) is_binary  
+
+ (! Optional: export to matrix file in MPS format
+  loadprob(ValMax)
+  writeprob("burglar.mps","")
+ !)
+
+ ! Solve the problem
+  maximise(ValMax)
+  writeln("Solution: Value=", getobjval)
+  write("Selected items: ")
+  forall(i in RItems | x(i).sol=1) write(i, " ")
+  writeln
+end-model

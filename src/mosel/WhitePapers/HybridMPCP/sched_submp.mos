@@ -1,0 +1,119 @@
+(!****************************************************************
+   Mosel example problems
+   ======================
+   
+   file sched_submp.mos
+   ````````````````````
+   Scheduling with resource dependent durations and cost, subject 
+   to given release dates and due dates.
+   -- Parallel solving of sequencing subproblems --
+   
+   MIP branch-and-cut problem solving: cut generation for MIP model
+   by solving MIP subproblems at nodes in the MIP branching tree.
+
+   *** Not intended to be run standalone - run from sched_mainmp.mos ***
+
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Aug. 2005
+*****************************************************************!)
+model "Schedule (MIP+MIP) MIP subproblem"
+ uses "mmxprs", "mmjobs" , "mmsystem"
+ 
+ parameters 
+  VERBOSE = 1
+  M = 1                                   ! Number of the machine
+  NP = 12                                 ! Number of products
+  MODE = 1                                ! 1 - decide feasibility
+                                          ! 2 - return complete solution
+ end-parameters 
+
+ startsolve:= gettime
+
+ declarations
+  PRODS = 1..NP                           ! Set of products
+  ProdMach: set of integer 
+ end-declarations  
+
+ initializations from "raw:"
+  ProdMach as "shmem:ProdMach"+M 
+ end-initializations
+
+ finalize(ProdMach)  	
+ NJ:= getsize(ProdMach)
+
+ declarations
+  RANKS=1..NJ                             ! Task positions
+  REL: array(PRODS) of integer            ! Release dates of orders
+  DUE: array(PRODS) of integer            ! Due dates of orders
+  DURm: array(ProdMach) of integer        ! Processing times on machine m
+  solstart: array(ProdMach) of integer    ! Solution values for start times
+                                          
+  rank: array(ProdMach,RANKS) of mpvar    ! =1 if task p at position k
+  start: array(RANKS) of mpvar            ! Start time of task at position k
+  comp: array(RANKS) of mpvar             ! Completion time of task at pos. k
+  finish: mpvar                           ! Total completion time
+
+  EVENT_SOLVED=2                          ! Event codes sent by submodels
+  EVENT_FAILED=3
+  solvetime: real
+ end-declarations  
+ 
+ initializations from "raw:"
+  DURm as "shmem:DUR"+M REL as "shmem:REL" DUE as "shmem:DUE"
+ end-initializations
+  
+! One task per position
+  forall(k in RANKS) sum(p in ProdMach) rank(p,k) = 1
+
+! One position per job 
+  forall(p in ProdMach) sum(k in RANKS) rank(p,k) = 1
+
+! Sequence of jobs
+  forall(k in 1..NJ-1)
+   start(k+1) >= start(k) + sum(p in ProdMach) DURm(p)*rank(p,k)
+
+! Start times
+  forall(k in RANKS) start(k) >= sum(p in ProdMach) REL(p)*rank(p,k)
+
+! Completion times
+  forall(k in RANKS) comp(k) = start(k) + sum(p in ProdMach) DURm(p)*rank(p,k)
+
+! Due dates
+  forall(k in RANKS) comp(k) <= sum(p in ProdMach) DUE(p)*rank(p,k)
+  
+ forall(p in ProdMach,k in RANKS) rank(p,k) is_binary 
+ 
+! Objective function: minimize latest completion time
+ forall(k in RANKS) finish >= comp(k)
+
+! if MODE=1 then
+  setparam("XPRS_MAXMIPSOL", 1)            ! Stop at first feasible solution
+! end-if
+ minimize(finish)
+ res:= getparam("XPRS_MIPSTATUS")
+
+! Pass solution to main problem
+ if (res=XPRS_MIP_SOLUTION or res=XPRS_MIP_OPTIMAL) then 
+  forall(p in ProdMach) 
+   solstart(p):= 
+    round(getsol(start( round(getsol(sum(k in RANKS) k*rank(p,k))) )))
+  if MODE=2 then 
+   initializations to "raw:"
+    solstart as "shmem:solstart"+M
+   end-initializations
+  end-if
+  send(EVENT_SOLVED,0)
+ else
+  send(EVENT_FAILED,0)
+ end-if 
+
+! Update total running time measurement
+ initializations from "raw:"
+  solvetime as "shmem:solvetime"+M
+ end-initializations
+ solvetime+= gettime-startsolve
+ initializations to "raw:"
+  solvetime as "shmem:solvetime"+M
+ end-initializations
+  
+end-model

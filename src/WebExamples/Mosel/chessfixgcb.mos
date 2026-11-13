@@ -1,0 +1,76 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file chessfixgcb.mos
+   ````````````````````
+   Display solution information for a MIP problem.
+
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Dec. 2007, rev. Sep. 2022
+*******************************************************!)
+
+model "Chess (fixmipentities)"
+ uses "mmxprs"
+
+ forward procedure printsol
+
+ public declarations
+  R = 1..2                               ! Index range
+  DUR, WOOD, PROFIT: array(R) of real    ! Coefficients
+  x: array(R) of mpvar                   ! Array of variables
+  ifusesoft: mpvar                       ! Whether soft wood is used
+  CtrSet: set of linctr                  ! Set of constraints
+  MTime, Wood: linctr                    ! Constraints
+ end-declarations
+
+ DUR   :: [3, 2]                         ! Initialize data arrays
+ WOOD  :: [1, 3]
+ PROFIT:: [5, 20]
+
+ Wood:= sum(i in R) WOOD(i)*x(i) <= 200  ! Limit on raw material
+                                         ! Add. capacity if using soft wood
+ MTime:= sum(i in R) DUR(i)*x(i) <= 160 + 40*ifusesoft
+ ifusesoft is_binary
+
+ CtrSet:= {MTime, Wood}
+
+ Profit:= sum(i in R) PROFIT(i)*x(i)
+
+! Set the integer solution callback
+ setcallback(XPRS_CB_INTSOL, ->printsol)
+
+! setparam("XPRS_verbose", true)
+ setparam("realfmt","%.4g")             ! Set real number display format
+ maximize(Profit)
+ writeln("\nAfter MIP: Solution: ", getobjval)
+
+ fixmipentities                         ! Fix discrete variables
+
+ maximize(XPRS_LIN, Profit)             ! Solve reduced problems as LP
+
+ writeln("\nAfter fixmipentities: Solution: ", getobjval)
+ writeln("Ctr: \tDual  \t Slack + Activity = RHS")
+ forall(c in CtrSet)
+  writeln(" ", getname(c), ":\t", getdual(c), "\t ", getslack(c), "\t",
+          getact(c), "\t", -1*getcoeff(c))
+
+ writeln("Var:   Solution\t RCost")
+ forall(i in R)
+  writeln(" x(", i, "):  ", getsol(x(i)), "\t ", getrcost(x(i)))
+
+!******************************************************************
+! Definition of the integer solution callback
+ procedure printsol
+  writeln("CB: Solution: ", getsol(Profit))
+  writeln("Ctr: \tDual  \t Slack + Activity = RHS")
+  forall(c in CtrSet)
+   writeln(" ", getname(c), ":\t", getdual(c), "\t ", getslack(c), "\t",
+           getact(c), "\t", -1*getcoeff(c))
+
+  writeln("Var:   Solution\t RCost")
+  forall(i in R)
+   writeln(" x(", i, "):  ", getsol(x(i)), "\t ", getrcost(x(i)))
+ end-procedure
+
+end-model

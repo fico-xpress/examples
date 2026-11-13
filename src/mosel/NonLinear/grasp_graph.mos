@@ -1,0 +1,206 @@
+(!*********************************************************************
+   Mosel NL examples
+   =================
+   file grasp_ive.mos
+   ``````````````````
+   Find the smallest amount of normal force required
+   to "grasp" an object given a set of possible grasping points.
+
+   SOCP formulation.
+
+   Based on grasp.mod, gasp_exp.mod, grasp_nonconvex.mod 
+   Source: http://www.orfe.princeton.edu/~rvdb/ampl/nlmodels/grasp/ 
+   Reference: 
+   "Applications of Second-Order Cone Programming",
+   M.S. Lobo, L. Vandenberghe, S. Boyd, and H. Lebret, 1998
+
+   - Graphical representation of results -   
+
+   (c) 2013 Fair Issac Corporation
+       author: S. Heipcke, Nov. 2005, rev. Sep. 2017
+*********************************************************************!)
+    
+model "grasping (NL)"
+  uses  "mmxnlp", "mmsvg"
+   
+  parameters
+    N = 6                          ! Number of lifting points
+    MU = 0.3                       ! Friction coefficient
+  end-parameters
+
+  declarations
+    RN = 1..N                      ! Set of lifting points
+    DIM = 1..3                     ! Set of dimensions
+    P: array(RN,DIM) of real       ! Contact point
+    GRAD_NORM: array(RN) of real   ! Auxiliary term
+    V: array(RN,DIM) of real       ! Unit normal vector at contact point
+    f_ext: array(DIM) of real      ! Externally applied force
+    torq_ext: array(DIM) of real   ! Externally applied torque
+
+    force: array(RN,DIM) of mpvar  ! Contact force at point
+    nforce: array(RN) of mpvar     ! Normal force at point
+    munforce: array(RN) of mpvar   ! Aux. var for SOCP reformulation
+    tforce: array(RN,DIM) of mpvar ! Tangential force at point
+    torq: array(RN,DIM) of mpvar   ! Torque at point
+    pressure: mpvar                ! Objective variable, maximum of nforce
+    Friction: array(RN) of nlctr   ! Friction relation
+  end-declarations
+
+! Defining bounds and start values
+  pressure is_free
+    
+  forall (d in DIM, i in RN) do
+    force(i,d) <= 10
+    tforce(i,d) <= 2
+    torq(i,d) <= 10
+    force(i,d) >= -10
+    tforce(i,d) >= -10
+    torq(i,d) >= -10
+    setinitval(force(i,d), 1.0)
+  end-do
+  forall (i in RN) nforce(i) >= 0
+
+  f_ext :: [0.0, 0.0, -1.0]
+  forall(d in DIM) torq_ext(d) := 0.0
+
+! Calculate parameters
+  forall(i in RN) do
+  ! P(i) is a contact point on a parabolic "nose cone" to be lifted
+    P(i,1) := 0.3 + cos(2*M_PI*i/N)
+    P(i,2) :=       sin(2*M_PI*i/N)
+    P(i,3) := P(i,1)^2 + P(i,2)^2
+    GRAD_NORM(i) := sqrt( (2*P(i,1))^2 + (2*P(i,2))^2 + 1 )
+  ! V(i) is the unit normal vector at contact point P(i) 
+    V(i,1) := -2*P(i,1)/GRAD_NORM(i)
+    V(i,2) := -2*P(i,2)/GRAD_NORM(i)
+    V(i,3) := 1/GRAD_NORM(i)
+  end-do
+
+! Constraints:
+  forall(i in RN) do
+   ! Normal force at point P(i)
+    nfDef(i):= nforce(i) = sum(d in DIM) V(i,d)*force(i,d)
+    
+   ! Tangential force at point P(i) 
+    forall(d in DIM)
+      tfDef(i,d):= tforce(i,d) = force(i,d) - V(i,d)*nforce(i)
+
+   ! Torq about (0,0,0) at point P(i)
+    torq1Def(i):= torq(i,1) = P(i,2)*force(i,3) - force(i,2)*P(i,3)
+    torq2Def(i):= torq(i,2) = P(i,3)*force(i,1) - force(i,3)*P(i,1)
+    torq3Def(i):= torq(i,3) = P(i,1)*force(i,2) - force(i,1)*P(i,2)
+
+  ! Objective function definition
+    t_bnds(i) := nforce(i) <= pressure
+
+  ! Definition of friction
+    munforce(i)=MU*nforce(i)
+    Friction(i):= sum(d in DIM) tforce(i,d)^2  <= munforce(i)^2 
+  end-do
+ 
+! Force balances
+  forall(d in DIM) f_Balance(d) := sum(i in RN) force(i,d) = -f_ext(d)
+  forall(d in DIM) t_Balance(d) := sum(i in RN) torq(i,d) = -torq_ext(d)
+
+! Solving the problem
+  setparam("xnlp_verbose", true)
+  minimize(pressure)
+
+! Solution display 
+  setparam("REALFMT", "%7.4f")
+  forall(i in RN) do
+    write("force(",i,")           = ")
+    forall(d in DIM) write(getsol(force(i,d)), " ") 
+    write("\ntorque(",i,")          = ")
+    forall(d in DIM) write(getsol(torq(i,d)), " ")
+    writeln("\nnormal force(",i,")    = ", getsol(nforce(i))) 
+    write("tangential force(",i,")= ")
+    forall(d in DIM) write(getsol(tforce(i,d)), " ") 
+    writeln
+  end-do
+    
+  writeln("\n Pressure = ", getsol(pressure));
+
+!**************** Graphical representation of results ****************
+
+  forall(i in 0..12) pcol(i):= svgcolor(200-10*i,200-10*i,200-10*i)
+  svgaddgroup("plot", "Surface", SVG_GRAY)
+  svgsetstyle(SVG_OPACITY, 0.35)
+  svgsetstyle(SVG_FILL, SVG_CURRENT)
+
+  svgaddgroup("plotC", "Cone", svgcolor(75,75,75))
+  svgsetstyle(SVG_OPACITY, 0.5)
+
+  svgaddgroup("plotP", "Lift points", svgcolor(25,25,150))
+  svgsetstyle(SVG_STROKEDASH, "1,1")
+  svgaddgroup("plotF", "Force", svgcolor(200,25,25))
+  svgsetstyle(SVG_STROKEWIDTH, 2)
+  svgaddgroup("plotD", "Lifting direction", svgcolor(25,150,25))
+  svgsetstyle(SVG_STROKEWIDTH, 2)
+  EPS:=0.0001
+  FAC:=2.5
+  FFAC:=2.5
+  
+ ! Lifting points and forces 
+  forall(i in RN) do
+    fz:=P(i,1)^2+P(i,2)^2
+    fz2:=(P(i,1)+if(abs(force(i,1).sol)>EPS,force(i,1).sol,0))^2+
+         (P(i,2)+if(abs(force(i,2).sol)>EPS,force(i,2).sol,0))^2
+    svgaddpoint("plotP",P(i,1)+fz/FAC,P(i,2)+fz/FAC)
+    svgaddarrow("plotF",P(i,1)+fz/FAC,P(i,2)+fz/FAC,
+                 P(i,1)+FFAC*(if(abs(force(i,1).sol)>EPS,force(i,1).sol,0))+fz2/FAC,
+                 P(i,2)+FFAC*(if(abs(force(i,2).sol)>EPS,force(i,2).sol,0))+fz2/FAC)
+  end-do
+                 
+ ! Lifting direction                
+  fz:=(0.3)^2
+  svgaddpoint("plotD",1+0.3+fz/FAC,fz/FAC)
+  svgaddarrow("plotD",0.3+fz/FAC,fz/FAC,
+                 0.3-FFAC*f_ext(1)-f_ext(3)/FAC, -FFAC*f_ext(2)-f_ext(3)/FAC)
+ 
+ ! Circle on which are located the lifting points              
+  M:=40
+  forall(i in 1..M) do
+    fz:=(0.3 + cos(2*M_PI*i/M))^2 + (sin(2*M_PI*i/M))^2
+    fx:=0.3 + cos(2*M_PI*i/M) + fz/FAC; fy:=sin(2*M_PI*i/M)+fz/FAC
+    fz2:=(0.3 + cos(2*M_PI*(i+1)/M))^2 + (sin(2*M_PI*(i+1)/M))^2
+    fx2:=0.3 + cos(2*M_PI*(i+1)/M) + fz2/FAC; fy2:=sin(2*M_PI*(i+1)/M)+ fz2/FAC
+    svgaddline("plotP",fx,fy,fx2,fy2)
+  end-do
+
+ ! Surface of the cone
+  forall(y in union(i in -12..12) {i/5})
+    forall(x in union(i in -12..12) {i/5}) do
+      fz:=(x-0.3)^2+y^2
+      fz2:=(x-0.3+0.2)^2+y^2
+      fz3:=(x-0.3)^2+(y+0.2)^2
+      fz4:=(x-0.3+0.2)^2+(y+0.2)^2
+      svgaddpolygon("plot", [x+fz/5,y+fz/5,(x+0.2)+fz2/5,y+fz2/5,
+        (x+0.2)+fz4/5,y+0.2+fz4/5,x+fz3/5,y+0.2+fz3/5])
+      svgsetstyle(svggetlastobj, SVG_STROKE, pcol(round(abs(x)*5)) )
+      svgsetstyle(svggetlastobj, SVG_FILL, pcol(round(abs(x)*5)) )
+    end-do
+
+ ! Grid representing the cone 
+  forall(y in union(i in -12..12) {i/5})
+    forall(x in union(i in -12..12) {i/5}) do
+      fz:=(x-0.3)^2+y^2
+      fz2:=(x-0.3+0.2)^2+y^2
+      svgaddline("plotC", x+fz/5,y+fz/5,(x+0.2)+fz2/5,y+fz2/5)
+    end-do
+ (! forall(x in union(i in -12..12) {i/5})
+    forall(y in union(i in -12..12) {i/5}) do
+      fz:=(x-0.3)^2+y^2
+      fz2:=(x-0.3)^2+(y+0.2)^2
+      svgaddline("plotC", x+fz/5,y+fz/5,x+fz2/5,y+0.2+fz2/5)
+    end-do
+!)
+
+! Scale size of the displayed graph
+ svgsetgraphscale(100)
+ svgsetgraphlabels("x","y")
+
+ svgsave("grasp.svg")
+ svgrefresh
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+end-model

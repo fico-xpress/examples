@@ -1,0 +1,79 @@
+(!*******************************************************
+   Mosel Example Problems
+   ======================
+
+   file goalobjp.mos
+   `````````````````
+   Using the Xpress multi-objective functionality
+   for pre-emptive goal programming with objective functions  
+
+   (c) 2022 Fair Isaac Corporation
+       author: S. Heipcke, June 2022
+  *******************************************************!)
+
+model GoalObjPreempt
+uses "mmxprs", "mmsystem"
+
+forward procedure preemptive
+
+declarations
+ NGOALS=3                           ! Number of goals
+ GOALS=1..NGOALS                    ! Set of goals
+ x,y: mpvar                         ! Variables
+ Goal: array(GOALS) of linctr       ! Goal objective expressions
+ ObjCfg: array(GOALS) of objconfig  ! Goal configuration
+end-declarations
+
+ Limit:= 42*x + 13*y <= 100         ! Define a constraint
+
+! Define the goal objectives 
+ Goal(1):=   5*x +  2*y - 20
+ Goal(2):=  -3*x + 15*y - 48
+ Goal(3):= 1.5*x + 21*y - 3.8
+
+! Configuration of the goal objectives
+ ObjCfg(1):= objconfig(3, -1, 0, 0.1)  ! 1st, maximize, 10% tolerance 
+ ObjCfg(2):= objconfig(2,  1, 4, 0)    ! 2nd, minimize, absolute tolerance of 4
+ ObjCfg(3):= objconfig(1, -1, 0, 0.2)  ! 3rd, maximize, 20% tolerance
+
+ preemptive                         ! Pre-emptive goal programming
+ 
+! Inverse priority order (goal 1 becomes last, goal 3 becomes first) 
+ forall(g in GOALS) ObjCfg(g).priority:=g        
+ preemptive                         ! Resolve the pre-emptive formulation
+
+!***********************************************************************
+(! 
+  Optimize successively the goals in given priority order. 
+  After optimizing a goal turn it into a constraint applying the specified
+  tolerances to the limit given by the solution value.
+!)
+procedure preemptive
+  localsetparam("XPRS_multiobjops", 3)  ! Disable reduced cost fixing (req. with multiple runs)
+  minimize(Goal,ObjCfg)             ! Solve the multi-objective problem
+
+                                    ! Solution printout 
+  localsetparam("realfmt","%12.6f")
+  if(getprobstat=XPRS_OPT) then
+    writeln("Solved for all goals (", getparam("XPRS_SOLVEDOBJS"),")")
+  elif getparam("XPRS_SOLVEDOBJS")>=1 then
+    writeln("Solved for ", getparam("XPRS_SOLVEDOBJS"), " goals")
+  else
+    writeln("No solution found")
+    return
+  end-if
+  forall(i in GOALS)
+    writeln("  Iteration ", i, ": status=", 
+      getobjintattr(i, "XPRS_SOLSTATUS")=XPRS_SOLSTATUS_OPTIMAL, "/",
+      getobjintattr(i, "XPRS_SOLVESTATUS")=XPRS_SOLVESTATUS_COMPLETED, 
+      ", val=", getobjrealattr(i, "XPRS_LPOBJVAL"))
+  writeln(" Solution: x: ", x.sol, ", y: ", y.sol)
+
+  writeln(" Goal", textfmt("Target",9), textfmt("Value",12))
+  forall(g in GOALS)
+    writeln(formattext("%4d %8s %12.6f", g, if(ObjCfg(g).weight=1,"min","max"),
+      Goal(g).sol))
+
+end-procedure
+
+end-model

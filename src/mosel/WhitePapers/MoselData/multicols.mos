@@ -1,0 +1,65 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file multicol.mos
+   `````````````````
+   Reading several data arrays from a single table.
+   - Using 'initializations from' with odbc IO driver -
+       
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2006, rev. Jan. 2014
+*******************************************************!)
+
+model "Multiple data columns"
+ uses "mmetc" , "mmodbc"
+
+ declarations
+  PRODUCTS: set of string
+  MACH: range
+  COST,COST1,COST2: dynamic array(PRODUCTS,MACH) of real
+  DUR,DUR1,DUR2: dynamic array(PRODUCTS,MACH) of integer
+ end-declarations
+
+! **** Read data in Mosel format ****
+ initializations from "multicol.dat"
+  [COST,DUR] as "ProdData"
+ end-initializations
+
+ writeln("Mosel format:"); writeln(COST); writeln(DUR)
+
+
+! **** Read data in diskdata format ****
+ initializations from "mmetc.diskdata:sparse"
+  [COST1,DUR1] as "multicdd.dat"
+ end-initializations
+
+ writeln("'diskdata' format:"); writeln(COST1); writeln(DUR1)
+
+ 
+! **** Reading data from databases ****
+! This assumes the spreadsheet/database contains a table "ProdData" 
+! in sparse format (i.e., with indices) with the columns "COST" and "DUR"
+
+
+! Read data from the mysql database multicol (not provided)
+(!
+ initializations from "mmodbc.odbc:multicol"
+  [COST2,DUR2] as 'ProdData'
+ end-initializations
+!)
+
+(! Read data from the SQLite database multicol.sqlite via ODBC
+ initializations from "mmodbc.odbc:DSN=sqlite;DATABASE=multicol.sqlite"
+  [COST2,DUR2] as 'ProdData'
+ end-initializations
+!)
+! Read data from the SQLite database multicol.sqlite using direct access
+ initializations from "mmodbc.odbc:multicol.sqlite"
+  [COST2,DUR2] as 'ProdData'
+ end-initializations
+
+
+ writeln("ODBC:"); writeln(COST2); writeln(DUR2)
+ 
+end-model

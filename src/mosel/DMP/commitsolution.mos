@@ -1,0 +1,46 @@
+(!*******************************************************
+  * Mosel DMP Integration Examples                      *
+  * ==============================                      *
+  *                                                     *
+  * file commitsolution.mos                             *
+  * ```````````````````````                             *
+  * Example of making a webservice request to DMP       *
+  * Manager to 'commit' the solution.                   *
+  *                                                     *
+  * Note: this must be run within a cloud component     *
+  * (Xpress Insight or Xpress Executor)                 *
+  *                                                     *
+  * (c) 2018 Fair Isaac Corporation                     *
+  *     author: James Farmer, 2018                      *
+  *******************************************************!)
+model commitsolution
+  uses 'dmp','mmsystem'
+  
+  declarations
+    xecomp: dmpresource
+    httpstatus: integer
+    public REQUEST_BODY='{"label":"commitSolutionTest","comment":"dmp module example"}'
+  end-declarations
+  
+  ! Initialize dmpresource
+  dmpinitmanager(xecomp)
+  if xecomp.status<>DMP_OK then
+    writeln('ERROR finding DMP Manager: ',xecomp.lasterror)
+    exit(1)
+  end-if
+  
+  ! Make request
+  httpstatus := dmphttppost(xecomp, '/rest/dmp/runtime/solutions/'+getdmpsolid+'/revisions?async=false', 
+    'text:REQUEST_BODY', 'response.dat')
+  if httpstatus<>200 then
+    if xecomp.status<>DMP_OK then
+      writeln('ERROR making DMP Manager request: ',xecomp.lasterror)
+    else
+      writeln('ERROR returned by DMP Manager request: ',httpstatus)
+    end-if
+    exit(1)
+  end-if
+  
+  writeln('Committed new solution revision')
+  
+end-model

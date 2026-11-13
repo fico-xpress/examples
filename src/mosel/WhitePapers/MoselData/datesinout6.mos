@@ -1,0 +1,75 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file datesinout6.mos
+   ````````````````````
+   Reading/writing dates from/to spreadsheets.
+   - Using 'initializations from' with the csv driver -
+   
+   (c) 2012 Fair Isaac Corporation
+       author: S. Heipcke, Dec. 2012, rev. Mar. 2014
+*******************************************************!)
+
+model "Dates and times (spreadsheet)"
+ uses "mmsystem", "mmsheet"
+
+ parameters
+  CSTR = 'mmsheet.csv:datetime.csv'
+ end-parameters
+
+ declarations
+  T: time
+  D: date
+  DT: datetime
+  Dates: array(1..5) of date
+  DList: list of date
+ end-declarations
+
+! Read in dates / time (select the format used in the spreadsheet)
+ setparam("timefmt", "%0h:%0M:%0S %P")
+ setparam("datefmt", "%0m/%0d/%0Y")
+ setparam("datetimefmt", "%0d/%0m/%0Y %0h:%0M %P")
+
+ initializations from CSTR
+  T as "[D5]"
+  D as "[B5]"
+  DT as "[F5]"
+  Dates as "noindex;[B13:B17]"
+  DList as "[B13:B17]"
+ end-initializations
+
+ writeln(D, ", ", T)
+ writeln(DT)
+ writeln(Dates)
+ writeln(DList)
+
+! Read date / time from strings (for CSV, this case is just the same as above)
+ setparam("timefmt", "%Hh%0Mm")
+ setparam("datefmt", "%dm%0my%0y")
+ setparam("datetimefmt", "%dm%0my%0y, %Hh%0Mm")
+
+ initializations from CSTR
+  T as "[D9]"
+  D as "[B9]"
+  DT as "[F9]"
+ end-initializations
+
+ writeln(D, ", ", T)
+ writeln(DT)
+
+! Use Mosel's default format
+ setparam("timefmt", "")
+ setparam("datefmt", "")
+ setparam("datetimefmt", "")
+
+ writeln(D, ", ", T)
+ writeln(DT)
+
+ initializations to CSTR
+  T as "[D21]"
+  D as "[B21]"
+  DT as "[F21]"
+ end-initializations
+
+end-model

@@ -1,0 +1,128 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file folioqpgraph.mos
+   `````````````````````
+   TYPE:         Portfolio optimization problem (Quadratic Programming problem)
+   DIFFICULTY:   3
+   FEATURES:     small QP problem, solved repeatedly with modified
+                 constraints, graphical representation of the results,
+                 use of `min' and `max'
+   DESCRIPTION:  An investor is evaluating ten different securities (`shares').
+                 He estimates the return on investment for a period of one 
+                 year. To spread the risk he wishes to invest at most 
+                 30% of the capital into any share. He further wishes to 
+                 invest at least half of his capital in North-American 
+                 shares and at most a third in high-risk shares. How should 
+                 the capital be divided among the shares to  minimize the 
+                 risk whilst obtaining a certain target yield? The investor 
+                 adopts the Markowitz idea of getting estimates of the 
+                 variance/covariance matrix of estimated returns on the 
+                 securities.     
+   FURTHER INFO: `Getting Started with Xpress', Chapter 7 `Quadratic
+                 Programming'.
+                 Similar problem:
+                 `Applications of optimization with Xpress-MP', 
+                 Section 13.7 `Mean variance portfolio selection'
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2003, rev. Sep. 2017
+*******************************************************!)
+
+model "Portfolio optimization with QP"
+ uses "mmxprs", "mmnl", "mmsvg"      ! Use Xpress Optimizer with QP solver
+
+ parameters
+  MAXVAL = 0.3                       ! Max. investment per share
+  MINAM = 0.5                        ! Min. investment into N.-American values
+ end-parameters
+
+ declarations
+  SHARES = 1..10                     ! Set of shares
+  RISK: set of integer               ! Set of high-risk values among shares
+  NA: set of integer                 ! Set of shares issued in N.-America
+  RET: array(SHARES) of real         ! Estimated return in investment
+  VAR: array(SHARES,SHARES) of real  ! Variance/covariance matrix of
+                                     ! estimated returns
+  SOLRET: array(range) of real       ! Solution values (total return)
+  SOLDEV: array(range) of real       ! Solution values (average deviation)
+ end-declarations
+
+ initializations from "folioqpgraph.dat"
+  RISK RET NA VAR
+ end-initializations
+
+ declarations
+  frac: array(SHARES) of mpvar       ! Fraction of capital used per share
+ end-declarations
+
+! Objective: mean variance
+ Variance:= sum(s,t in SHARES) VAR(s,t)*frac(s)*frac(t) 
+
+! Minimum amount of North-American values
+ MinAm:= sum(s in NA) frac(s) >= MINAM
+
+! Spend all the capital
+ SpendAll:= sum(s in SHARES) frac(s) = 1
+ 
+! Upper bounds on the investment per share
+ forall(s in SHARES) frac(s) <= MAXVAL
+
+! Solve the problem for a range of returns: this is the efficient frontier
+ target:= min(s in SHARES) RET(s)
+ RMAX:= max(s in SHARES) RET(s)
+
+ while(target < RMAX) do
+  Return:= sum(s in SHARES) RET(s)*frac(s) >= target    ! Target yield
+  minimize(Variance)                ! Solve the problem
+   
+  if (getprobstat = XPRS_OPT) then  ! Save the optimal solution value
+   ct+=1
+   SOLDEV(ct):= getobjval
+   SOLRET(ct):= target
+  else
+   writeln("No solution for target return >= ", ct, "%")
+   break
+  end-if
+  target += 1
+ end-do
+
+! Drawing a graph to represent results (`GrS') and data (`GrL' & `GrH') 
+ declarations
+  DEV: array(SHARES) of real         ! Standard deviation
+  NAMES: array(SHARES) of string     ! Names of shares
+ end-declarations
+
+ initializations from "folioqpgraph.dat"
+  DEV NAMES
+ end-initializations
+	
+ svgaddgroup("GrS", "Solution values", SVG_BLACK)
+ svgaddgroup("GrL", "Low risk", SVG_GREEN)
+ svgaddgroup("GrH", "High risk", SVG_RED)
+ 
+ forall(r in 1..ct) svgaddpoint("GrS", SOLRET(r), SOLDEV(r));
+
+ svgaddline("GrS", sum(r in 1..ct) [SOLRET(r), SOLDEV(r)])
+    
+ forall (s in SHARES-RISK) do
+  svgaddpoint("GrL", RET(s), DEV(s))
+  svgaddtext("GrL", RET(s)+1, 1.3*(DEV(s)-1), NAMES(s))
+ end-do
+
+ forall (s in RISK) do
+  svgaddpoint("GrH", RET(s), DEV(s))
+  svgaddtext("GrH", RET(s)-2.5, DEV(s)-1, NAMES(s))
+ end-do
+
+! Scale the size of the displayed graph
+ svgsetgraphscale(10)
+ svgsetgraphpointsize(2)
+ svgsetgraphlabels("Expected return", "Standard deviation")
+
+ svgsave("folioqpgraph.svg")
+ svgrefresh
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+ 
+end-model 

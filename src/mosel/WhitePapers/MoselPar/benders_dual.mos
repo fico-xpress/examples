@@ -1,0 +1,156 @@
+(!*******************************************************
+   Mosel Example Problems
+   ======================
+
+   file benders_dual.mos
+   `````````````````````
+   Benders decomposition for solving a simple MIP.
+   - Solve the continuous problem (dual) for given solution values
+     of the integer variables (Step 2 of the algorithm)
+
+   *** Not intended to be run standalone - run from benders_decomp.mos ***
+
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Jan. 2006, rev. B. Vieira Oct. 2025
+*******************************************************!)
+
+model "Benders (dual subproblem)"
+ uses "mmxprs", "mmjobs"
+
+ parameters
+  NINTVAR = 4               ! Number of integer variables
+  NCTVAR = 5                ! Number of continuous variables
+  NC = 5                    ! Number of constraints
+ end-parameters
+
+ declarations
+  ! Event codes exchanged with submodels
+  EVENT_READY=2
+  EVENT_SOLVED=3
+  EVENT_INFEAS=4
+  EVENT_ADDFEASCUT=5
+  EVENT_ADDOPTCUT=6
+  EVENT_MAINSOLVED=7
+
+  CtVars = 1..NCTVAR                  ! Continuous variables
+  IntVars = 1..NINTVAR                ! Discrete variables
+  Ctrs = 1..NC                        ! Set of constraints (orig. problem)
+
+  A1: array(Ctrs,IntVars) of integer  ! Coeff.s of continuous variables
+  A2: array(Ctrs,CtVars) of integer   ! Coeff.s of discrete variables
+  b: array(Ctrs) of integer           ! RHS values
+  c1: array(IntVars) of integer       ! Obj. coeff.s of continuous variables
+  c2: array(CtVars) of integer        ! Obj. coeff.s of cont variables
+
+  sol_u: array(Ctrs) of real          ! Solution of dual problem
+  sol_y: array(CtVars) of real        ! Solution of primal subprob. (cont.)
+  sol_x: array(IntVars) of real       ! Solution of primal prob. (integers)
+
+  u: array(Ctrs) of mpvar             ! Dual variables
+
+  vars : set of mpvar                 ! Set of vars to associate with primal ray if unbounded
+  primal_ray : array(vars) of real    ! Array to store primal ray of vars
+
+  obj_z: real                         ! Objective value Z to compare when subproblem has finite optimum
+ end-declarations
+
+ initializations from "bin:shmem:probdata"
+  A1 A2 b c1 c2
+ end-initializations
+
+ send(EVENT_READY, 0)                  ! Model is ready (= running)
+
+! STEP 2: Solve the dual problem for given solution values of x
+ repeat
+  wait
+  ev:= getnextevent
+  status:= getclass(ev)
+
+  initializations from "bin:shmem:sol"
+   sol_x
+  end-initializations
+
+  ! Objective coefficients are negative due to '<=' constraints in the primal
+  Obj := sum(j in Ctrs) - u(j) * (b(j) - sum(i in IntVars) A1(j,i) * sol_x(i))
+
+  forall(i in CtVars)     ! One constraint for each continuous variable
+   Ctr(i) := sum(j in Ctrs) u(j) * A2(j,i) >= -c2(i)  ! RHS are flipped due to '<=' constraints
+
+  writeln("Solving continuous problem (dual)...")
+
+  maximize(Obj)
+
+  ! Print solution for validation
+  if getprobstat=XPRS_OPT then
+    forall(j in CtVars) sol_y(j):= getdual(Ctr(j)) ! Get values of original vars y
+    forall(j in Ctrs) sol_u(j) := getsol(u(j))
+    writeln("Step 2 solution: obj: ", getobjval, ", u: ", sol_u)
+  end-if
+
+  ! If unbounded, get primal ray to add the feasibility cut
+  if getprobstat=XPRS_UNB then
+   writeln("The dual subproblem is unbounded - Add feasibility cut!")
+   hasRay := getprimalray(primal_ray)
+   if hasRay then
+    writeln("Primal ray:")
+    forall(j in Ctrs)
+     writeln(getname(u(j)), "...", primal_ray(u(j)))
+    ! Extract the components of the primal ray corresponding to the dual variables
+    forall(j in Ctrs)
+     sol_u(j):= primal_ray(u(j))
+      initializations to "bin:shmem:sol"
+       sol_u
+      end-initializations
+      send(EVENT_ADDFEASCUT, 0)
+    else
+     writeln("No primal ray was found")
+    end-if
+
+  elif getprobstat=XPRS_OPT then   ! If problem has finite optimum, then there are two cases:
+
+    initializations from "bin:shmem:sol"
+     obj_z
+    end-initializations
+
+    forall(j in CtVars) sol_y(j):= -getdual(Ctr(j)) ! Get values of original vars y
+
+    if getobjval <= obj_z then      ! Case 1) the objective of the subproblem matches z* =>
+                                    ! the point (y*,z*) is optimal and we can recover an optimal
+                                    ! solution for the original problem by concatenating the
+                                    ! optimal solution of the subproblem x* with y*.
+     writeln("The dual subproblem has finite optimum with obj <= z*",
+      " -> Optimal solution found!")
+
+     initializations to "bin:shmem:sol"
+      sol_x sol_y
+     end-initializations
+
+     send(EVENT_SOLVED, getobjval)
+
+    else                            ! Case 2) the objective of the subproblem is > z*.
+                                    ! Then from the optimal multipliers u* of the dual
+                                    ! we can derive a violated Benders optimality cut:
+     writeln("The dual subproblem has finite optimum with obj > z*",
+      " -> Add optimality cut!")
+
+     forall(j in Ctrs) sol_u(j):= -getsol(u(j)) ! Get solution as multipliers for new cut
+
+     writeln("Dual solution: ", sol_u)
+     initializations to "bin:shmem:sol"
+      sol_u
+     end-initializations
+
+     send(EVENT_ADDOPTCUT, 0)
+    end-if
+
+  elif getprobstat=XPRS_INF then
+   writeln("ERROR: Dual subproblem is infeasible")
+   send(EVENT_INFEAS, 0)
+   exit(4)
+  else
+   writeln("Dual subproblem has unknown status: ", getprobstat)
+  end-if
+
+ until false
+
+end-model

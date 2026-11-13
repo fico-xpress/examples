@@ -1,0 +1,33 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file testsubshm.mos
+   ```````````````````
+   Simple model printing some output.
+   Communication of data from/to parent model
+   using 'shmem' IO driver with 'bin'.
+
+   *** Not intended to be run standalone - run from runsubshmdistr.mos ***
+       
+   (c) 2011 Fair Isaac Corporation
+       author: S. Heipcke, April 2011
+*******************************************************!)
+
+model "Test submodel"
+ declarations
+  A: range 
+  B: array(A) of real
+ end-declarations
+
+ initializations from "bin:shmem:indata"
+  A
+ end-initializations
+ 
+ forall(i in A) B(i):= i^2
+
+ initializations to "bin:shmem:resdata"
+  B
+ end-initializations
+
+end-model 

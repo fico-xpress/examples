@@ -1,0 +1,76 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file datesinout5.mos
+   ````````````````````
+   Reading/writing dates from/to spreadsheets.
+   - Using 'initializations from' with the xsl driver -
+   
+   (c) 2012 Fair Isaac Corporation
+       author: S. Heipcke, Dec. 2012, rev. Sep. 2014
+*******************************************************!)
+
+model "Dates and times (spreadsheet)"
+ uses "mmsystem", "mmsheet"
+
+ parameters
+  CSTR = 'mmsheet.xls:datetime.xls'
+!  CSTR = 'mmsheet.xlsx:datetime.xlsx'
+ end-parameters
+
+ declarations
+  T: time
+  D: date
+  DT: datetime
+  Dates: array(1..5) of date
+  DList: list of date
+ end-declarations
+
+! Read in dates / time (make sure to use the default format of mmsystem,
+! not the format used for display in the spreadsheet)
+ setparam("timefmt", "%0H:%0M:%0S")
+ setparam("datefmt", "%.y-%0m-%0d")
+ setparam("datetimefmt", "%.y-%0m-%0dT%0H:%0M:%0S")
+
+ initializations from CSTR
+  T as "skiph;Time1"
+  D as "skiph;Date1"
+  DT as "skiph;DateTime1"
+  Dates as "skiph;noindex;Dates"
+  DList as "skiph;Dates"
+ end-initializations
+
+ writeln(D, ", ", T)
+ writeln(DT)
+ writeln(Dates)
+
+! Read date / time from strings
+ setparam("timefmt", "%Hh%0Mm")
+ setparam("datefmt", "%dm%0my%0y")
+ setparam("datetimefmt", "%dm%0my%0y, %Hh%0Mm")
+
+ initializations from CSTR
+  T as "skiph;Time2"
+  D as "skiph;Date2"
+  DT as "skiph;DateTime2"
+ end-initializations
+
+ writeln(D, ", ", T)
+ writeln(DT)
+
+! Use Mosel's default format
+ setparam("timefmt", "")
+ setparam("datefmt", "")
+ setparam("datetimefmt", "")
+
+ writeln(D, ", ", T)
+ writeln(DT)
+
+ initializations to CSTR
+  T as "TimeOutE"
+  D as "DateOutE"
+  DT as "DateTimeOutE"
+ end-initializations
+
+end-model

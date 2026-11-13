@@ -1,0 +1,37 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file rtparams4.mos
+   ``````````````````
+   Model with different runtime parameter types
+   - Submodel detaches itself from its caller -
+
+   *** Not intended to be run standalone - run from runrtdetach.mos ***
+       
+   (c) 2014 Fair Isaac Corporation
+       author: S. Heipcke, Feb. 2014
+*******************************************************!)
+
+model "Runtime parameters"
+ uses "mmjobs", "mmsystem"
+ 
+ parameters
+  PARAM1 = 0
+  PARAM2 = 0.5
+  PARAM3 = ''
+  PARAM4 = false
+ end-parameters
+
+ starttime:=gettime
+
+ detach                         ! Detach model from caller
+
+ writeln("(", gettime-starttime, "sec) Detached from parent.")
+
+ wait(2+round(5*random))
+ writeln(PARAM1, "  ", PARAM2, "  ", PARAM3, "  ", PARAM4)
+ 
+ writeln("(", gettime-starttime, "sec) Terminated")
+
+end-model 

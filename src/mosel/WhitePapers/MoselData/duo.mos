@@ -1,0 +1,56 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file duo.mos
+   ````````````
+   Two ways of reading sparse data tables from
+   spreadsheets or databases via ODBC.
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2006, rev. Aug. 2023
+*******************************************************!)
+
+model "Duo input (ODBC)"
+ uses "mmodbc"
+
+ parameters
+                                 ! Use Excel spreadsheet `data.xls'
+!  CNCT = 'DSN=Excel Files;DBQ=C:/xpress/examples/mosel/WhitePapers/MoselData/data.xls'
+!  CNCT = 'data.xls'
+!  CNCTIO = "data.xls"
+                                 ! Use Access database `data.mdb'
+!  CNCT = 'DSN=MS Access Database;DBQ=C:/xpress/examples/mosel/WhitePapers/MoselData/data.mdb'
+  CNCT = 'data.mdb'
+  CNCTIO = "debug;data.mdb"
+                                 ! Use mysql database `data' (not provided)
+!  CNCT = 'DSN=mysql;DB=data'
+!  CNCTIO = "debug;DSN=mysql;DB=data"
+                                 ! Use SQLite database `data.sqlite' via ODBC
+!  CNCT = 'DSN=sqlite;DATABASE=data.sqlite'
+!  CNCTIO = "debug;DSN=sqlite;DATABASE=data.sqlite"
+                                 ! Use SQLite database `data.sqlite' directly
+!  CNCT = 'data.sqlite'
+!  CNCTIO = "debug;data.sqlite"
+ end-parameters
+
+ declarations
+  A4, A5: dynamic array(range,range) of real
+ end-declarations
+
+! First method: use an initializations block with the odbc driver
+ initializations from "mmodbc.odbc:"+CNCTIO
+  A4 as 'MyDataTable'
+ end-initializations
+
+! Second method: use SQL statements 
+ SQLconnect(CNCT)
+ if not getparam("SQLsuccess"): setioerr("Database connection failed")
+ SQLexecute("select Index_i,Index_j,Value from MyDataTable", A5)
+ SQLdisconnect
+
+! Now let us see what we have
+ writeln('A4 is: ', A4)
+ writeln('A5 is: ', A5)
+
+end-model

@@ -1,0 +1,55 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   =================================
+
+   file burglar9p.mos
+   ``````````````````
+   Same as burglar2.mos, with input from/output to
+   calling application via a parameterized data source.
+
+   (c) 2026 Fair Isaac Corporation
+       author: S. Heipcke, Mar. 2006, rev. B. Vieira 2026
+*******************************************************!)
+
+model Burglar9p
+ uses "mmxprs"
+
+ parameters
+  DATASOURCE = 'burglar.dat'       ! Data source (overridden to 'moselpy:' from Python)
+  WTMAX = 102                      ! Maximum weight allowed
+ end-parameters
+
+ declarations
+  ITEMS: set of string             ! Index set for items
+  VALUE: array(ITEMS) of real      ! Value of items
+  WEIGHT: array(ITEMS) of real     ! Weight of items
+  soltake: array(ITEMS) of real    ! Solution values
+ end-declarations
+
+ initializations from DATASOURCE
+  VALUE  WEIGHT
+ end-initializations
+
+ declarations
+  take: array(ITEMS) of mpvar      ! 1 if we take item i; 0 otherwise
+ end-declarations
+
+! Objective: maximize total value
+ MaxVal:= sum(i in ITEMS) VALUE(i)*take(i)
+
+! Weight restriction
+ sum(i in ITEMS) WEIGHT(i)*take(i) <= WTMAX
+
+! All variables are 0/1
+ forall(i in ITEMS) take(i) is_binary
+
+ maximize(MaxVal)                  ! Solve the MIP-problem
+
+! Output solution to calling application
+ forall(i in ITEMS) soltake(i):= getsol(take(i))
+
+ initializations to DATASOURCE
+  soltake
+ end-initializations
+
+end-model

@@ -1,0 +1,4 @@
+mosel comp batch2.mos
+mosel run batch2
+mosel run batch2 INFILE=batchdata1.dat OUTFILE=batchdata2.dat LIM=110
+mosel run batch2 INFILE=batchdata2.dat OUTFILE=batchdata3.dat LIM=120

@@ -1,0 +1,46 @@
+<transport fuelcost="17">
+  <demand>
+    <region name="Scotland">2840</region>
+    <region name="North">2800</region>
+    <region name="SWest">2600</region>
+    <region name="SEast">2820</region>
+    <region name="Midlands">2750</region>
+  </demand>
+  <plantdata>
+    <plant name="Corby">
+      <capacity>3000</capacity>
+      <cost>1700</cost>
+    </plant>
+    <plant name="Deeside">
+      <capacity>2700</capacity>
+      <cost>1600</cost>
+    </plant>
+    <plant name="Glasgow">
+      <capacity>4500</capacity>
+      <cost>2000</cost>
+    </plant>
+    <plant name="Oxford">
+      <capacity>4000</capacity>
+      <cost>2100</cost>
+    </plant>
+  </plantdata>
+  <routes>
+    <route from="Corby" to="North" capacity="1000" distance="400"/>
+    <route from="Corby" to="SWest" capacity="1000" distance="400"/>
+    <route from="Corby" to="SEast" capacity="1000" distance="300"/>
+    <route from="Corby" to="Midlands" capacity="2000" distance="100"/>
+    <route from="Deeside" to="Scotland" capacity="1000" distance="500"/>
+    <route from="Deeside" to="North" capacity="2000" distance="200"/>
+    <route from="Deeside" to="SWest" capacity="1000" distance="200"/>
+    <route from="Deeside" to="SEast" capacity="1000" distance="200"/>
+    <route from="Deeside" to="Midlands" capacity="300" distance="400"/>
+    <route from="Glasgow" to="Scotland" capacity="3000" distance="200"/>
+    <route from="Glasgow" to="North" capacity="2000" distance="400"/>
+    <route from="Glasgow" to="SWest" capacity="1000" distance="500"/>
+    <route from="Glasgow" to="SEast" capacity="200" distance="900"/>
+    <route from="Oxford" to="North" capacity="2000" distance="600"/>
+    <route from="Oxford" to="SWest" capacity="2000" distance="300"/>
+    <route from="Oxford" to="SEast" capacity="2000" distance="200"/>
+    <route from="Oxford" to="Midlands" capacity="500" distance="400"/>
+  </routes>
+</transport>

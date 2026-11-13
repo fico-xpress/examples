@@ -1,0 +1,168 @@
+(!*********************************************************************
+   Mosel Example Problems
+   ======================
+
+   file bench102.mos
+   `````````````````
+   ParkBench production problem - MIP version 
+   Assumption: stock charged for at end of quarter
+   
+     Solution to exercise 10.2 in section 10.9 of
+     J. Kallrath: Business Optimization Using Mathematical Programming -
+     An Introduction with Case Studies and Solutions in Various Algebraic 
+     Modeling Languages. 2nd edition, Springer Nature, Cham, 2021 
+
+   author: S. Heipcke, June 2018
+
+   (c) Copyright 2020 Fair Isaac Corporation
+  
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+*********************************************************************!)
+
+model 'bench102'
+  uses "mmxprs", "mmsystem"
+  parameters
+    PART2= 1          ! Set this to 1 if part2, else 0
+  end-parameters
+
+  declarations
+    NB= 2             ! Number of benches
+    NQ= 4             ! Number of time periods
+    RQ=1..NQ          ! Time periods
+    RB=1..NB          ! Benches
+    RR={"beech", "steel", "labour"}  ! Raw materials         
+
+    revenue: mpvar   ! Revenue from selling benches
+    cost: mpvar      ! Cost of making benches, assuming all beech at high price
+    make: array(RB,RQ) of mpvar   ! Number of b made in quarter q
+    sell: array(RB,RQ) of mpvar   ! Number of b sold in quarter q
+    stck: array(RB,RQ) of mpvar   ! Number of b in stock at end of quarter q
+ 
+    saving: mpvar                 ! Savings made from buying cheap beech
+    bchhi: array(RQ) of mpvar     ! Amount of beech bought in quarter q at high price
+    bchlo: array(RQ) of mpvar     ! amount of beech bought in quarter q at low price
+    iflo: array(RQ) of mpvar      ! =1 if some beech bought at low price
+  end-declarations
+
+  declarations
+    SP: array(RB,RQ) of real      ! Selling price of b in quarter q
+    RMCOST: array(RR,RQ) of real  ! Raw material cost of r in quarter q
+    AVAILL: array(RQ) of real     ! Availability of labour (raw material 3) in quarter q
+    REQ: array(RB,RR) of real     ! Requirement of b for raw material r
+    DMND: array(RB,RQ) of real    ! Maximum number of b that can be sold in q
+    OSTOCK: array(RB) of real     ! Opening stock
+    MFGCOST: array(RB,RQ) of real ! Cost of making b in quarter q at high beech price
+ 
+    BREAKP: array(RQ) of real     ! Breakpoint from high to low beech price
+    BCOSTLO: array(RQ) of real    ! Lower beech price
+    MXB: array(RQ) of real        ! Maximum beechwood that could be bought
+  end-declarations
+
+  SP::(1..2,1..4)[850, 890, 860, 750,
+                 1050,1200, 900, 810]
+
+  RMCOST::("beech",1..4)[ 28, 34, 22, 18]   
+  RMCOST::("steel",1..4)[100,100,100,100] 
+  RMCOST::("labour",1..4)[90, 90, 90, 90]     
+
+  AVAILL::(1..4)[48, 42, 23, 46]
+
+  REQ::(1..2,["beech", "steel", "labour"])[14.2, 1.83, 1,
+                                           22.4, 1.94, 1.26]
+  DMND::(1..2,1..4)[10, 20, 30, 10,
+                     8, 25, 30, 5]
+  OSTOCK::(1..2)[2, 4]
+
+  if PART2 > 0 then
+    BREAKP::(1..4)[300, 500, 350, 250]
+    BCOSTLO::(1..4)[20, 25, 20, 15]
+  end-if
+
+  forall(b in RB,q in RQ)
+    MFGCOST(b,q):= sum(r in RR) RMCOST(r,b)*REQ(b,r)
+
+  if PART2 > 0 then
+    forall(q in RQ) MXB(q):= 4000               ! Lazy BOB
+  end-if
+
+ ! Objective function: total profit
+  if PART2 > 0 then
+    Saving:= saving = sum(q in RQ)(RMCOST("beech",q) - BCOSTLO(q))*bchlo(q)
+    Profit:= revenue - cost + saving
+  else
+    Profit:= revenue - cost
+  end-if
+
+  Rev:= revenue = sum(b in RB,q in RQ) SP(b,q)*sell(b,q)
+
+  Cost:= cost = sum(b in RB,q in RQ) MFGCOST(b,q)*make(b,q) +
+                   sum(b in RB,q in RQ) 82*stck(b,q)
+
+ ! Stock balance
+  forall(b in RB,q in 2..NQ)
+    Bal(b,q):= stck(b,q) = stck(b,q-1) + make(b,q) - sell(b,q)
+  forall(b in RB,q=1)
+    Bl1(b,q):= stck(b,q) = OSTOCK(b) + make(b,q) - sell(b,q)
+
+ ! Maximum stock one can have is 10 units
+  forall(q in RQ)
+    Mxstock(q):= sum(b in RB) stck(b,q)<= 10
+
+ ! Labour availability
+  forall(q in RQ)
+    Lab(q):= sum(b in RB) REQ(b,"labour") * make(b,q)<= AVAILL(q)
+
+ ! The tricky stuff:  bchhi+bchlo = total beech used.
+ ! If we get some at cheap price (iflo==1) we must have bchhi=BREAK.
+ ! If iflo==0 then bchlo must be 0.
+  if PART2 > 0 then
+    forall(q in RQ)
+      Bch(q):= bchlo(q) + bchhi(q) = sum(b in RB) REQ(b,"beech")*make(b,q)
+    forall(q in RQ) BUp(q):= bchhi(q)>= BREAKP(q)*iflo(q)
+    forall(q in RQ) BLo(q):= bchlo(q)<= MXB(q)*iflo(q)
+
+    forall(q in RQ) bchhi(q)<= BREAKP(q)
+    forall(q in RQ) iflo(q) is_binary
+  end-if
+
+ ! Cannot sell more than demand
+  forall(b in RB,q in RQ) sell(b,q)<= DMND(b,q)
+
+ ! Closing stock = opening stock
+  forall(b in RB) stck(b,NQ) = OSTOCK(b)
+
+ ! Solve the problem
+  maximise(Profit)
+  writeln("Solution: Profit=", getobjval)
+
+  writeln("Production plan: make/sell (stock)")
+  forall(b in RB) do
+    write("Bench ", b, ":    (", OSTOCK(b),")  ")
+    forall(q in RQ)
+      write(formattext("%4.1f/%4.1f (%4.1f)  ", 
+            make(b,q).sol, sell(b,q).sol, stck(b,q).sol))
+    writeln
+  end-do
+
+  if PART2 > 0 then
+    writeln("Amounts of beech wood bought:")
+    write("high price: ")
+    forall(q in RQ) write(strfmt( bchhi(q).sol,8,1))
+    write("\nlow price:  ")
+    forall(q in RQ) write(strfmt( bchlo(q).sol,8,1))
+    write("\nsaving:     ")
+    forall(q in RQ) write(strfmt( getsol((RMCOST("beech",q)-BCOSTLO(q))*bchlo(q)),8,1))
+    writeln
+  end-if
+end-model

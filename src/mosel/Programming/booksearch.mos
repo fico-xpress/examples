@@ -1,0 +1,74 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file booksearch.mos
+   ```````````````````
+   Retrieving information from an XML database file.
+   
+  (c) 2010 Fair Isaac Corporation
+      author: S.Heipcke, July 2010, rev. Sep 2012
+*******************************************************!)
+
+model "Search book examples"
+ uses "mmxml"
+ 
+ declarations
+   ExampleDB: xmldoc
+   Chapters, Models, Ratings, Files: list of integer 
+ end-declarations
+
+! Read in the XML file
+ load(ExampleDB, "bookexamples.xml")          
+
+
+! **** Get all chapters 
+ getnodes(ExampleDB, "/examples/chapter", Chapters)
+ writeln("Chapter titles:\n  ", 
+         union(c in Chapters) {getattr(ExampleDB, c, "title")})
+
+
+! **** Search for all difficult examples (difficulty rating 4 or larger)
+ writeln("Difficult examples:")
+ getnodes(ExampleDB, "/examples/chapter/model/modRating[number()>=4]", Ratings)
+ forall(r in Ratings) do
+   m:=getparent(ExampleDB, r)
+   t:=getnode(ExampleDB, m, "modTitle")
+   writeln("  Example: ", getattr(ExampleDB, m, "id"), " ",
+           getvalue(ExampleDB, t), " (rating: ",
+           getvalue(ExampleDB, r), ")")
+ end-do
+
+(! Alternatively: 
+ getnodes(ExampleDB, "//model/modRating[number()>=4]/..", Models)
+ forall(e in Models) do
+   t:=getnode(ExampleDB, e, "modTitle")
+   writeln("  Example: ", getattr(ExampleDB, e, "id"), " ",
+           getvalue(ExampleDB, t), " (rating: ",
+           getvalue(ExampleDB, getnode(ExampleDB, e, "modRating")), ")")
+ end-do
+!)
+
+
+! **** Search for all model files where "SOS" is mentioned among features
+ writeln("Models using SOS:")
+ forall(c in Chapters) do
+   getnodes(ExampleDB, c,
+            "model/modFeatures[contains(string(),'SOS')]/../modFile", Files)
+   forall(f in Files)
+      writeln("  File: ", getattr(ExampleDB, c, "directory"), "/",
+              getvalue(ExampleDB, f))
+ end-do
+
+
+! **** Search for all examples with several model files
+ writeln("Examples with several model files:")
+ getnodes(ExampleDB, 
+          "/examples/chapter/model/modFile[position()=2]/..", Models)
+ forall(e in Models) do
+   getnodes(ExampleDB, e, "modFile[position()>2]", Files)
+   writeln("  Example: ", getattr(ExampleDB, e, "id"), " (",
+           2+Files.size, " files)")
+ end-do
+ 
+end-model 

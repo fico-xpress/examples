@@ -1,0 +1,121 @@
+(!*******************************************************
+   Mosel Example Problems
+   ======================
+
+   file bintree.mos
+   ````````````````
+   a package that provides the functionality for
+   handling binary trees
+
+   (c) 2021 Fair Isaac Corporation
+       author: Y. Colombani, 2006
+  *******************************************************!)
+package bintree
+
+declarations
+ public btree_node=record
+       value:real
+       left,right:integer
+      end-record
+ public tree=dynamic array(range) of btree_node
+end-declarations
+
+forward procedure show(t:tree,n:integer)
+forward procedure makelist(t:tree,n:integer,l:list of real)
+
+!**************************************************************
+!* Public declarations
+!**************************************************************
+
+!**************************
+! Insert a value in a tree
+!**************************
+public procedure insert(t:tree,v:real)
+ if t.size > 0 then
+  j:=1
+  repeat
+   p_j:=j
+   j:=if(t(j).value > v , t(j).left,t(j).right)
+  until (j=0)
+  if t(p_j).value <> v then
+   with lastnode=t.size+1 do
+    t(lastnode).value:=v
+    if t(p_j).value > v then
+     t(p_j).left:=lastnode
+    else
+     t(p_j).right:=lastnode
+    end-if
+   end-do
+  end-if
+ else
+  t(1).value:=v
+ end-if
+end-procedure
+
+!***************************************************
+! Check whether a value is already stored in a tree
+!***************************************************
+public function find(t:tree,v:real):boolean
+ if t.size > 0 then
+  j:=1
+  repeat
+   if t(j).value > v then
+    j:=t(j).left
+   elif t(j).value < v then
+    j:=t(j).right
+   else
+    break
+   end-if
+  until (j=0)
+  returned:= j<>0
+ else
+  returned:=false
+ end-if
+end-function
+
+!*****************
+!* Display a tree
+!*****************
+public procedure show(t:tree)
+ write("<")
+  if t.size > 0 then
+   show(t,1)
+  end-if
+ writeln(" >")
+end-procedure
+
+!*************************************************
+!* Return the sorted list of all values of a tree
+!*************************************************
+public function tolist(t:tree):list of real
+  if t.size > 0 then
+   makelist(t,1,returned)
+  end-if
+end-function
+
+!**************************************************************
+!* Private declarations
+!**************************************************************
+!********************
+!* Display a subtree
+!********************
+procedure show(t:tree,n:integer)
+ if n > 0 then
+  show(t,t(n).left)
+  write(" ",t(n).value)
+  show(t,t(n).right)
+ end-if
+end-procedure
+
+!*****************************
+!* Append a subtree to a list
+!*****************************
+procedure makelist(t:tree,n:integer,l:list of real)
+ if n > 0 then
+  makelist(t,t(n).left,l)
+  l+=[t(n).value]
+  makelist(t,t(n).right,l)
+ end-if
+end-procedure
+
+end-package

@@ -1,0 +1,51 @@
+(!*******************************************************
+  * Mosel Example Problems                              *
+  * ======================                              *
+  *                                                     *
+  * file burglari.mos                                   *
+  * `````````````````                                   *
+  * Example for the use of the Mosel language           *
+  * (Burglar problem)                                   *
+  *                                                     *
+  * (c) 2008 Fair Isaac Corporation                     *
+  *     author: S. Heipcke, 2001                        *
+  *******************************************************!)
+
+model "Burglar (index set)"         ! Start a new model
+
+uses "mmxprs"                       ! Load the optimizer library
+
+declarations
+ Items={"camera", "necklace", "vase", "picture", "tv", "video",
+        "chest", "brick"}           ! Index set for items
+
+ VALUE: array(Items) of real        ! Value of items
+ WEIGHT: array(Items) of real       ! Weight of items
+ WTMAX=102                          ! Max weight allowed for haul
+
+ x: array(Items) of mpvar           ! 1 if we take item i; 0 otherwise
+end-declarations
+
+ VALUE("camera")  := 15;  WEIGHT("camera")  :=  2
+ VALUE("necklace"):=100;  WEIGHT("necklace"):= 20
+ VALUE("vase")    := 90;  WEIGHT("vase")    := 20
+ VALUE("picture") := 60;  WEIGHT("picture") := 30
+ VALUE("tv")      := 40;  WEIGHT("tv")      := 40
+ VALUE("video")   := 15;  WEIGHT("video")   := 30
+ VALUE("chest")   := 10;  WEIGHT("chest")   := 60
+ VALUE("brick")   :=  1;  WEIGHT("brick")   := 10
+ 
+ MaxVal:= sum(i in Items) VALUE(i)*x(i)  ! Objective: maximize total value
+
+                                    ! Weight restriction
+ WtMax:= sum(i in Items) WEIGHT(i)*x(i) <= WTMAX 
+
+ forall(i in Items) x(i) is_binary  ! All x are 0/1
+  
+ maximize(MaxVal)                   ! Solve the MIP-problem
+
+                                    ! Print out the solution
+ writeln("Solution:\n Objective: ", getobjval)
+ forall(i in Items)  writeln(" x(", i, "): ", x(i).sol)
+
+end-model

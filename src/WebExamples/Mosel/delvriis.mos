@@ -1,0 +1,107 @@
+(!*******************************************************
+  Mosel Example Problems
+  ======================
+
+  file delvriis.mos
+  `````````````````
+  Transportation problem (infeasible data).
+  Retrieving and printing IIS.
+
+  (c) 2008 Fair Isaac Corporation
+      author: S.Heipcke, 2007, rev. Feb. 2024
+*********************************************************!)
+
+model Delivery                      ! Start a new model
+ uses "mmxprs","mmetc"              ! Load the optimizer and ETC libraries
+
+ public declarations
+  RSupp = 1..10                     ! Range of suppliers
+  RCust = 1..7                      ! Range of customers
+  VANCAP = 40                       ! Capacity on routes that use vans
+
+  COST: array(RSupp,RCust) of real  ! Unit delivery cost on route supplier 
+                                    ! -> customer
+  SUPPLY: array(RSupp) of real      ! Amount available from each supplier
+  DEMAND: array(RCust) of real      ! Amount required by each customer
+  IFVAN: array(RSupp,RCust) of integer    ! Non-zero if route uses vans 
+                                          ! instead of lorries
+
+  flow: array(RSupp,RCust) of mpvar       ! Amount delivered from each 
+                                          ! supplier s to each customer c
+  Demand: dynamic array(RCust) of linctr  ! Demand qty constraints
+  Supply: dynamic array(RSupp) of linctr  ! Supply limit constraints
+ end-declarations
+
+                                    ! Read data from file (dense format)
+ diskdata(ETC_IN, "cost.dat", COST)
+ diskdata(ETC_IN, "ifvan.dat", IFVAN)
+
+                                    ! Assign some data arrays
+! Supplier:     London  Luton  B'ham Bristl  Derby Stckpt   York
+ SUPPLY:: (1..7)[140.0, 200.0,  50.0,  10.0, 400.0, 200.0,  20.0]
+! Supplier:      Derby  Soton Scnthp
+ SUPPLY:: (8..10)[90.0,  30.0,  12.0]
+
+! Customer: London Livpol Doncst   York   Hull  Manchr Shffld
+ DEMAND::  [1230.3, 560.4, 117.1, 592.8, 310.0, 1247.0,  86.0]
+
+                                    ! Objective: Minimise total cost
+ MinCost:= sum(s in RSupp,c in RCust) COST(s,c)*flow(s,c)
+
+                                    ! Satisfy demand of each customer
+ forall(c in RCust | c<=4)
+   Demand(c):= sum(s in RSupp | s<=5) flow(s,c) >= DEMAND(c)
+ forall(c in RCust | c>4)
+   Demand(c):= sum(s in RSupp | s>5) flow(s,c) >= DEMAND(c)
+
+                                    ! Keep within supply at each supplier
+ forall(s in RSupp | s<=5)
+   Supply(s):= sum(c in RCust | c<=4) flow(s,c) <= SUPPLY(s)
+ forall(s in RSupp | s>5)
+   Supply(s):= sum(c in RCust | c>4) flow(s,c) <= SUPPLY(s)
+
+ forall(s in RSupp,c in RCust| IFVAN(s,c) <> 0) flow(s,c) <= VANCAP
+
+ minimise(MinCost)                  ! Solve the LP-problem
+
+! **** Print out the IIS ****
+ declarations
+  V: set of mpvar
+  C: set of linctr
+  Ctype,Btype,Vtype: array(integer) of string
+  BndType: dynamic array(mpvar) of integer
+  CtrType: dynamic array(linctr) of integer
+end-declarations
+ Ctype::([XPRS_IIS_LEQ, XPRS_IIS_GEQ, XPRS_IIS_EQ , XPRS_IIS_SOS1, XPRS_IIS_SOS2, 
+          XPRS_IIS_INDIC])["<=",">=","=","SOS1","SOS2","->"]
+ Btype::([XPRS_IIS_LEQ, XPRS_IIS_GEQ, XPRS_IIS_RNG, XPRS_IIS_EQ])["upper bd","lower bd","range","fixed"]
+ Vtype::([XPRS_IIS_BIN, XPRS_IIS_INT, XPRS_IIS_PINT, XPRS_IIS_SEC, XPRS_IIS_SINT])
+         ["binary","integer","partial int","semi-cont","semi-cont int"]
+
+ if getprobstat=XPRS_INF then
+ (! Optionally calculate the IIS approximation (only for LP): a quick method
+    not using the IIS algorithm, it usually results in a larger set than IIS; 
+    don't use this form if the actual IIS are sought
+   getiis(0, V, C)                  ! Retrieve the IIS approximation
+   writeln("IIS approximation")
+   write("  variables: "); forall(v in V) write(getname(v), " "); writeln
+   write("  constraints: "); forall(c in C) write(getname(c), " "); writeln
+ !)
+
+   getiis({},{})                    ! Generate all IIS
+   numiis:= getparam("XPRS_NUMIIS") ! Retrieve the total number of IIS
+   writeln("Total IIS:", numiis)
+   forall(i in 1..numiis) do
+     getiis(i, V, C)                ! Retrieve the i'th IIS
+     delcell(BndType); getiis(i, BndType)
+     delcell(CtrType); getiis(i, CtrType)
+     writeln("IIS ", i)
+     write("  variables: ")
+     forall(v in V) write(getname(v), "[", Btype(getiissense(BndType(v))), 
+       " ", Vtype(getiistype(BndType(v))), "] "); writeln
+     write("  constraints: "); 
+     forall(c in C) write(getname(c), "[", Ctype(CtrType(c)),"] "); writeln
+   end-do
+ end-if
+  
+end-model

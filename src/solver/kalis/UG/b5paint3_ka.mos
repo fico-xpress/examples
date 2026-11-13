@@ -1,0 +1,64 @@
+(!******************************************************
+   CP Example Problems
+   ===================
+
+   file b5paint3_ka.mos
+   ````````````````````
+   Planning of paint production
+   (See "Applications of optimization with Xpress-MP",
+        Section 7.5 Paint production)
+   - Formulation using 'cycle' constraint -
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+       Creation: 2006, rev. Apr. 2022              
+*******************************************************!)
+
+model "B-5 Paint production (CP)"
+ uses "kalis", "mmsystem"
+
+ setparam("KALIS_DEFAULT_LB", 0)
+
+ declarations
+  NJ = 5                             ! Number of paint batches (=jobs)
+  JOBS=0..NJ-1
+
+  DUR: array(JOBS) of integer        ! Durations of jobs
+  CLEAN: array(JOBS,JOBS) of integer ! Cleaning times between jobs
+
+  succ: array(JOBS) of cpvar         ! Successor of a batch
+  cleanTime,cycleTime: cpvar         ! Durations of cleaning / complete cycle
+ end-declarations
+
+ initializations from 'Data/b5paint.dat'
+  DUR CLEAN 
+ end-initializations
+ 
+ forall(j in JOBS) do
+  0 <= succ(j); succ(j) <= NJ-1; succ(j) <> j
+ end-do
+
+! Assign values to 'succ' variables as to obtain a single cycle
+! 'cleanTime' is the sum of the cleaning times
+ cycle(succ, cleanTime, CLEAN)
+ 
+! Objective: minimize the duration of a production cycle
+ cycleTime = cleanTime +sum(j in JOBS) DUR(j)
+
+! Solve the problem
+ if not cp_minimize(cycleTime) then
+  writeln("Problem is infeasible")
+  exit(1)
+ end-if
+ cp_show_stats
+
+! Solution printing
+ writeln("Minimum cycle time: ", getsol(cycleTime))
+ writeln("Sequence of batches:\nBatch Duration Cleaning")
+ first:=1 
+ repeat
+  writeln(formattext("  %d%8d%9d", first, DUR(first),
+          CLEAN(first,succ(first).sol)) )
+  first:=getsol(succ(first))
+ until (first=1)
+
+end-model

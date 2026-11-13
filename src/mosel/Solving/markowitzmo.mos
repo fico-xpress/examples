@@ -1,0 +1,111 @@
+(!*******************************************************
+   Mosel Example Problems
+   ======================
+
+   file markowitzmo.mos
+   ````````````````````
+    Markowitz portfolio optimization
+    A multi-objective quadratic programming example
+    -- Display of the optimal frontier as SVG graph --
+
+    In Markowitz portfolio optimization there are two objectives: 
+    to maximize reward while minimizing risk (i.e. variance). 
+    This example plots several points on the optimal frontier using 
+    a blended multi-objective approach, and shows that a point
+    computed using a lexicographic approach also lies on this frontier.
+
+   (c) 2022 Fair Isaac Corporation
+       author: S. Heipcke, June 2022
+  *******************************************************!)
+model "markowitzmo (SVG)"
+ uses "mmxnlp", "mmsvg"
+
+ declarations
+  STOCKS = 1..5                      ! Set of 5 stocks
+  RET: array(STOCKS) of real         ! Historical mean return on investment 
+  COV: array(STOCKS,STOCKS) of real  ! Historical covariances of the stocks
+  x: array(STOCKS) of mpvar          ! Percentage of capital to invest in stocks
+  Goals: list of linctr or nlctr     ! Objective functions
+  ObjCfg: list of objconfig          ! Configuration of objectives 
+ end-declarations
+
+ RET::[0.31, 0.87, 0.31, 0.66, 0.24]
+ COV::[0.32,  0.70,  0.19,  0.52,  0.16,
+       0.70,  4.35, -0.48, -0.06, -0.03,
+       0.19, -0.48,  0.98,  1.10,  0.10,
+       0.52, -0.6,   1.10,  2.48,  0.37,
+       0.16, -0.3,   0.10,  0.37,  0.31]
+
+! Constraints:
+! Must invest 100% of capital
+ sum(i in STOCKS) x(i) = 1
+
+! Objectives:
+! Total expected return
+ Return:= sum(i in STOCKS) RET(i)*x(i)
+ Variance:= sum(i,j in STOCKS) x(i)*x(j)*COV(i,j)
+! List of objectives
+ Goals:=[Return, Variance]
+
+! setparam("XPRS_VERBOSE", true)
+
+! Vary the objective weights to explore the optimal frontier
+ declarations
+   POINTS: range
+   SOLMEAN: array(POINTS) of real
+   SOLVAR: array(POINTS) of real
+ end-declarations
+ SCALEX:=10
+
+ forall(p in 0..20, w=p/20.0+if(p=0,0.0001,if(p=20,-0.0001,0))) do
+  ! Negative weight to minimize variance
+  ! maximize(Goals,[objconfig(0,w),objconfig(0,w-1)])
+ ! Same as:
+   maximize(Goals,[objconfig("weight",w),objconfig("weight",w-1)])
+   if getprobstat=XPRS_OPT then
+     SOLMEAN(p):=Return.sol
+     SOLVAR(p):=Variance.sol
+     writeln("Solution for w=", w, ": ", SOLMEAN(p), " / ", SOLVAR(p))
+   else
+     writeln("No solution for w=", w)
+   end-if
+ end-do
+
+! Now we will maximize profit alone, and then minimize variance while not
+! sacrificing more than 10% of the maximum profit
+ ObjCfg:=[objconfig("priority=1 weight=1 reltol=0.1"), 
+          objconfig("priority=0 weight=-1")]
+! Same as:
+! ObjCfg:=[objconfig(1,1,0.001,0.1), objconfig(0,-1)]
+! or:
+! ObjCfg:=[objconfig(1,1,0.001,0.1), objconfig("weight",-1)]
+!)
+ maximize(Goals,ObjCfg)
+ m0:=Return.sol
+ v0:=Variance.sol
+ writeln("Solution for config=", ObjCfg, ":\n", strfmt("",20), m0, " / ", v0)
+
+! Plot the optimal frontier and mark the individual point that we calculated
+ svgaddgroup("GrS", "Variance vs mean return", 'grey')
+ svgsetstyle(SVG_STROKEWIDTH, 0.25)
+ svgaddgroup("GrM", "Max profit, then variance", 'darkred')
+
+ forall(p in POINTS) svgaddpoint("GrS", SOLMEAN(p)*SCALEX, SOLVAR(p))
+ svgaddline("GrS", sum(p in POINTS) [SOLMEAN(p)*SCALEX, SOLVAR(p)])
+
+ svgaddpoint("GrM", m0*SCALEX,v0)
+ svgaddtext("GrS",0.5,8, 'Return on investment vs variance')
+ svgsetstyle(svggetlastobj, SVG_COLOR, SVG_BLACK)
+ svgsetstyle(svggetlastobj, SVG_FONTSIZE, "5px")
+ svgsetgraphscale(10)
+ svgsetgraphviewbox(0,0,9,9)
+ svgsetgraphpointsize(0.5)
+ svgsetgraphlabels('Expected return', 'Variance')
+
+! Optionally save graphic to file
+ svgsave("markowitz.svg")
+
+! Display the graph and wait for window to be closed by the user 
+ svgrefresh
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+end-model

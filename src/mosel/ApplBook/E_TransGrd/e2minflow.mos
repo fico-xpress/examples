@@ -1,0 +1,72 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file e2minflow.mos
+   ``````````````````
+   Choosing the mode of transport (Minimum cost flow)
+   
+   A company needs to transport chemical products stores in
+   4 depots to 3 recycling centers by road or rail. Each depot
+   transports to only specific recycling centers with varying
+   cost per available transportation types. A single rail delivery
+   must be between 10 and 50 tons. How should the company
+   transport 180 tons of chemicals to minimize the total 
+   transport cost?
+   
+   This contains the classical problem of coding a graph through 
+   an N x N matrix with flow across arcs between pairs of nodes.
+   The set of 'NODES' is the union of all nodes connected by elements
+   in 'ARCS'.
+
+   (c) 2008-2022 Fair Isaac Corporation
+       author: S. Heipcke, Mar. 2002, rev. Mar. 2022
+*******************************************************!)
+
+model "E-2 Minimum cost flow"
+ uses "mmxprs", "mmsystem"
+
+ declarations
+  NODES: set of string                  ! Set of nodes
+  MINQ : integer                        ! Total quantity to transport
+  A: array(ARCS:range,1..2) of string   ! Arcs
+  COST: array(ARCS) of integer          ! Transport cost on arcs
+  MINCAP,MAXCAP: array(ARCS) of integer ! Minimum and maximum arc capacities
+ end-declarations
+
+ initializations from 'e2minflow.dat'
+  A MINQ MINCAP MAXCAP COST
+ end-initializations
+
+! Calculate the set of nodes
+ NODES:=union(a in ARCS) {A(a,1),A(a,2)}
+
+ declarations
+  flow: array(ARCS) of mpvar            ! Flow on arcs
+ end-declarations
+
+! Objective: total transport cost
+ Cost:= sum(a in ARCS) COST(a)*flow(a)
+
+! Flow balance: inflow equals outflow
+ forall(n in NODES | n<>"SOURCE" and n<>"SINK")
+  sum(a in ARCS | A(a,2)=n) flow(a) = sum(a in ARCS | A(a,1)=n) flow(a)
+   
+! Min and max flow capacities
+ forall(a in ARCS | MAXCAP(a) > 0) do
+  flow(a) >= MINCAP(a)
+  flow(a) <= MAXCAP(a)
+ end-do
+  
+! Minimum total quantity to transport
+ sum(a in ARCS | A(a,1)="SOURCE" ) flow(a) >= MINQ
+
+! Solve the problem
+ minimize(Cost)
+ 
+! Solution printing
+ writeln("Total cost: ", getobjval)
+ forall(a in ARCS | flow(a).sol>0)
+  writeln(formattext("%7s -> %-7s: %g", A(a,1), A(a,2), getsol(flow(a))))
+
+end-model

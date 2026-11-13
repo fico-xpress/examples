@@ -1,0 +1,66 @@
+<!--
+  Xpress Insight Portfolio Optimization example
+  Copyright (c) 2020-2023 Fair Isaac Corporation. All rights reserved.
+-->
+<vdl version="5">
+    <vdl-page>
+        <vdl-header>
+            <vdl-action-group name="action_group_1">
+                <vdl-action-execute></vdl-action-execute>
+            </vdl-action-group>
+            <vdl-action-group name="action_group_2">
+                <vdl-action-execute mode="CUSTOM_RUN"></vdl-action-execute>
+            </vdl-action-group>
+        </vdl-header>
+        <vdl-section heading-level="1" layout="fluid">
+            <vdl-row>
+                <vdl-column heading="Input data" size="5">
+                    <vdl-table page-mode="paged" page-size="5">
+                        <vdl-table-column set="ShareIds" width="150px"></vdl-table-column>
+                        <vdl-table-column entity="Shares_HighRisk" width="20%"></vdl-table-column>
+                        <vdl-table-column entity="Shares_NorthAmerica" width="20%"></vdl-table-column>
+                        <vdl-table-column entity="Shares_Return" editable="true"></vdl-table-column>
+                    </vdl-table>
+                </vdl-column>
+                <vdl-column heading="Configuration" size="5">
+                    <vdl-form>
+                        <vdl-field entity="MaxPerShare" size="4"></vdl-field>
+                        <vdl-field entity="MaxHighRisk" size="4"></vdl-field>
+                        <vdl-field entity="MinNorthAmerica" size="4"></vdl-field>
+                    </vdl-form>
+                    <vdl-button vdl-event="click:actions.action_group_1" label="RUN OPTIMIZATION"></vdl-button>
+                </vdl-column>
+            </vdl-row>
+            <vdl-row>
+                <vdl-column heading="PARTIAL RESULTS">
+                    <vdl-button vdl-event="click:actions.action_group_2" label="CALCULATE RETURN HIGH-RISK vs LOW-RISK"></vdl-button>
+                    <vdl-container>
+                        <span vdl-text="Average expected return high-risk shares: "></span>
+                        <span vdl-text="=insight.Formatter.formatNumber(scenario.entities.ReturnHighRisk.value,'$ 0.##')"></span>
+                    </vdl-container>
+                    <vdl-container>
+                        <span vdl-text="Average expected return low-risk shares: "></span>
+                        <span vdl-text="=insight.Formatter.formatNumber(scenario.entities.ReturnLowRisk.value,'$ 0.##')"></span>
+                    </vdl-container>
+                </vdl-column>
+            </vdl-row>
+            <vdl-row vdl-if="=scenario.summaryData.hasResultData">
+                <vdl-column heading="Results" size="5">
+                    <vdl-container><span vdl-text="Calculated optimal return: "></span><span vdl-text="=insight.Formatter.formatNumber(scenario.entities.TotalReturn.value,'$00.##')"></span></vdl-container>
+                    <vdl-table>
+                        <vdl-table-column set="ShareIds" width="150px"></vdl-table-column>
+                        <vdl-table-column entity="Shares_fraction"></vdl-table-column>
+                    </vdl-table>
+                </vdl-column>
+                <vdl-column heading="Scenario Comparison" size="7">
+                    <vdl-chart>
+                        <vdl-chart-series entity="Shares_fraction" scenario="=i" vdl-repeat="=s, i in scenarios"></vdl-chart-series>
+                    </vdl-chart>
+                </vdl-column>
+            </vdl-row>
+            <vdl-row vdl-if="=!scenario.summaryData.hasResultData">
+                <vdl-column heading="No results - run optimization"></vdl-column>
+            </vdl-row>
+        </vdl-section>
+    </vdl-page>
+</vdl>

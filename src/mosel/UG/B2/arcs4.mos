@@ -1,0 +1,58 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file arcs4.mos
+   ``````````````
+   Working with records.
+   - Sets and lists of records -
+   - Using type constructors -
+   
+   (c) 2011 Fair Isaac Corporation
+       author: S. Heipcke, May 2011, rev. Sep. 2018
+*******************************************************!)
+
+model "Arcs"
+
+ public declarations
+  NODES: list of string                 ! List of nodes
+  arc = public record                   ! Arcs:
+   Source,Sink: string                  !   Source and sink of arc
+   Cost: real                           !   Cost coefficient
+  end-record 
+  ARCS: set of arc  
+  ARCLIST: list of arc  
+ end-declarations
+
+ function newarc(s,t:string, c:real): arc
+  returned.Source:=s
+  returned.Sink:=t
+  returned.Cost:=c
+ end-function
+
+ NODES:=['A','B','C','D','E','F']
+
+ forall(j in NODES) do
+  ARCS += {newarc("","",0)}   ! Creates several (distinct) set elements of the same contents
+! Same as:
+!  ARCS += {arc(.Cost:=0)}
+ end-do 
+ 
+ writeln(ARCS)
+
+ i:='S'; ct:=0
+ forall(j in NODES, ct as counter) do
+  ARCLIST+= [arc(.Source:=i,.Sink:=j,.Cost:=10*ct)]
+! Same as:
+! ARCLIST += {newarc(i,j,10*ct)}
+  i:=j
+ end-do 
+ 
+ writeln(ARCLIST)
+
+ ! Initializing selected record fields
+ writeln(arc(.Source:="S"))
+ writeln(arc(.Sink:="Z"))
+ writeln(arc(.Cost:=100,.Source:="XYZ"))
+
+end-model 

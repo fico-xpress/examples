@@ -1,0 +1,78 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file prodmix.mos
+   ````````````````
+   TYPE:         Product mix (single period production planning)
+   DIFFICULTY:   1
+   FEATURES:     simple LP problem
+   DESCRIPTION:  A firm has 3 workshops, each working 40 hours per week, in
+                 which it can produce two products. A unit of each product 
+                 requires a given number of hours in the workshops and a 
+                 given number of man hours. The hourly labor cost and the 
+                 unit sales prices are known. The objective is to determine 
+                 the most profitable operation.
+   FURTHER INFO: "Applications of optimization with Xpress-MP", 
+                 Section 2.3 "Simple resource constraints"
+
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2001, rev. Sep. 2017
+*******************************************************!)
+
+model Workshop
+ uses "mmxprs", "mmsvg"
+
+ declarations
+  NProd = 2                      ! Number of products
+  NShop = 3                      ! Number of workshops
+  RP = 1..NProd
+  RS = 1..NShop
+  WMAX = 40	                 ! Maximum weekly working time 
+  LABOR = 5                      ! Hourly labor cost 
+  DUR: array(RP,RS) of integer   ! Duration of product p in shop s
+  RES: array(RP) of integer      ! Man hours per unit
+  PRICE: array(RP) of integer    ! Selling price per unit 
+  make: array(RP) of mpvar       ! Amount of product p 
+ end-declarations
+
+ DUR  :: [ 5, 9, 7,
+          10, 2, 5]
+ RES  :: [10, 8]
+ PRICE:: [108, 84]
+
+                                 ! Objective: Maximize Benefit 
+ MaxBen:= sum(p in RP) (PRICE(p)-LABOR*RES(p)) * make(p)
+                              
+ forall(s in RS)                 ! Limit on weekly working hours
+  Capacity(s):= sum(p in RP) DUR(p,s)*make(p) <= WMAX
+
+ maximize(MaxBen)
+
+ writeln("Objective: ", getobjval)
+ forall(p in RP) write("Product ", p, ":", getsol(make(p)), "  ")
+ writeln
+
+ ! Draw solution
+ FACT:=5
+ forall(p in RP) do
+   svgaddgroup("P"+p, "Product "+p)
+   svgsetstyle(SVG_FILL,SVG_CURRENT)
+ end-do  
+ svgaddgroup("Cap","Capacity",SVG_RED)
+ svgaddline(FACT-1, WMAX, (RS.size+1)*FACT, WMAX)
+ forall(s in RS) do
+   cum:=0.0
+   forall(p in RP) do
+     svgaddrectangle("P"+p,s*FACT,cum,1*FACT-1,DUR(p,s)*make(p).sol)
+     cum+=DUR(p,s)*make(p).sol
+   end-do
+ end-do
+
+ svgsetgraphviewbox(0,0,(RS.size+1)*FACT, WMAX+1)
+ svgsetgraphscale(10)
+ svgsetgraphlabels("Workshops", "Resource usage")
+ svgsave("prodmix.svg")
+ svgrefresh
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+end-model

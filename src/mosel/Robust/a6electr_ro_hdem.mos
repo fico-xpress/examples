@@ -1,0 +1,185 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file a6electr_ro_hdem.mos
+   ``````````````````````````
+   Security constrained robust unit commitment under
+   load variation. The present model produces a
+   unit commitment schedule that does not require
+   startup or shutdown change as long as the realized
+   load is a convex combination of some historical
+   load expressed with the 'scenario' uncertainty set.
+  
+   Features:
+     - Using the 'scenario' uncertainty set
+     - Unit commitment robust against load variaton
+
+   Objectives:
+     - Minimize expected running cost
+     - No commitment modification if load varies
+
+   What to look at:
+     - The number of committed units per periods
+     - The power generation reserve
+     - The loss-of-load risk
+
+   source: see a6electr.mos for the original formulation
+
+   (c) 2014 Fair Isaac Corporation
+       author: S. Heipcke, Mar. 2002
+               S. Lannez, Mar. 2014
+*******************************************************!)
+
+model "A-6 Electricity production (robust)"
+ uses "mmsystem", "mmrobust"
+ 
+ declarations
+  NT = 7                              ! Number of time periods
+  TIME = 1..NT                        ! Time periods
+  PLANTS = 1..4                       ! Power generation plant
+  UNITS: set of string                ! Power generation units
+
+  LEN, DEM: array(TIME) of integer    ! Length and demand of time periods 
+  PMIN,PMAX: array(PLANTS) of integer ! Min. and max output of a generator type
+  CSTART: array(PLANTS) of integer    ! Start-up cost of a generator
+  CMIN: array(PLANTS) of integer      ! Hourly cost of gen. at min. output
+  CADD: array(PLANTS) of real         ! Cost/hour/MW of prod. above min. level
+  PLANT: array(UNITS) of integer      ! Unit generation plant
+
+  YEARS: range                        ! Historical years
+  HDEM: array(YEARS,TIME) of integer  ! Historical demand profiles
+
+  start: array(UNITS,TIME) of mpvar   ! Is generation unit starting ?
+  work: array(UNITS,TIME) of mpvar    ! Is generation unit up ?
+  padd: array(UNITS,TIME) of mpvar    ! Production above min. output level
+ end-declarations
+ 
+ initializations from 'a6electr_ro_simple.dat'
+  LEN DEM PMIN PMAX CSTART CMIN CADD PLANT HDEM
+ end-initializations 
+
+ write("\n", strfmt("Unit type",-20))
+ forall(p in PLANTS) write(strfmt(p,8),"   ")
+ write("\n", strfmt("Pmax",20))
+ forall(p in PLANTS) write(strfmt(PMAX(p),8),"  ")
+ writeln
+ writeln
+
+!***************************Subroutines***************************
+!**** Helper routine to create scenario uncertain set ****
+  public procedure makescenario(a:array(r1:range,c1:range) of integer,
+	  u:array(c2:range) of uncertain)
+    declarations
+      aa:dynamic array(r0:range,U:set of uncertain) of real  
+    end-declarations  
+    forall(i in r1, j in c1|exists(a(i,j)) and exists(u(j)),n as counter) do
+      aa(n,u(j)):=a(i,j)
+    end-do
+    scenario(aa)
+  end-procedure
+
+
+!**** Robust against past scenario ****
+ public procedure robust_demand
+   declarations
+     demand: array(TIME) of uncertain    ! Uncertain power demand
+   end-declarations
+
+  ! Add uncertainty set (time correlation)
+   makescenario(HDEM,demand)
+
+  ! Security reserve upward 
+   forall(t in TIME) sum(u in UNITS) PMAX(PLANT(u))*work(u,t) >= demand(t)
+
+ end-procedure
+
+!**** Print highest loss of load in case of worst case scenario realization
+ procedure print_risk
+   write("\n", strfmt("Loss of load",20))
+   forall(t in TIME) do
+     s:= sum(u in UNITS) (work(u,t).sol*PMAX(PLANT(u))) ! Total capacity
+     v:= maxlist(DEM(t), max(y in YEARS) HDEM(y,t))     ! Hist. peak demand
+     if(s < v) then 
+       write(strfmt(v-s,8)) 
+     else 
+       write(strfmt("",8)) 
+     end-if
+   end-do
+ end-procedure
+
+!**** Solution printing ****
+ procedure print_solution
+   writeln("Total cost: ", getobjval)
+
+   write(strfmt("Time period ",-20))
+   ct:=0
+   forall(t in TIME) do
+     write(strfmt(ct,5), "-", strfmt(ct+LEN(t),2), "")
+     ct+=LEN(t)
+   end-do 
+
+   write("\n",strfmt("Up Units",-20))
+   forall(t in TIME) write(strfmt(sum(u in UNITS) work(u,t).sol,8))
+   write("\n", strfmt("Gen. Pwr.",20))
+   forall(t in TIME)
+     write(strfmt(sum(u in UNITS) (work(u,t).sol*PMIN(PLANT(u))+padd(u,t).sol),8))
+   write("\n", strfmt("Gen. Cap.",20))
+   forall(t in TIME)
+     write(strfmt(sum(u in UNITS) (work(u,t).sol*PMAX(PLANT(u))),8))
+   write("\n", strfmt("Res. Dn",20))
+   forall(t in TIME) write(strfmt(sum(u in UNITS) (padd(u,t).sol),8))
+   write("\n", strfmt("Res. Up",20))
+   forall(t in TIME)
+     write(strfmt(sum(u in UNITS) work(u,t).sol*PMAX(PLANT(u)) - DEM(t),8))
+
+   print_risk	    
+   writeln	  
+ end-procedure
+
+!***************************Main model***************************
+! Create decision variables 
+ forall(u in UNITS, t in TIME) do
+  start(u,t) is_binary
+  work(u,t) is_binary
+ end-do
+
+! Objective function: total daily cost 
+ Cost:= sum(u in UNITS, t in TIME) (CSTART(PLANT(u))*start(u,t) +
+  LEN(t)*(CMIN(PLANT(u))*work(u,t) + CADD(PLANT(u))*padd(u,t))) 
+                                   
+! Number of generators started per period and per type
+ forall(u in UNITS, t in TIME) 
+  start(u,t) >= work(u,t) - if(t>1, work(u,t-1), work(u,NT))
+
+! Limit on power production range
+ forall(u in UNITS, t in TIME) 
+  padd(u,t) <= (PMAX(PLANT(u))-PMIN(PLANT(u)))*work(u,t)
+
+! Power balance
+ forall(t in TIME) 
+  sum(u in UNITS) (PMIN(PLANT(u))*work(u,t) + padd(u,t)) = DEM(t)
+
+! Symmetry breaker
+ forall(t in TIME, p in PLANTS) 
+  forall(u1, u2 in UNITS | PLANT(u1) = PLANT(u2) and u1<u2) 
+   work(u1,t) >= work(u2,t)
+
+!**** Solving and solution reporting **** 
+! Solve the original problem  
+ minimize(Cost)
+
+ writeln("\n=== Nominal case ===\n")
+ print_solution
+
+! Add robust constraints
+ robust_demand
+
+! Solve robust the problem  
+ setparam("ROBUST_UNCERTAIN_OVERLAP", true)
+ minimize(Cost)
+
+ writeln("\n=== Robust against demand variation ===\n")
+ print_solution
+
+end-model

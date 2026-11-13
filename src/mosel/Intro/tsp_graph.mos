@@ -1,0 +1,202 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file tsp.mos
+   ````````````
+   TYPE:         Symmetric traveling salesman problem
+   DIFFICULTY:   5
+   FEATURES:     MIP problem, loop over problem solving, TSP subtour 
+                 elimination algorithm; 
+                 procedure for generating additional constraints, recursive 
+                 subroutine calls, working with sets, `forall-do', 
+                 `repeat-until', `getsize', `not', graphical representation
+                 of solutions
+   DESCRIPTION:  A flight tour starts from airport 1, visits all 
+                 the other airports and then comes back to the starting point. 
+                 The distances between the airports are symmetric. In which 
+                 order should the airports be visited to minimize the total 
+                 distance covered?     
+   FURTHER INFO: `Applications of optimization with Xpress-MP', 
+                 Section 11.5 `Planning a flight tour',
+                 Section 7.5 `Paint production'
+  
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2002, rev. Sep. 2017
+*******************************************************!)
+
+model "Tour planning"
+ uses "mmxprs", "mmsvg"
+
+ forward procedure break_subtour
+ forward procedure print_sol
+ forward procedure draw_sol
+
+ declarations
+  NCITIES = 7
+  CITIES = 1..NCITIES                    ! Cities
+  
+  DIST: array(CITIES,CITIES) of integer  ! Distance between cities
+  NEXTC: array(CITIES) of integer        ! Next city after i in the solution
+  X,Y: array(CITIES) of integer          ! x-y-coordinates for sol. drawing
+  
+  fly: array(CITIES,CITIES) of mpvar     ! 1 if flight from i to j 
+ end-declarations
+
+ initializations from 'tsp.dat'
+  DIST [X,Y] as 'POS'
+ end-initializations
+
+ forall(i,j in CITIES | i<j) DIST(j,i):=DIST(i,j)
+
+! Objective: total distance
+ TotalDist:= sum(i,j in CITIES | i<>j) DIST(i,j)*fly(i,j)
+
+! Visit every city once
+ forall(i in CITIES) OneVisitI(i):= sum(j in CITIES | i<>j) fly(i,j) = 1
+ forall(j in CITIES) OneVisitJ(j):= sum(i in CITIES | i<>j) fly(i,j) = 1
+
+ forall(i,j in CITIES | i<>j) fly(i,j) is_binary
+
+! Solve the problem
+ minimize(TotalDist)
+
+! Eliminate subtours
+ break_subtour
+
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+
+!-----------------------------------------------------------------
+
+ procedure break_subtour
+  declarations
+   TOUR,SMALLEST,ALLCITIES: set of integer
+  end-declarations
+
+  forall(i in CITIES) 
+   NEXTC(i):= integer(round(getsol(sum(j in CITIES) j*fly(i,j) )))
+
+! Print the current solution  
+  print_sol
+  draw_sol
+  
+! Get (sub)tour containing city 1
+  TOUR:={}
+  first:=1
+  repeat
+   TOUR+={first}
+   first:=NEXTC(first)
+  until first=1
+  size:=getsize(TOUR)
+ 
+! Find smallest subtour
+  if size < NCITIES then
+   SMALLEST:=TOUR
+   if size>2 then
+    ALLCITIES:=TOUR 
+    forall(i in CITIES) do
+     if(i not in ALLCITIES) then
+      TOUR:={}
+      first:=i
+      repeat
+       TOUR+={first}
+       first:=NEXTC(first)
+      until first=i
+      ALLCITIES+=TOUR
+      if getsize(TOUR)<size then
+       SMALLEST:=TOUR
+       size:=getsize(SMALLEST)
+      end-if
+      if size=2 then
+       break
+      end-if 
+     end-if 
+    end-do        
+   end-if
+    
+! Add a subtour breaking constraint
+  sum(i in SMALLEST) fly(i,NEXTC(i)) <= getsize(SMALLEST) - 1
+
+! Optionally, also use these additional constraints
+! Also exclude the inverse subtour
+  if SMALLEST.size>2 then
+   sum(i in SMALLEST) fly(NEXTC(i),i) <= getsize(SMALLEST) - 1
+  end-if
+
+! A stronger subtour elimination constraint
+   sum(i in SMALLEST,j in CITIES-SMALLEST) fly(i,j) >= 1
+!)
+
+! Re-solve the problem
+   minimize(TotalDist)
+
+! Closing the graphical display will interrupt the algorithm
+   if not svgclosing then break_subtour; end-if
+
+  end-if 
+ end-procedure
+ 
+!-----------------------------------------------------------------
+
+! Print the current solution
+ procedure print_sol
+  declarations
+   ALLCITIES: set of integer
+  end-declarations
+   
+  writeln("Total distance: ", getobjval)
+  ALLCITIES:={}
+  forall(i in CITIES) do
+   if(i not in ALLCITIES) then
+    write(i)
+    first:=i
+    repeat
+     ALLCITIES+={first}
+     write(" - ", NEXTC(first))
+     first:=NEXTC(first)
+    until first=i
+    writeln 
+   end-if
+  end-do        
+ end-procedure
+
+!-----------------------------------------------------------------
+
+! Draw the current solution
+ procedure draw_sol
+  declarations
+   ALLCITIES: set of integer
+  end-declarations
+
+  svgerase
+  minx:=min(i in CITIES) X(i); miny:= min(i in CITIES) Y(i)
+!  svgsetgraphviewbox(minx-10, miny-10,
+!          max(i in CITIES) X(i)+20-minx, max(i in CITIES) Y(i)+20-miny)
+
+  ! Draw the tour(s) 
+  ALLCITIES:={}; ct:=0
+  forall(i in CITIES) do
+   if(i not in ALLCITIES) then
+    svgaddgroup("T"+ct, "Tour "+(ct+1))
+    first:=i
+    repeat
+     ALLCITIES+={first}
+     svgaddline(X(first), Y(first), X(NEXTC(first)), Y(NEXTC(first)))
+     first:=NEXTC(first)
+    until first=i
+    ct+=1
+   end-if
+  end-do        
+
+  ! Draw the cities
+  svgaddgroup("C", "Cities", SVG_BLACK)
+  forall(i in CITIES) svgaddtext(X(i), Y(i), text(i))
+  svgaddtext(minx-5,miny-5, "Tour length: "+getobjval)
+
+  svgsetgraphscale(5)
+  svgrefresh
+  ! Uncomment to pause at every iteration:          
+  if ct>1 then svgpause; end-if
+ end-procedure
+
+end-model

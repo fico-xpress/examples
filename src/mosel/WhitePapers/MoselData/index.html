@@ -1,0 +1,1108 @@
+<html xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xpress="http://www.fico.com/xpress">
+   <head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   
+      <title>FICO Xpress Optimization</title><style type="text/css">
+.bodytext { font-weight: normal; font-size: 14px; line-height: normal;
+    color: #212121;
+    font-style: normal; font-family: 'Roboto', Geneva, Helvetica, Arial, sans-serif
+}
+.bodybold {
+    font-weight: bold; font-size: 14px; line-height: normal;
+    font-style: normal; font-family: 'Roboto', Geneva, Helvetica, Arial, sans-serif;
+    color: #000000;
+}
+.bodybolditalic {
+    font-weight: 500; font-size: 14px; line-height: normal;
+    font-style: italic; font-family: 'Roboto', Geneva, Helvetica, Arial, sans-serif;
+}
+.bodyboldui {
+    font-weight: bold; font-size: 14px; line-height: normal;
+    font-style: italic; font-family: 'Roboto', Geneva, Helvetica, Arial, sans-serif;
+    text-decoration: underline;
+}
+a { font-weight: 500; color: #0a6de6; text-decoration: none;}
+a:hover { font-weight: 500; color: #304552; text-decoration: underline;}
+.asectionbar { color: #304552; }
+.asectionbar:hover { text-decoration: underline; }
+body { background-color: #FFFFFF; color: #000000; margin: 0; padding: 0;
+    font-family: 'Roboto', Geneva, Helvetica, Arial, sans-serif;
+}
+table, ul, ol { color: #000000;
+    font-family: 'Roboto', Geneva, Helvetica, Arial, sans-serif;
+    font-size: 12px }
+.chevrondown:before { content: "\23f7"; } 
+.chevronright:before { content: "\23f5"; }
+.Code { font-family: 'Roboto Mono', Courier; }
+.table2 { margin-left: 15px; margin-top: 15px; min-width: 2cm;}
+.headerbar { font-weight: normal; font-size: 24px; padding: 15px 15px;
+    color: #FFFFFF; background-color: #0a6de6; line-height: normal;  
+    font-style: normal; font-family: 'Roboto', Geneva, sans-serif; 
+    border-top-left-radius: 6px; border-top-right-radius: 6px;
+}
+.sectionbar {
+    font-weight: 500; font-size: 14px; padding: 5px 5px 5px 8px; border-radius: 4px;
+    background-color: #d0d6da; color: #304552; line-height: normal;
+    font-style: normal; font-family: 'Roboto', Geneva, sans-serif;
+}
+.docentry {
+    font-weight: 500; font-size: 12px; color: #212121;
+    line-height: normal; font-style: italic; font-family: 'Roboto', sans-serif;
+}
+.titletext {
+    font-weight: 300; font-size: 22px; color: #6e6d6a; line-height: normal;
+    font-style: normal; font-family: 'Roboto', Geneva, sans-serif;  
+    margin: 10px 0px 10px 0px;
+}
+.font7 { font-family: 'Roboto', sans-serif; font-size: 11px; line-height: 2.5;
+    font-weight: 400; color: #6e6d6a; text-decoration: none; 
+    margin: 5px 0px 5px 16px; }
+th,td { 
+    font-weight: normal; font-size: 14px; line-height: normal;
+    color: #1F323F;
+    font-style: normal; font-family: 'Roboto', Geneva, sans-serif;
+}
+.FctItem {
+    color: #304552;  font-size: 14px; font-style: normal; 
+    font-weight: bold; margin-bottom: 0pt; margin-left: 2pt; 
+    margin-right: 0pt; margin-top: 12pt; text-align: left; 
+    text-decoration: none; text-indent: 0pt; text-transform: none; 
+    vertical-align: baseline }
+.hr1 {
+    height: 1px;
+    background-color: #d0d6da;
+    width: 100%;
+    border:none;
+    margin:1.5em auto;
+}
+.hr2 {
+    height: 1px;
+    background-color: #d0d6da;
+    width: 100%;
+    border:none;
+    margin:1px 0px 5px 0px;
+}
+.wrapper {
+    height: 99%;
+    width: 99%;
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    border: 1pt solid;
+    border-color: #d0d6da;
+    border-radius: 6px;
+    margin: 3px;
+}
+.header {
+    flex-shrink: 0;
+}
+.footer {
+    flex-shrink: 0;
+}
+.content {
+    flex-grow: 1;
+    overflow: auto;
+    min-height: 2em;
+    margin-top: 0px;
+    margin-bottom: 0px;
+}
+.dropdown {
+    float: right;
+    margin-right: 10px;
+    overflow: hidden;
+}
+.dropbtn {
+    border: none;
+    outline: none; text-decoration: none;
+    color: white;
+    padding:  6px 12px 19px 12px;
+    background-color: inherit;
+    font-family: inherit;
+    font-size: 11pt; font-style: normal; font-weight: normal;
+    margin: 0;
+}
+.dropbtn:hover {
+    text-decoration: underline;
+}
+.dropbtn:after { content: " \23f7"; } 
+.dropdown-content {
+    display: none;
+    position: absolute; right: 0;
+    background-color: #ffffff;
+    color: #304552;  
+    font-size: 11pt; font-style: normal; font-weight: normal;  min-width: 160px;
+    border: 1pt solid;
+    border-color: #dddddd; border-radius: 5px 0px 0px 5px; padding: 0px;
+    margin: 0px 8px;
+    z-index: 1;
+}
+.dropdown-content a {
+    float: none;
+    font-size: 11pt; font-style: normal; font-weight: 400;  min-width: 160px;
+    color: #304552;
+    padding: 12px 16px;
+    text-decoration: none;
+    display: block;
+    text-align: left;
+}
+.dropdown-content a:hover {
+    background-color: #e9f0fe;
+}
+.dropdown:hover .dropdown-content {
+    display: block;
+}
+  </style><script type="text/javascript">
+     function toggleDiv(divid)
+     {
+       if(document.getElementById(divid).style.display == "none")
+       {
+         document.getElementById(divid).style.display = "block";
+         document.getElementById(divid+"icon2").style.display = "inline";
+         document.getElementById(divid+"icon1").style.display = "none";
+       }
+       else
+       {
+ 	 document.getElementById(divid).style.display = "none";
+         document.getElementById(divid+"icon2").style.display = "none";
+         document.getElementById(divid+"icon1").style.display = "inline";
+       }
+     }
+     function setVisible(divid)
+     {
+       if(document.getElementById(divid).style.display == "none")
+       {
+         document.getElementById(divid).style.display = "block";
+       }
+     }
+     function setVisibleIcon(divid)
+     {
+       if(document.getElementById(divid).style.display == "none")
+       {
+         document.getElementById(divid).style.display = "block";
+         document.getElementById(divid+"icon2").style.display = "inline";
+         document.getElementById(divid+"icon1").style.display = "none";
+       }
+     }
+     function scrollToAnchor(anchorid)
+     {
+       document.getElementById(anchorid).scrollIntoView();
+     }  </script></head>
+   <body>
+      <div class="wrapper">
+         <div class="header">
+            <div class="headerbar">
+               <svg style="width: 57px; height: 20px;" viewBox="0 0 101 36" fill="none">
+                  <path d="M24.7071 8.16155V0.7854H0V35.2115H7.41499V22.9179H22.2368V15.5418H7.41499V8.16155H24.7071Z" fill="#FFF"></path>
+                  <path d="M34.4285 0.7854H27.0176V35.2115H34.4285V0.7854Z" fill="#FFF"></path>
+                  <path d="M62.2119 25.4173C60.7116 26.8325 58.8281 27.7799 56.7935 28.1428C54.7589 28.5057 52.6621 28.2683 50.7614 27.4598C48.8607 26.6514 47.2391 25.3071 46.0965 23.5927C44.9538 21.8783 44.34 19.8687 44.3307 17.8114C44.3214 15.7541 44.917 13.739 46.044 12.0144C47.1711 10.2898 48.7804 8.93109 50.6737 8.10558C52.567 7.28006 54.6616 7.02385 56.6994 7.3685C58.7372 7.71315 60.6292 8.64362 62.1423 10.0453C63.0208 7.75072 64.2918 5.62487 65.8989 3.76187C63.2563 1.70888 60.0863 0.437902 56.7518 0.0944177C53.4173 -0.249067 50.053 0.348812 47.0439 1.81963C44.0349 3.29045 41.5027 5.57476 39.7372 8.41114C37.9716 11.2475 37.0441 14.5213 37.0608 17.8579C37.0774 21.1945 38.0376 24.459 39.8313 27.2777C41.6251 30.0965 44.1799 32.3557 47.2035 33.7967C50.2271 35.2377 53.5972 35.8022 56.9281 35.4258C60.2591 35.0494 63.4162 33.7471 66.0382 31.6681C64.4127 29.8179 63.1184 27.7035 62.2119 25.4173Z" fill="#FFF"></path>
+                  <path d="M82.1058 0.0187993C78.5746 0.0187994 75.1226 1.06108 72.1866 3.01382C69.2505 4.96655 66.9622 7.74201 65.6111 10.9892C64.2599 14.2364 63.9066 17.8095 64.5958 21.2566C65.285 24.7037 66.9858 27.8699 69.483 30.3549C71.9803 32.8399 75.1618 34.5319 78.6253 35.2171C82.0888 35.9023 85.6786 35.5498 88.9408 34.2043C92.203 32.8587 94.991 30.5805 96.9523 27.6577C98.9136 24.735 99.9599 21.299 99.9591 17.7844C99.9591 15.451 99.4973 13.1405 98.6 10.9848C97.7028 8.82915 96.3876 6.87051 94.7298 5.22078C93.0719 3.57104 91.1037 2.26252 88.9377 1.36996C86.7716 0.477397 84.4501 0.0182638 82.1058 0.0187993ZM82.1058 28.3369C80.0087 28.3377 77.9585 27.7195 76.2144 26.5604C74.4703 25.4014 73.1108 23.7536 72.3077 21.8255C71.5046 19.8973 71.2941 17.7754 71.7027 15.7282C72.1113 13.6809 73.1208 11.8003 74.6033 10.324C76.0859 8.84785 77.975 7.84242 80.0318 7.43492C82.0885 7.02741 84.2205 7.23615 86.158 8.03473C88.0956 8.8333 89.7517 10.1858 90.9168 11.9213C92.082 13.6567 92.7039 15.6971 92.7039 17.7844C92.7039 20.5823 91.5874 23.2658 89.6 25.2447C87.6126 27.2235 84.917 28.3358 82.1058 28.3369Z" fill="#FFF"></path>
+                  <path d="M95.2476 32.8995C95.2469 32.6725 95.2758 32.4463 95.3336 32.2267C95.3888 32.0177 95.47 31.8163 95.5753 31.6273C95.6766 31.4454 95.8005 31.2769 95.944 31.1258C96.0879 30.9779 96.2504 30.8491 96.4274 30.7425C96.7001 30.5803 97.003 30.475 97.3178 30.433C97.6326 30.3909 97.9527 30.413 98.2587 30.4979C98.4572 30.554 98.6473 30.6363 98.824 30.7425C99.0005 30.8481 99.1617 30.977 99.3033 31.1258C99.4494 31.2757 99.5748 31.4444 99.6761 31.6273C99.7815 31.8163 99.8627 32.0177 99.9178 32.2267C100.032 32.6694 100.032 33.1337 99.9178 33.5764C99.8627 33.7854 99.7815 33.9867 99.6761 34.1757C99.5759 34.3606 99.4504 34.5307 99.3033 34.6813C99.1596 34.829 98.9987 34.9591 98.824 35.0687C98.6473 35.1749 98.4572 35.2572 98.2587 35.3134C97.8466 35.433 97.4089 35.433 96.9969 35.3134C96.7968 35.258 96.6052 35.1757 96.4274 35.0687C96.2522 34.9581 96.09 34.8282 95.944 34.6813C95.7994 34.5296 95.6755 34.3596 95.5753 34.1757C95.47 33.9867 95.3888 33.7854 95.3336 33.5764C95.2755 33.3554 95.2466 33.1279 95.2476 32.8995ZM95.6327 32.8995C95.6323 33.1791 95.6866 33.456 95.7924 33.715C95.8857 33.9615 96.0246 34.1883 96.2021 34.3837C96.3826 34.5717 96.5983 34.7227 96.8371 34.8281C97.0816 34.9332 97.3451 34.9873 97.6114 34.9873C97.8777 34.9873 98.1411 34.9332 98.3856 34.8281C98.6224 34.7212 98.8365 34.5703 99.0165 34.3837C99.194 34.1883 99.333 33.9615 99.4262 33.715C99.5321 33.456 99.5863 33.1791 99.586 32.8995C99.5874 32.6198 99.5331 32.3426 99.4262 32.084C99.3329 31.8388 99.1939 31.6133 99.0165 31.4194C98.8377 31.2324 98.6232 31.0827 98.3856 30.979C98.1411 30.874 97.8777 30.8198 97.6114 30.8198C97.3451 30.8198 97.0816 30.874 96.8371 30.979C96.5977 31.0815 96.3816 31.2313 96.2021 31.4194C96.0247 31.6133 95.8858 31.8388 95.7924 32.084C95.6856 32.3426 95.6313 32.6198 95.6327 32.8995ZM97.1362 33.1523V34.2777H96.6609V31.4316H97.5868C97.7374 31.4291 97.8876 31.447 98.0333 31.4846C98.1557 31.5159 98.271 31.5699 98.3734 31.6436C98.4671 31.7123 98.5418 31.8035 98.5905 31.9087C98.6416 32.0271 98.6668 32.1549 98.6642 32.2838C98.6666 32.414 98.6294 32.5419 98.5577 32.6508C98.4741 32.7623 98.3644 32.8519 98.2382 32.9117C98.3084 32.9404 98.3734 32.9804 98.4307 33.03C98.4808 33.0749 98.5236 33.1271 98.5577 33.1849C98.5892 33.2469 98.6126 33.3127 98.6274 33.3806C98.6406 33.4533 98.6475 33.527 98.6478 33.6008V33.7843C98.6434 33.8631 98.6434 33.942 98.6478 34.0208C98.6546 34.085 98.6698 34.148 98.6929 34.2084V34.2614H98.2095C98.196 34.2258 98.1864 34.1889 98.1808 34.1513C98.1808 34.1064 98.1808 34.0616 98.1808 34.0167C98.1808 33.9719 98.1808 33.9229 98.1808 33.8822V33.6049C98.1909 33.4769 98.1513 33.3499 98.0702 33.2501C97.9632 33.1638 97.8264 33.1227 97.6892 33.136L97.1362 33.1523ZM97.1362 32.7242H97.6564C97.7256 32.7233 97.7945 32.7137 97.8613 32.6956C97.922 32.6781 97.98 32.652 98.0333 32.6181C98.0817 32.5863 98.1211 32.5428 98.148 32.4917C98.1805 32.4392 98.1962 32.378 98.1931 32.3164C98.1932 32.2368 98.1779 32.1579 98.148 32.084C98.1288 32.0285 98.0931 31.9802 98.0456 31.9454C97.9912 31.9062 97.9278 31.881 97.8613 31.872C97.7668 31.8541 97.6707 31.8459 97.5745 31.8475H97.1239L97.1362 32.7242Z" fill="#FFF"></path>
+               </svg> Xpress Optimization
+            </div>
+         </div>
+         <div class="content">
+            <table class="table2" border="0" cellpadding="0" cellspacing="0" width="95%">
+               <tbody>
+                  <tr>
+                     <td align="left" valign="top" width="850">
+                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                           <tbody>
+                              <tr>
+                                 <td colspan="2">
+                                    <h2 class="titletext" align="left">Mosel database and spreadsheet examples</h2>
+                                    <div class="bodytext">
+                                       <p class="Body">All examples in this directory are explained in the whitepaper
+                                          'Using ODBC and other database interfaces with Mosel'.
+                                       </p>
+                                       <p class="Body">Examples that have several versions obey the following naming convention:<br>
+                                          'filename*.mos' where '*' = <br>
+                                          &nbsp;       [] - 'odbc' driver,<br>       
+                                          &nbsp;       1 - working with text data files,<br>
+                                          &nbsp;       2 - ODBC connection using SQL statements,<br>
+                                          &nbsp;       3 - 'excel' driver (Windows only),<br>
+                                          &nbsp;       4 - Oracle (OCI) interface,<br>
+                                          &nbsp;       5 - 'xls'/'xlsx' driver,<br>
+                                          &nbsp;       6 - 'csv' driver
+                                       </p>
+                                    </div><br><br></td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="dataioin"></a><a href="javascript:;" onmousedown="toggleDiv('dataioin_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="dataioin_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="dataioin_divicon2"></span>Reading sparse data from text files, spreadsheets and databases, and from memory</span></a>: Data input, initializations from, SQL, ODBC, spreadsheet, CSV
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="dataioin_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Programming</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">3 (intermediate)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">
+                                                <p class="Body">Suppose we want to read in data of the form</p>
+                                                		
+                                                <p>
+                                                   <table border="0" width="94">
+                                                      <caption><span class="Body"></span></caption>
+                                                      <tr class="CellBody">
+                                                         	  
+                                                         <td align="center" valign="top">i, j, value(i,j)</td>
+                                                         	
+                                                      </tr>
+                                                   </table>
+                                                </p>
+                                                								  
+                                                	
+                                                <p class="Body">from a file, setting up a dynamic array <span class="code">A(range, 
+                                                      	range)</span> with just the <span class="code">A(i,j)= value(i,j)</span> 
+                                                   	for the pairs <span class="code">(i,j)</span> which exist in the file. Here 
+                                                   	is an example which shows different ways of doing this. We read data 
+                                                   	from 
+                                                   	
+                                                   <ol>
+                                                      	  
+                                                      <li class="Body">differently formatted text files (example <span class="code">trio.mos</span> described in the 'Mosel User Guide', Section 3.4 Reading sparse data): using 'initializations from', 'readln', or 'diskdata',
+                                                      </li>
+                                                      	  
+                                                      <li class="Body">spreadsheets or databases (examples <span class="code">duo.mos</span>, <span class="code">duosheet.mos</span>, <span class="code">duooci.mos</span>,
+                                                         <span class="code">duoexc.mos</span>, and <span class="code">duodd.mos</span> described in the Xpress Whitepaper 'Using ODBC and other database interfaces with Mosel') ,
+                                                      </li>
+                                                      	  
+                                                      <li class="Body">the application (C/Java) executing the Mosel model (examples <span class="code">datainputc.mos</span> and <span class="code">datainputj.mos</span></li>
+                                                      	
+                                                   </ol> 
+                                                   	 into different arrays, and using <span class="code">writeln</span> 
+                                                   	show that the arrays hold identical data. 
+                                                </p>	     
+                                                	
+                                                	<br>
+                                                	<b>Accessing spreadsheets and databases</b>
+                                                	
+                                                	
+                                                <p class="Body">With <span class="code">initializations from</span> data from spreadsheets or databases is read in a similar way as text files are accessed; switching between data sources can
+                                                   be done by replacing the I/O driver name and the data source in the extended filename, such as <span class="code">"mmsheet.excel:data.xls"</span> to access the spreadsheet <span class="code">data.xls</span> or <span class="code">"mmodbc.odbc:data.mdb"</span> to read from the MS Access database <span class="code">data.mdb</span> and the
+                                                   	string <span class="code">"mmodbc.odbc:DSN=mysql;DB=data"</span> could be used to access
+                                                   	a mysql database named <span class="code">data</span>.
+                                                </p>
+                                                	
+                                                <p class="Body">Instead of using an <span class="code">initializations</span> block, we may read data from a database into a Mosel model by writing out the corresponding SQL statements (this format allows
+                                                   fine-tuning of the queries and
+                                                   	  gives access to a larger range of commands, in particular when working
+                                                   	  with databases). When developing applications with ODBC/SQL statements, the user is advised to use the following two parameter
+                                                   settings to obtain error messages and debugging information from ODBC:
+                                                </p>
+                                                
+                                                <pre class="PreCode"> setparam("SQLverbose", true)
+ setparam("SQLdebug", true)</pre>	  
+                                                			
+                                                	  <p class="Body">The module <i>mmoci</i> (requires a separate license) defines a software-specific interface to Oracle databases that is used in a similar way as
+                                                   the ODBC connection.<br>
+                                                   	Using <span class="code">initializations from</span> the extended filename will take a form like <span class="code">"mmoci.oci:myname/mypassword@dbname"</span> and it is also possible to work with PL/SQL statements like the following:
+                                                </p>
+                                                <pre class="PreCode"> OCIlogon('myname/mypassword@dbname')
+ OCIexecute("select Index_i,Index_j,Value from MyDataTable", A5)
+ OCIlogoff</pre>
+                                                	
+                                                	<br>
+                                                	<b>Data input in memory using I/O drivers</b>
+                                                	
+                                                	
+                                                <p class="Body">Using <span class="code">initializations from</span> it is also possible to read data into a Mosel model from the calling application (C/C++, C#, Java) using a combination of
+                                                   the I/O drivers <span class="code">mem</span> (data held in memory) and <span class="code">raw</span> driver (data in binary format) in C, drivers <span class="code">dotnet</span> and <span class="code">dotnetraw</span> in C# programs, and drivers <span class="code">java</span> and <span class="code">jraw</span> in Java programs. 
+                                                </p>		
+                                                	
+                                                	<br>
+                                                	<b>Other options for data input</b>
+                                                
+                                                	
+                                                <p class="Body">Other possibilities of inputting data into a Mosel model include
+                                                   	
+                                                   <ul> 
+                                                      	
+                                                      <li class="Body"><b>Static modules:</b> data exchange between the calling application and a model via custom functions, using the Mosel Native Interface - see the
+                                                         example of embedding the cutting stock problem in the Whitepaper 'Embedding Optimization Algorithms'.
+                                                      </li>
+                                                      	
+                                                      <li class="Body"><b>Custom format/custom data sources:</b> the Mosel Native Interface allows the user to implement his own I/O drivers (to be used with
+                                                         	<span class="code">initializations</span> blocks and all other Mosel functionality
+                                                         	involving file access, such as matrix export or model compilation). 
+                                                         	Possible uses of such user-written drivers include
+                                                         	encoding/decoding of data on the fly or compression/decompression
+                                                         	of data. 
+                                                         	See the Xpress Whitepaper 'Generalized file handling in Mosel' for
+                                                         	the complete code and documentation of an example implementing
+                                                         	a compression driver with the zip library.<br>
+                                                         	Furthermore, the Mosel IO
+                                                         	driver <span class="code">pipe</span> may be used to recover the output of an external
+                                                         	program. See the section on I/O drivers in the 'Mosel Libraries 
+                                                         	Reference Manual' for more information.
+                                                      </li>
+                                                      	
+                                                   </ul>
+                                                </p>
+                                                
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="duo.mos" data-keyword="duo.mos"></a><a href="duo.mos"><span class="code">duo.mos</span></a>, <a id="duosheet.mos" data-keyword="duosheet.mos"></a><a href="duosheet.mos"><span class="code">duosheet.mos</span></a>, <a id="duoexc.mos" data-keyword="duoexc.mos"></a><a href="duoexc.mos"><span class="code">duoexc.mos</span></a>, <a id="duodd.mos" data-keyword="duodd.mos"></a><a href="duodd.mos"><span class="code">duodd.mos</span></a>, <a id="duooci.mos" data-keyword="duooci.mos"></a><a href="duooci.mos"><span class="code">duooci.mos</span></a></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">Data file(s):</span></td>
+                                             <td><a id="data.csv" data-keyword="data.csv"></a><a href="data.csv"><span class="code">data.csv</span></a>, <a id="data.xls" data-keyword="data.xls"></a><a href="data.xls"><span class="code">data.xls</span></a>, <a id="data.xlsx" data-keyword="data.xlsx"></a><a href="data.xlsx"><span class="code">data.xlsx</span></a>, <a id="data.mdb" data-keyword="data.mdb"></a><a href="data.mdb"><span class="code">data.mdb</span></a>, <a id="data.sqlite" data-keyword="data.sqlite"></a><a href="data.sqlite"><span class="code">data.sqlite</span></a>, <a id="datadd.csv" data-keyword="datadd.csv"></a><a href="datadd.csv"><span class="code">datadd.csv</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="dataioout"></a><a href="javascript:;" onmousedown="toggleDiv('dataioout_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="dataioout_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="dataioout_divicon2"></span>Data output to text files, spreadsheets and databases, and to memory</span></a>: Data output, initializations to, SQL, ODBC, spreadsheets, CSV
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="dataioout_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Programming</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">3 (intermediate)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">
+                                                <p class="Body">This example shows different ways of writing out data from a Mosel model, namely to 
+                                                   	
+                                                   <ol>
+                                                      	
+                                                      <li class="Body">differently formatted text files (example <span class="code">trio_out.mos</span> described in the 'Mosel User Guide', Section 10.2 File output): using 'initializations to', free-format output with 'write'/'writeln',
+                                                         or 'diskdata' format,
+                                                      </li>
+                                                      	
+                                                      <li class="Body">spreadsheets or databases (examples <span class="code">duo_out.mos</span>, <span class="code">duosheet_out.mos</span>, <span class="code">duooci_out.mos</span>, <span class="code">duoexc_out.mos</span>, and <span class="code">duodd_out.mos</span> described in the Xpress Whitepaper 'Using ODBC and other database interfaces with Mosel'),
+                                                      </li>
+                                                      	
+                                                      <li class="Body">the application (C/Java) executing the Mosel model (examples <span class="code">dataoutputc.mos</span> and <span class="code">dataoutputj.mos</span></li>
+                                                      	
+                                                   </ol> 
+                                                </p>
+                                                	
+                                                	<br>
+                                                	<b>Accessing spreadsheets and databases</b>
+                                                	
+                                                <p class="Body">Using <span class="code">initializations to</span> data is written to spreadsheets or databases through the ODBC connector in a similar way as text files are accessed; all
+                                                   necessary SQL commands are generated automatically. With the extended filename to <span class="code">"mmodbc.odbc:data.mdb"</span> the data
+                                                   	  will be written to the MS Access database <span class="code">data.mdb</span> and the
+                                                   	  string <span class="code">"mmodbc.odbc:DSN=mysql;DB=data"</span> could be used to access
+                                                   	  a mysql database named <span class="code">data</span>.
+                                                </p> 
+                                                	  
+                                                <p class="Body">Instead of using an <span class="code">initializations</span> block, we may write out data from a Mosel model directly with the corresponding SQL statements (this makes it possible, for
+                                                   example, to clear the data table before writing to it - this functionality is not available with spreadsheets)
+                                                </p>
+                                                	  <pre class="PreCode"> SQLconnect("data.sqlite")
+ SQLexecute("delete from MyOutTable")
+ SQLexecute(
+  "insert into MyOutTable (Index1,Index2,AValue) values (?,?,?)", A)
+ SQLdisconnect</pre>
+                                                	<p class="Body">When working with Excel spreadsheets it is recommended to use one of the dedicated spreadsheet drivers from the <i>mmsheet</i> module: with the <span class="code">excel</span> driver, the spreadsheet may remain
+                                                   	  open while writing to it from a Mosel model, in this case the data 
+                                                   	  written out to the spreadsheet does not get saved, making it possible
+                                                   	  to re-run the application with different data sets without causing
+                                                   	  any lasting modifications to your spreadsheet. All other spreadsheet drivers require the spreadsheet file to be closed.
+                                                   The <span class="code">xls</span>/<span class="code">xlsx</span> drivers do not require an installation of Excel and are available for certain non-Windows platforms.
+                                                </p>
+                                                
+                                                	  
+                                                <p class="Body">The module <i>mmoci</i> (requires a separate license) defines a software-specific interface to Oracle databases that is used in a similar way as
+                                                   the ODBC connection provided through <i>mmmodbc</i>.
+                                                   	With <span class="code">initializations to</span> an extended filename will take a form like <span class="code">"mmoci.oci:debug;myname/mypassword@dbname"</span> and it is equally possible to use PL/SQL statements directly.
+                                                </p>
+                                                
+                                                	<br><b>Data output in memory using I/O drivers</b>
+                                                	
+                                                <p class="Body">Using <span class="code">initializations to</span> it is also possible to send data from a Mosel model in memory to the calling application (C/C++, C# or Java). This is done
+                                                   using a combination of the I/O drivers <span class="code">mem</span> (data held in memory) and <span class="code">raw</span> driver (data in binary format) in C, drivers <span class="code">dotnet</span> and <span class="code">dotnetraw</span> in C# programs and drivers <span class="code">java</span> and <span class="code">jraw</span> in Java programs. 
+                                                </p>
+                                                	<br><b>Other options for data output</b>
+                                                	
+                                                <p class="Body">Other possibilities of outputting data from a Mosel model include 
+                                                   	
+                                                   <ul>
+                                                      	
+                                                      <li class="Body"><b>Use of the Mosel Libraries:</b> information about the model objects is retrieved after the execution of the model is terminated. See the 'Mosel User Guide',
+                                                         Part III Working with the Mosel Libraries and the example <span class="code">dataafterexec.c</span>.
+                                                      </li>
+                                                      	
+                                                      <li class="Body"><b>Redirection of the output and error streams:</b> to a file or to the calling application with the help of a callback function (I/O driver <span class="code">cb</span>). 
+                                                      </li>
+                                                      	
+                                                      <li class="Body"><b>Static modules:</b> data exchange between the calling application and a model via custom functions, using the Mosel Native Interface. See the
+                                                         example <span class="code">datainout.c</span>.
+                                                      </li> 
+                                                      	
+                                                      <li class="Body"><b>Custom formats/custom data sources:</b> the Mosel Native Interface allows the user to implement his own I/O drivers (to be used with
+                                                         	  <span class="code">initializations</span> blocks and all other Mosel functionality
+                                                         	  involving file access, such as matrix export or model compilation). 
+                                                         	  Possible uses of such user-written drivers include
+                                                         	  encoding/decoding of data on the fly or compression/decompression
+                                                         	  of data. 
+                                                         	  See the Xpress Whitepaper 'Generalized file handling in Mosel' for
+                                                         	  the complete code and documentation of an example implementing
+                                                         	  a compression driver with the zip library.<br>
+                                                         	  Furthermore, the Mosel I/O
+                                                         	  driver <span class="code">pipe</span> may be used to channel the output of a Mosel
+                                                         	  model to an external
+                                                         	  program. See the section on I/O drivers in the 'Mosel Libraries 
+                                                         	  Reference Manual' for more information.
+                                                      </li>
+                                                      	  
+                                                   </ul>
+                                                </p>
+                                                	
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="duo_out.mos" data-keyword="duo_out.mos"></a><a href="duo_out.mos"><span class="code">duo_out.mos</span></a>, <a id="duosheet_out.mos" data-keyword="duosheet_out.mos"></a><a href="duosheet_out.mos"><span class="code">duosheet_out.mos</span></a>, <a id="duoexc_out.mos" data-keyword="duoexc_out.mos"></a><a href="duoexc_out.mos"><span class="code">duoexc_out.mos</span></a>, <a id="duodd_out.mos" data-keyword="duodd_out.mos"></a><a href="duodd_out.mos"><span class="code">duodd_out.mos</span></a>, <a id="duooci_out.mos" data-keyword="duooci_out.mos"></a><a href="duooci_out.mos"><span class="code">duooci_out.mos</span></a></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">Data file(s):</span></td>
+                                             <td><a id="data.csv" data-keyword="data.csv"></a><a href="data.csv"><span class="code">data.csv</span></a>, <a id="data.xls" data-keyword="data.xls"></a><a href="data.xls"><span class="code">data.xls</span></a>, <a id="data.xlsx" data-keyword="data.xlsx"></a><a href="data.xlsx"><span class="code">data.xlsx</span></a>, <a id="data.mdb" data-keyword="data.mdb"></a><a href="data.mdb"><span class="code">data.mdb</span></a>, <a id="data.sqlite" data-keyword="data.sqlite"></a><a href="data.sqlite"><span class="code">data.sqlite</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="dataframe"></a><a href="javascript:;" onmousedown="toggleDiv('dataframe_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="dataframe_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="dataframe_divicon2"></span>Dataframe formats</span></a>: dataframe, union types, CSV format
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="dataframe_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Programming</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">2 (easy-medium)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">
+                                                <p class="Body">This example demonstrates dataframe-style representation of data. This functionality is provided for CSV format files via
+                                                   the 'diskdata' I/O driver and subroutine of module <i>mmetc</i>, for the spreadsheet I/O drivers 'xls', 'xlsx', and 'csv' of module <i>mmsheet</i>, and for databases accessed through an ODBC connection via SQL commands.
+                                                </p>
+                                                
+                                                <ul>
+                                                   
+                                                   <li class="Body">dataframecsv.mos: reading and writing dataframes for CSV format data via 'diskdata'</li>
+                                                   
+                                                   <li class="Body">dataframedb.mos: dataframe-style reading of database tables via 'SQLdataframe'</li>
+                                                   
+                                                   <li class="Body">dataframesht.mos: reading and writing dataframes for spreadsheets and CSV format data via <i>mmsheet</i></li>
+                                                   
+                                                </ul>
+                                                
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="dataframecsv.mos" data-keyword="dataframecsv.mos"></a><a href="dataframecsv.mos"><span class="code">dataframecsv.mos</span></a>, <a id="dataframedb.mos" data-keyword="dataframedb.mos"></a><a href="dataframedb.mos"><span class="code">dataframedb.mos</span></a>, <a id="dataframesht.mos" data-keyword="dataframesht.mos"></a><a href="dataframesht.mos"><span class="code">dataframesht.mos</span></a></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">Data file(s):</span></td>
+                                             <td><a id="dframedata.csv" data-keyword="dframedata.csv"></a><a href="dframedata.csv"><span class="code">dframedata.csv</span></a>, <a id="dframedata.xls" data-keyword="dframedata.xls"></a><a href="dframedata.xls"><span class="code">dframedata.xls</span></a>, <a id="dframedata.xlsx" data-keyword="dframedata.xlsx"></a><a href="dframedata.xlsx"><span class="code">dframedata.xlsx</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="indexeg"></a><a href="javascript:;" onmousedown="toggleDiv('indexeg_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="indexeg_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="indexeg_divicon2"></span>Dense vs. sparse data format</span></a>: array types, noindex
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="indexeg_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Programming</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">2 (easy-medium)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">
+                                                <p class="Body">The example 'indexeg' shows how to read data tables with different
+                                                   		    formats from various data sources:
+                                                </p>
+                                                
+                                                <ul>
+                                                   
+                                                   <li class="Body">a dense 3x2 table</li>
+                                                   
+                                                   <li class="Body">a dense 2x3 table</li>
+                                                   
+                                                   <li class="Body">a sparse 2x3 table</li>
+                                                   
+                                                   <li class="Body">a 2x4 table with partially indexed format</li>
+                                                   
+                                                </ul>
+                                                		    
+                                                <p class="Body">A data may be accessed from Mosel through an ODBC connection (using the <i>odbc</i> driver, indexeg.mos, or with SQL statements, indexeg2.mos), with the software-specific driver <i>excel</i> (indexeg3.mos), or with the portable <i>mmsheet</i> module that can be used to read and write <i>xls</i>, <i>xlsx</i> (indexeg5.mos) and <i>csv</i> (indexeg6.mos) files.<br>
+                                                   		    The first two methods (<i>odbc</i> driver and SQL statements) apply to spreadsheets and databases. In addition, for Oracle databases we show how to use the
+                                                   software-specific connection provided by the module <i>mmoci</i> (indexeg4.mos).
+                                                </p>
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="indexeg.mos" data-keyword="indexeg.mos"></a><a href="indexeg.mos"><span class="code">indexeg.mos</span></a>, <a id="indexeg2.mos" data-keyword="indexeg2.mos"></a><a href="indexeg2.mos"><span class="code">indexeg2.mos</span></a>, <a id="indexeg3.mos" data-keyword="indexeg3.mos"></a><a href="indexeg3.mos"><span class="code">indexeg3.mos</span></a>, <a id="indexeg4.mos" data-keyword="indexeg4.mos"></a><a href="indexeg4.mos"><span class="code">indexeg4.mos</span></a>, <a id="indexeg5.mos" data-keyword="indexeg5.mos"></a><a href="indexeg5.mos"><span class="code">indexeg5.mos</span></a>, <a id="indexeg6.mos" data-keyword="indexeg6.mos"></a><a href="indexeg6.mos"><span class="code">indexeg6.mos</span></a></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">Data file(s):</span></td>
+                                             <td><a id="indexeg.csv" data-keyword="indexeg.csv"></a><a href="indexeg.csv"><span class="code">indexeg.csv</span></a>, <a id="indexeg.xls" data-keyword="indexeg.xls"></a><a href="indexeg.xls"><span class="code">indexeg.xls</span></a>, <a id="indexeg.xlsx" data-keyword="indexeg.xlsx"></a><a href="indexeg.xlsx"><span class="code">indexeg.xlsx</span></a>, <a id="indexeg.sqlite" data-keyword="indexeg.sqlite"></a><a href="indexeg.sqlite"><span class="code">indexeg.sqlite</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="autoindex"></a><a href="javascript:;" onmousedown="toggleDiv('autoindex_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="autoindex_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="autoindex_divicon2"></span>Auto-indexation for single-dimensional arrays</span></a>: auto-indexation
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="autoindex_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Programming</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">2 (easy-medium)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">
+                                                <p class="Body">This example shows how to read single-dimensional data tables from a spreadsheet or database file that only contains the data
+                                                   values. The data arrays must have an index set of type <span class="code">range</span> that gets populated automatically based on the row count, either starting with the default value 1 or with a specified start
+                                                   value. Several arrays can be populated via a single statement.
+                                                </p>
+                                                
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="autoindex.mos" data-keyword="autoindex.mos"></a><a href="autoindex.mos"><span class="code">autoindex.mos</span></a></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">Data file(s):</span></td>
+                                             <td><a id="adt.csv" data-keyword="adt.csv"></a><a href="adt.csv"><span class="code">adt.csv</span></a>, <a id="adt.xls" data-keyword="adt.xls"></a><a href="adt.xls"><span class="code">adt.xls</span></a>, <a id="adt.xlsx" data-keyword="adt.xlsx"></a><a href="adt.xlsx"><span class="code">adt.xlsx</span></a>, <a id="adt.sqlite" data-keyword="adt.sqlite"></a><a href="adt.sqlite"><span class="code">adt.sqlite</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="soleg"></a><a href="javascript:;" onmousedown="toggleDiv('soleg_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="soleg_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="soleg_divicon2"></span>Writing out solution values to text files, spreadsheets or databases</span></a>: solution data output, 'evaluation of'
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="soleg_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Programming</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">2 (easy-medium)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">Solution values of decision variables or constraints need to be copied into an array. The contents of this array can then
+                                                be written to a spreadsheet or database using ODBC or software-specific drivers (or simply to text file using Mosel's default
+                                                output).<br>
+                                                
+                                                <ul>
+                                                   <li class="Body">Spreadsheets and databases can be accessed from Mosel through an ODBC connection using the <i>odbc</i> driver (soleg.mos) or with SQL statements (soleg2.mos). 
+                                                   </li>
+                                                   
+                                                   <li class="Body">If Microsoft Excel is installed, the software-specific driver <i>excel</i> (soleg3.mos) can be used.
+                                                   </li>
+                                                   
+                                                   <li class="Body">For Oracle databases a software-specific connection is provided by the module <i>mmoci</i> (soleg4.mos).
+                                                   </li>
+                                                   
+                                                   <li class="Body">For generic spreadsheets it is recommended to use the portable <i>mmsheet</i> module that provides subroutines to read and write <i>xls</i> and <i>xlsx</i> (soleg5.mos) and <i>csv</i> (soleg6.mos) files.
+                                                   </li>
+                                                </ul>
+                                                		    
+                                                		    As an alternative to the explicit copying of arrays of solution values you can use the keyword <span class="code">evaluation</span> in <span class="code">initializations to</span> blocks.
+                                                		    If preceded by the marker <span class="code">evaluation of</span> solution values, results of Mosel
+                                                		    functions or other expressions can be used directly in the <span class="code">initializations to</span> block as shown in the example initeval.mos.<br></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="soleg.mos" data-keyword="soleg.mos"></a><a href="soleg.mos"><span class="code">soleg.mos</span></a>, <a id="soleg2.mos" data-keyword="soleg2.mos"></a><a href="soleg2.mos"><span class="code">soleg2.mos</span></a>, <a id="soleg3.mos" data-keyword="soleg3.mos"></a><a href="soleg3.mos"><span class="code">soleg3.mos</span></a>, <a id="soleg4.mos" data-keyword="soleg4.mos"></a><a href="soleg4.mos"><span class="code">soleg4.mos</span></a>, <a id="soleg5.mos" data-keyword="soleg5.mos"></a><a href="soleg5.mos"><span class="code">soleg5.mos</span></a>, <a id="soleg6.mos" data-keyword="soleg6.mos"></a><a href="soleg6.mos"><span class="code">soleg6.mos</span></a></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">Data file(s):</span></td>
+                                             <td><a id="soleg.csv" data-keyword="soleg.csv"></a><a href="soleg.csv"><span class="code">soleg.csv</span></a>, <a id="soleg.mdb" data-keyword="soleg.mdb"></a><a href="soleg.mdb"><span class="code">soleg.mdb</span></a>, <a id="soleg.xls" data-keyword="soleg.xls"></a><a href="soleg.xls"><span class="code">soleg.xls</span></a>, <a id="soleg.xlsx" data-keyword="soleg.xlsx"></a><a href="soleg.xlsx"><span class="code">soleg.xlsx</span></a>, <a id="soleg.sqlite" data-keyword="soleg.sqlite"></a><a href="soleg.sqlite"><span class="code">soleg.sqlite</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="multitab"></a><a href="javascript:;" onmousedown="toggleDiv('multitab_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="multitab_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="multitab_divicon2"></span>Spreadsheets and databases: working with multiple data tables and arrays</span></a>: data input/output, multiple tables, multiple data arrays
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="multitab_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Programming</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">2 (easy-medium)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">A database table (or a spreadsheet range) may contain in its different fields (columns) the data for several Mosel arrays
+                                                and inversely, a Mosel array may correspond to several data tables (ranges). We have here examples of various different cases:<br>
+                                                		      
+                                                <ol>
+                                                   			
+                                                   <li class="Body">using the <i>odbc</i> driver,
+                                                   </li>
+                                                   			
+                                                   <li class="Body">formulated with SQL statements,</li>
+                                                   			
+                                                   <li class="Body">using the <i>excel</i> driver,
+                                                   </li>
+                                                   			
+                                                   <li class="Body">using the <i>oci</i> driver,
+                                                   </li> 
+                                                   			
+                                                   <li class="Body">using the <i>xls</i> driver, and
+                                                   </li>
+                                                   			
+                                                   <li class="Body">using the <i>csv</i> driver.
+                                                   </li>
+                                                   		      
+                                                </ol>
+                                                		      for three sets of examples:
+                                                		      
+                                                <ul>
+                                                   			
+                                                   <li class="Body">Reading several arrays from a single database table/spreadsheet range (<span class="code">multicol.mos</span>)
+                                                   </li>
+                                                   			
+                                                   <li class="Body">Outputting several arrays into a single database table/spreadsheet range (<span class="code">multiout.mos</span>)
+                                                   </li>
+                                                   			
+                                                   <li class="Body">Reading an array from several tables/ranges (<span class="code">multitab.mos</span>)
+                                                   </li>
+                                                   		      
+                                                </ul>
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="multicol.mos" data-keyword="multicol.mos"></a><a href="multicol.mos"><span class="code">multicol.mos</span></a>, <a id="multicol2.mos" data-keyword="multicol2.mos"></a><a href="multicol2.mos"><span class="code">multicol2.mos</span></a>, <a id="multicol3.mos" data-keyword="multicol3.mos"></a><a href="multicol3.mos"><span class="code">multicol3.mos</span></a>, <a id="multicol4.mos" data-keyword="multicol4.mos"></a><a href="multicol4.mos"><span class="code">multicol4.mos</span></a>, <a id="multicol5.mos" data-keyword="multicol5.mos"></a><a href="multicol5.mos"><span class="code">multicol5.mos</span></a>, <a id="multicol6.mos" data-keyword="multicol6.mos"></a><a href="multicol6.mos"><span class="code">multicol6.mos</span></a>, <a id="multiout.mos" data-keyword="multiout.mos"></a><a href="multiout.mos"><span class="code">multiout.mos</span></a>, <a id="multiout2.mos" data-keyword="multiout2.mos"></a><a href="multiout2.mos"><span class="code">multiout2.mos</span></a>, <a id="multiout3.mos" data-keyword="multiout3.mos"></a><a href="multiout3.mos"><span class="code">multiout3.mos</span></a>, <a id="multiout4.mos" data-keyword="multiout4.mos"></a><a href="multiout4.mos"><span class="code">multiout4.mos</span></a>, <a id="multiout5.mos" data-keyword="multiout5.mos"></a><a href="multiout5.mos"><span class="code">multiout5.mos</span></a>, <a id="multiout6.mos" data-keyword="multiout6.mos"></a><a href="multiout6.mos"><span class="code">multiout6.mos</span></a>, <a id="multitab.mos" data-keyword="multitab.mos"></a><a href="multitab.mos"><span class="code">multitab.mos</span></a>, <a id="multitab2.mos" data-keyword="multitab2.mos"></a><a href="multitab2.mos"><span class="code">multitab2.mos</span></a>, <a id="multitab3.mos" data-keyword="multitab3.mos"></a><a href="multitab3.mos"><span class="code">multitab3.mos</span></a>, <a id="multitab4.mos" data-keyword="multitab4.mos"></a><a href="multitab4.mos"><span class="code">multitab4.mos</span></a>, <a id="multitab5.mos" data-keyword="multitab5.mos"></a><a href="multitab5.mos"><span class="code">multitab5.mos</span></a>, <a id="multitab6.mos" data-keyword="multitab6.mos"></a><a href="multitab6.mos"><span class="code">multitab6.mos</span></a></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">Data file(s):</span></td>
+                                             <td><a id="multicol.dat" data-keyword="multicol.dat"></a><a href="multicol.dat"><span class="code">multicol.dat</span></a>, <a id="multicdd.dat" data-keyword="multicdd.dat"></a><a href="multicdd.dat"><span class="code">multicdd.dat</span></a>, <a id="multicol.csv" data-keyword="multicol.csv"></a><a href="multicol.csv"><span class="code">multicol.csv</span></a>, <a id="multicol.mdb" data-keyword="multicol.mdb"></a><a href="multicol.mdb"><span class="code">multicol.mdb</span></a>, <a id="multicol.xls" data-keyword="multicol.xls"></a><a href="multicol.xls"><span class="code">multicol.xls</span></a>, <a id="multicol.xlsx" data-keyword="multicol.xlsx"></a><a href="multicol.xlsx"><span class="code">multicol.xlsx</span></a>, <a id="multicol.sqlite" data-keyword="multicol.sqlite"></a><a href="multicol.sqlite"><span class="code">multicol.sqlite</span></a>, <a id="multiout.dat" data-keyword="multiout.dat"></a><a href="multiout.dat"><span class="code">multiout.dat</span></a>, <a id="multicol.csv" data-keyword="multicol.csv"></a><a href="multicol.csv"><span class="code">multicol.csv</span></a>, <a id="multicol.mdb" data-keyword="multicol.mdb"></a><a href="multicol.mdb"><span class="code">multicol.mdb</span></a>, <a id="multicol.xls" data-keyword="multicol.xls"></a><a href="multicol.xls"><span class="code">multicol.xls</span></a>, <a id="multicol.xlsx" data-keyword="multicol.xlsx"></a><a href="multicol.xlsx"><span class="code">multicol.xlsx</span></a>, <a id="multicol.sqlite" data-keyword="multicol.sqlite"></a><a href="multicol.sqlite"><span class="code">multicol.sqlite</span></a>, <a id="multitab.csv" data-keyword="multitab.csv"></a><a href="multitab.csv"><span class="code">multitab.csv</span></a>, <a id="multitab.dat" data-keyword="multitab.dat"></a><a href="multitab.dat"><span class="code">multitab.dat</span></a>, <a id="multitab.mdb" data-keyword="multitab.mdb"></a><a href="multitab.mdb"><span class="code">multitab.mdb</span></a>, <a id="multitab.xls" data-keyword="multitab.xls"></a><a href="multitab.xls"><span class="code">multitab.xls</span></a>, <a id="multitab.xlsx" data-keyword="multitab.xlsx"></a><a href="multitab.xlsx"><span class="code">multitab.xlsx</span></a>, <a id="multitab.sqlite" data-keyword="multitab.sqlite"></a><a href="multitab.sqlite"><span class="code">multitab.sqlite</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="odbcsel"></a><a href="javascript:;" onmousedown="toggleDiv('odbcsel_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="odbcsel_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="odbcsel_divicon2"></span>Formulation of SQL (selection) statements</span></a>: Advanced SQL functionality, retrieve database and table structure
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="odbcsel_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Programming</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">3 (intermediate)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">If some advanced SQL functionality is required when accessing
+                                                		    a data source through an ODBC or OCI connection it will in general
+                                                		    be necessary to formulate the corresponding SQL statements
+                                                		    directly in the Mosel model instead of using the corresponding IO
+                                                		    driver in <span class="code">initializations</span> blocks. We show here two examples:
+                                                		    
+                                                <ol>
+                                                   		    
+                                                   <li class="Body">Selection statements using columns in
+                                                      		    inverted order (ODBC: <span class="code">odbcinv.mos</span>, Oracle: <span class="code">ociinv.mos</span>)
+                                                   </li>
+                                                   		    
+                                                   <li class="Body">SQL with conditional selection statements and functions
+                                                      		     (ODBC: <span class="code">odbcselfunc.mos</span>, Oracle: <span class="code">ociselfunc.mos</span>)
+                                                   </li>
+                                                   		    
+                                                   <li class="Body">Retrieving information about database table structure: list of database tables, list of field names, primary keys (<span class="code">odbcinspectdb.mos</span>)
+                                                   </li>
+                                                   		    
+                                                   <li class="Body">Implementing 'stop on error' behaviour for SQL statements (<span class="code">odbcchkstatus.mos</span>)
+                                                   </li>
+                                                   		    
+                                                </ol>
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="odbcinv.mos" data-keyword="odbcinv.mos"></a><a href="odbcinv.mos"><span class="code">odbcinv.mos</span></a>, <a id="odbcselfunc.mos" data-keyword="odbcselfunc.mos"></a><a href="odbcselfunc.mos"><span class="code">odbcselfunc.mos</span></a>, <a id="odbcchkstatus.mos" data-keyword="odbcchkstatus.mos"></a><a href="odbcchkstatus.mos"><span class="code">odbcchkstatus.mos</span></a>, <a id="ociinv.mos" data-keyword="ociinv.mos"></a><a href="ociinv.mos"><span class="code">ociinv.mos</span></a>, <a id="ociselfunc.mos" data-keyword="ociselfunc.mos"></a><a href="ociselfunc.mos"><span class="code">ociselfunc.mos</span></a>, <a id="odbcinspectdb.mos" data-keyword="odbcinspectdb.mos"></a><a href="odbcinspectdb.mos"><span class="code">odbcinspectdb.mos</span></a></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">Data file(s):</span></td>
+                                             <td><a id="multicol.mdb" data-keyword="multicol.mdb"></a><a href="multicol.mdb"><span class="code">multicol.mdb</span></a>, <a id="multicol.sqlite" data-keyword="multicol.sqlite"></a><a href="multicol.sqlite"><span class="code">multicol.sqlite</span></a>, <a id="ocidata.dat" data-keyword="ocidata.dat"></a><a href="ocidata.dat"><span class="code">ocidata.dat</span></a>, <a id="odbcsel.mdb" data-keyword="odbcsel.mdb"></a><a href="odbcsel.mdb"><span class="code">odbcsel.mdb</span></a>, <a id="odbcsel.xls" data-keyword="odbcsel.xls"></a><a href="odbcsel.xls"><span class="code">odbcsel.xls</span></a>, <a id="odbcsel.sqlite" data-keyword="odbcsel.sqlite"></a><a href="odbcsel.sqlite"><span class="code">odbcsel.sqlite</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="listrecord"></a><a href="javascript:;" onmousedown="toggleDiv('listrecord_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="listrecord_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="listrecord_divicon2"></span>Reading and writing records and lists</span></a>: record data structure, list data structure
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="listrecord_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Programming</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">3 (intermediate)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">This set of examples shows how to work with advanced data structures when accessing data in spreadsheets and databases:
+                                                
+                                                <ul>
+                                                   
+                                                   <li class="Body">reading in records (recordin*.mos)</li>
+                                                   
+                                                   <li class="Body">writing out records (recordout*.mos)</li>
+                                                   
+                                                   <li class="Body">reading and writing lists (listinout*.mos)</li>
+                                                   
+                                                </ul>
+                                                		    The basic model version uses an ODBC connection to spreadsheets or databases through the <i>odbc</i> driver, model version (2) uses ODBC through SQL statements, and model version (3) uses the software-specific driver <i>excel</i> to access Excel spreadsheets. Model version (1) shows how to work with Mosel's text data file format.<br></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="recordin.mos" data-keyword="recordin.mos"></a><a href="recordin.mos"><span class="code">recordin.mos</span></a>, <a id="recordin1.mos" data-keyword="recordin1.mos"></a><a href="recordin1.mos"><span class="code">recordin1.mos</span></a>, <a id="recordin2.mos" data-keyword="recordin2.mos"></a><a href="recordin2.mos"><span class="code">recordin2.mos</span></a>, <a id="recordin3.mos" data-keyword="recordin3.mos"></a><a href="recordin3.mos"><span class="code">recordin3.mos</span></a>, <a id="recordin4.mos" data-keyword="recordin4.mos"></a><a href="recordin4.mos"><span class="code">recordin4.mos</span></a>, <a id="recordin5.mos" data-keyword="recordin5.mos"></a><a href="recordin5.mos"><span class="code">recordin5.mos</span></a>, <a id="recordin6.mos" data-keyword="recordin6.mos"></a><a href="recordin6.mos"><span class="code">recordin6.mos</span></a>, <a id="recordout.mos" data-keyword="recordout.mos"></a><a href="recordout.mos"><span class="code">recordout.mos</span></a>, <a id="recordout1.mos" data-keyword="recordout1.mos"></a><a href="recordout1.mos"><span class="code">recordout1.mos</span></a>, <a id="recordout2.mos" data-keyword="recordout2.mos"></a><a href="recordout2.mos"><span class="code">recordout2.mos</span></a>, <a id="recordout3.mos" data-keyword="recordout3.mos"></a><a href="recordout3.mos"><span class="code">recordout3.mos</span></a>, <a id="recordout4.mos" data-keyword="recordout4.mos"></a><a href="recordout4.mos"><span class="code">recordout4.mos</span></a>, <a id="recordout5.mos" data-keyword="recordout5.mos"></a><a href="recordout5.mos"><span class="code">recordout5.mos</span></a>, <a id="recordout6.mos" data-keyword="recordout6.mos"></a><a href="recordout6.mos"><span class="code">recordout6.mos</span></a>, <a id="listinout.mos" data-keyword="listinout.mos"></a><a href="listinout.mos"><span class="code">listinout.mos</span></a>, <a id="listinout1.mos" data-keyword="listinout1.mos"></a><a href="listinout1.mos"><span class="code">listinout1.mos</span></a>, <a id="listinout2.mos" data-keyword="listinout2.mos"></a><a href="listinout2.mos"><span class="code">listinout2.mos</span></a>, <a id="listinout3.mos" data-keyword="listinout3.mos"></a><a href="listinout3.mos"><span class="code">listinout3.mos</span></a>, <a id="listinout4.mos" data-keyword="listinout4.mos"></a><a href="listinout4.mos"><span class="code">listinout4.mos</span></a>, <a id="listinout5.mos" data-keyword="listinout5.mos"></a><a href="listinout5.mos"><span class="code">listinout5.mos</span></a>, <a id="listinout6.mos" data-keyword="listinout6.mos"></a><a href="listinout6.mos"><span class="code">listinout6.mos</span></a></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">Data file(s):</span></td>
+                                             <td><a id="recorddata.dat" data-keyword="recorddata.dat"></a><a href="recorddata.dat"><span class="code">recorddata.dat</span></a>, <a id="recorddata.csv" data-keyword="recorddata.csv"></a><a href="recorddata.csv"><span class="code">recorddata.csv</span></a>, <a id="recorddata2.csv" data-keyword="recorddata2.csv"></a><a href="recorddata2.csv"><span class="code">recorddata2.csv</span></a>, <a id="recorddata.mdb" data-keyword="recorddata.mdb"></a><a href="recorddata.mdb"><span class="code">recorddata.mdb</span></a>, <a id="recorddata.xls" data-keyword="recorddata.xls"></a><a href="recorddata.xls"><span class="code">recorddata.xls</span></a>, <a id="recorddata2.xls" data-keyword="recorddata2.xls"></a><a href="recorddata2.xls"><span class="code">recorddata2.xls</span></a>, <a id="recordout_templ.xls" data-keyword="recordout_templ.xls"></a><a href="recordout_templ.xls"><span class="code">recordout_templ.xls</span></a>, <a id="recorddata.xlsx" data-keyword="recorddata.xlsx"></a><a href="recorddata.xlsx"><span class="code">recorddata.xlsx</span></a>, <a id="recorddata2.xlsx" data-keyword="recorddata2.xlsx"></a><a href="recorddata2.xlsx"><span class="code">recorddata2.xlsx</span></a>, <a id="recorddata.sqlite" data-keyword="recorddata.sqlite"></a><a href="recorddata.sqlite"><span class="code">recorddata.sqlite</span></a>, <a id="listdata.dat" data-keyword="listdata.dat"></a><a href="listdata.dat"><span class="code">listdata.dat</span></a>, <a id="listdata.csv" data-keyword="listdata.csv"></a><a href="listdata.csv"><span class="code">listdata.csv</span></a>, <a id="listdata.mdb" data-keyword="listdata.mdb"></a><a href="listdata.mdb"><span class="code">listdata.mdb</span></a>, <a id="listdata.xls" data-keyword="listdata.xls"></a><a href="listdata.xls"><span class="code">listdata.xls</span></a>, <a id="listdata.xlsx" data-keyword="listdata.xlsx"></a><a href="listdata.xlsx"><span class="code">listdata.xlsx</span></a>, <a id="listdata.sqlite" data-keyword="listdata.sqlite"></a><a href="listdata.sqlite"><span class="code">listdata.sqlite</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="uniondata"></a><a href="javascript:;" onmousedown="toggleDiv('uniondata_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="uniondata_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="uniondata_divicon2"></span>Reading and writing union types</span></a>: Types any, date, time; data input/output
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="uniondata_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Programming</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">3 (intermediate)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">A union is a container capable of holding an object of one of a predefined set of types. Its declaration specifies the set
+                                                of compatible types or the predefined union type 'any'.
+                                                The examples display the resulting types when populating union type entities from external data sources. It is also shown
+                                                how to convert the type of union entities from textual types to 'date' or 'time' types as defined by the Mosel module <i>mmsystem</i>.  
+                                                
+                                                <ul>
+                                                   <li class="Body">The model version in unioninout1.mos shows how to work with Mosel's text data file format.</li>
+                                                   
+                                                   <li class="Body">Databases can be accessed from Mosel through an ODBC connection using the <i>odbc</i> driver (unioninout.mos) or with SQL statements (unioninout2.mos).
+                                                   </li>
+                                                   
+                                                   <li class="Body">For Oracle databases a software-specific connection is provided by the module <i>mmoci</i> (unioninout4.mos).
+                                                   </li>
+                                                   
+                                                   <li class="Body">Microsoft Excel spreadsheets can be accessed via the software-specific driver <i>excel</i> (unioninout3.mos). Alternatively, models can use the dedicated I/O drivers <i>xsl/xlsx</i> (unioninout5.mos) from the <i>mmsheet</i> module that support manipulating spreadsheet files on various platforms without having to install Microsoft Excel.
+                                                   </li>
+                                                   
+                                                   <li class="Body">Module <i>mmsheet</i> also provides an I/O driver for <i>csv</i> files (unioninout6.mos).
+                                                   </li>
+                                                </ul>
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="unioninout.mos" data-keyword="unioninout.mos"></a><a href="unioninout.mos"><span class="code">unioninout.mos</span></a>, <a id="unioninout1.mos" data-keyword="unioninout1.mos"></a><a href="unioninout1.mos"><span class="code">unioninout1.mos</span></a>, <a id="unioninout2.mos" data-keyword="unioninout2.mos"></a><a href="unioninout2.mos"><span class="code">unioninout2.mos</span></a>, <a id="unioninout3.mos" data-keyword="unioninout3.mos"></a><a href="unioninout3.mos"><span class="code">unioninout3.mos</span></a>, <a id="unioninout4.mos" data-keyword="unioninout4.mos"></a><a href="unioninout4.mos"><span class="code">unioninout4.mos</span></a>, <a id="unioninout5.mos" data-keyword="unioninout5.mos"></a><a href="unioninout5.mos"><span class="code">unioninout5.mos</span></a>, <a id="unioninout6.mos" data-keyword="unioninout6.mos"></a><a href="unioninout6.mos"><span class="code">unioninout6.mos</span></a></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">Data file(s):</span></td>
+                                             <td><a id="uniondata.csv" data-keyword="uniondata.csv"></a><a href="uniondata.csv"><span class="code">uniondata.csv</span></a>, <a id="uniondata2.csv" data-keyword="uniondata2.csv"></a><a href="uniondata2.csv"><span class="code">uniondata2.csv</span></a>, <a id="uniondatain.dat" data-keyword="uniondatain.dat"></a><a href="uniondatain.dat"><span class="code">uniondatain.dat</span></a>, <a id="uniondata.xls" data-keyword="uniondata.xls"></a><a href="uniondata.xls"><span class="code">uniondata.xls</span></a>, <a id="uniondata.xlsx" data-keyword="uniondata.xlsx"></a><a href="uniondata.xlsx"><span class="code">uniondata.xlsx</span></a>, <a id="uniondata.sqlite" data-keyword="uniondata.sqlite"></a><a href="uniondata.sqlite"><span class="code">uniondata.sqlite</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="datetime"></a><a href="javascript:;" onmousedown="toggleDiv('datetime_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="datetime_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="datetime_divicon2"></span>Reading and writing dates and times</span></a>: data types date, time, datetime
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="datetime_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Programming</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">3 (intermediate)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">This set of examples shows how to work with date and time data types when accessing data in spreadsheets and databases.
+                                                The basic model version uses an ODBC connection to databases through the <i>odbc</i> driver, model version (2) uses ODBC through SQL statements and version (4) shows the same for Oracle databases accessed via
+                                                the OCI. Model versions (3) and (5) work with different spreadsheet drivers, and version (6) with CSV data format.<br></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="datesinout.mos" data-keyword="datesinout.mos"></a><a href="datesinout.mos"><span class="code">datesinout.mos</span></a>, <a id="datesinout2.mos" data-keyword="datesinout2.mos"></a><a href="datesinout2.mos"><span class="code">datesinout2.mos</span></a>, <a id="datesinout3.mos" data-keyword="datesinout3.mos"></a><a href="datesinout3.mos"><span class="code">datesinout3.mos</span></a>, <a id="datesinout4.mos" data-keyword="datesinout4.mos"></a><a href="datesinout4.mos"><span class="code">datesinout4.mos</span></a>, <a id="datesinout5.mos" data-keyword="datesinout5.mos"></a><a href="datesinout5.mos"><span class="code">datesinout5.mos</span></a></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">Data file(s):</span></td>
+                                             <td><a id="datetime.csv" data-keyword="datetime.csv"></a><a href="datetime.csv"><span class="code">datetime.csv</span></a>, <a id="recorddata2.csv" data-keyword="recorddata2.csv"></a><a href="recorddata2.csv"><span class="code">recorddata2.csv</span></a>, <a id="datetime.xls" data-keyword="datetime.xls"></a><a href="datetime.xls"><span class="code">datetime.xls</span></a>, <a id="datetime.xls" data-keyword="datetime.xls"></a><a href="datetime.xls"><span class="code">datetime.xls</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="threedimarr"></a><a href="javascript:;" onmousedown="toggleDiv('threedimarr_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="threedimarr_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="threedimarr_divicon2"></span>Reading 3-dimensional arrays</span></a>: Multidimensional array input, option partndx
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="threedimarr_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Programming</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">2 (easy-medium)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">This example shows how to read a 3-dimensional array from an <i>excel</i> file (threedimarr.mos) and from a generic spreadsheet (threedimarr5.mos) where the last index is specifed 'across the columns',
+                                                resulting in a pivot-style table format where the first N-1 columns contain index values (here: 2 index columns). Model versions
+                                                (2) and (4) show the same example for databases, and model version (6) works with data in CSV format. <br>
+                                                Note that standard use of the 'partndx' option for spreadsheets assumes that the last index is a set of type 'range', the
+                                                example partidxstr.mos defines a utility routine 'makelabel' that makes it possible to work with a 'set of string' for the
+                                                last index.
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="threedimarr.mos" data-keyword="threedimarr.mos"></a><a href="threedimarr.mos"><span class="code">threedimarr.mos</span></a>, <a id="threedimarr2.mos" data-keyword="threedimarr2.mos"></a><a href="threedimarr2.mos"><span class="code">threedimarr2.mos</span></a>, <a id="threedimarr3.mos" data-keyword="threedimarr3.mos"></a><a href="threedimarr3.mos"><span class="code">threedimarr3.mos</span></a>, <a id="threedimarr4.mos" data-keyword="threedimarr4.mos"></a><a href="threedimarr4.mos"><span class="code">threedimarr4.mos</span></a>, <a id="threedimarr5.mos" data-keyword="threedimarr5.mos"></a><a href="threedimarr5.mos"><span class="code">threedimarr5.mos</span></a>, <a id="threedimarr6.mos" data-keyword="threedimarr6.mos"></a><a href="threedimarr6.mos"><span class="code">threedimarr6.mos</span></a>, <a id="partidxstr.mos" data-keyword="partidxstr.mos"></a><a href="partidxstr.mos"><span class="code">partidxstr.mos</span></a></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">Data file(s):</span></td>
+                                             <td><a id="threedim.csv" data-keyword="threedim.csv"></a><a href="threedim.csv"><span class="code">threedim.csv</span></a>, <a id="threedim.xls" data-keyword="threedim.xls"></a><a href="threedim.xls"><span class="code">threedim.xls</span></a>, <a id="threedim.xlsx" data-keyword="threedim.xlsx"></a><a href="threedim.xlsx"><span class="code">threedim.xlsx</span></a>, <a id="threedim.mdb" data-keyword="threedim.mdb"></a><a href="threedim.mdb"><span class="code">threedim.mdb</span></a>, <a id="threedim.sqlite" data-keyword="threedim.sqlite"></a><a href="threedim.sqlite"><span class="code">threedim.sqlite</span></a>, <a id="partidxdata.csv" data-keyword="partidxdata.csv"></a><a href="partidxdata.csv"><span class="code">partidxdata.csv</span></a>, <a id="partidxdata.xls" data-keyword="partidxdata.xls"></a><a href="partidxdata.xls"><span class="code">partidxdata.xls</span></a>, <a id="partidxdata.xlsx" data-keyword="partidxdata.xlsx"></a><a href="partidxdata.xlsx"><span class="code">partidxdata.xlsx</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table>
+                                    </div><br></td>
+                              </tr>
+                              <tr>
+                                 <td><br>&nbsp;<br></td>
+                              </tr>
+                           </tbody>
+                        </table>
+                     </td>
+                  </tr>
+                  <tr height="20">
+                     <td colspan="2">
+                        <p class="bodytext">&nbsp;&nbsp;Comments or suggestions about the examples?
+                           Please e-mail <a href="mailto:support@fico.com?subject=Xpress examples">support@fico.com</a><br>&nbsp;
+                        </p>
+                     </td>
+                  </tr>
+               </tbody>
+            </table>
+         </div>
+         <div class="footer" align="left" height="20" width="100%">
+            <hr class="hr2"><font class="font7">&copy; Copyright 1983-2026 Fair Isaac Corporation. All rights reserved.</font></div>
+      </div>
+   </body>
+</html>

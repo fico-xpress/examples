@@ -1,0 +1,75 @@
+(!*********************************************************************
+   Mosel Example Problems
+   ======================
+
+   file trim1.mos
+   ``````````````
+   Trim loss problem 
+   
+     Example solution for exercise 4.1 in section 4.7 /
+     described in section 4.1.1 of
+     J. Kallrath: Business Optimization Using Mathematical Programming -
+     An Introduction with Case Studies and Solutions in Various Algebraic 
+     Modeling Languages. 2nd edition, Springer Nature, Cham, 2021 
+
+   author: S. Heipcke, June 2018
+
+   (c) Copyright 2020 Fair Isaac Corporation
+  
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+*********************************************************************!)
+
+model 'trim1'
+  uses "mmxprs"
+
+  declarations
+    RPATT=1..6                    ! Set of cutting patterns
+    RWDTH=1..3                    ! Set of width types
+    A: array(RWDTH,RPATT) of real ! Number of each width type given by cutting pattern
+    WASTE: array(RPATT) of real   ! Wastages
+    WDTH: array(RWDTH) of real    ! Widths
+    DEM: array(RWDTH) of real     ! Requirements
+  end-declarations
+
+  A::[4,2,2,1,0,0,
+      0,1,0,2,1,0,
+      0,0,1,0,1,2]
+  WASTE::[0,3,1,1,4,2]
+  WDTH::[5,7,9]
+  DEM::[30000,30000,20000]
+
+  declarations
+    x: array(RPATT) of mpvar      ! Length of roll to cut using each cutting pattern
+    s: array(RWDTH) of mpvar      ! Excess length cut of each width
+  end-declarations
+
+ ! Objective: minimise total wastage
+  Wste:=sum(i in RPATT) WASTE(i)*x(i) + sum(j in RWDTH) WDTH(j)*s(j)
+
+ ! Satisfy the demand
+  forall(j in RWDTH)
+    Con(j):=sum(i in RPATT) A(j,i)*x(i) - s(j) = DEM(j)
+
+ ! Solve the problem
+  minimise(Wste)
+  writeln("Solution: Wastage=", getobjval) 
+  forall(i in RPATT | x(i).sol>0) do
+    write("Pattern ", i, " x ", strfmt(x(i).sol,5), ":")
+    forall(j in RWDTH) write(" ", A(j,i))
+    writeln
+  end-do  
+  write("           Excess:")
+  forall(j in RWDTH) write(" ", s(j).sol)
+  writeln
+end-model

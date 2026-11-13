@@ -1,0 +1,46 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file genctrexpl.mos
+   ```````````````````
+   MIP problem formulation using general constraints
+   - Example discussed in mipformref whitepaper -   
+
+   (c) 2020 Fair Isaac Corporation
+       author: S. Heipcke, July 2020
+*******************************************************!)
+model genctrexpl
+ uses "mmxnlp", "mmsystem"
+
+ public declarations
+   R=1..3
+   x: array(R) of mpvar
+   y,z: mpvar
+   mat: text
+ end-declarations
+
+ forall(i in R) x(i)<=20
+ abs(x(1)-2*x(2)) <= 10
+ MinCtr:= fmin(union(i in R) [x(i)]) >= 5
+ y = fmax(x(3), 20, x(1)-z)
+
+ setparam("XPRS_verbose", true)      
+ setparam("XPRS_loadnames", true) 
+ maximize(sum(i in R) x(i))
+ if getprobstat=XPRS_OPT then
+   writeln("Solution: ", getobjval)
+   forall(i in R) write("x", i, "=", x(i).sol, ", ")
+   writeln("y=", y.sol, ", z=", z.sol)
+   writeln("abs=", getsol(abs(x(1)-2*x(2))), ", Min of x(i)=", MinCtr.sol+5)
+ else
+   writeln("No solution")
+ end-if
+
+ writeln("Solved as MIP problem: ", 
+   getparam("XNLP_SOLVERSELECTED")=XNLP_SOLVER_OPTIMIZER)
+(!
+ writeprob("text:mat", "l")
+ writeln(mat)
+!)
+end-model

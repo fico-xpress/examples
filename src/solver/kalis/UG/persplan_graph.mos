@@ -1,0 +1,135 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file persplan_graph.mos
+   ```````````````````````
+   Personnel planning problem.
+   A movie theatre director has to decide in which location each
+   of his 8 employees should be posted. Each of the four locations
+   has a given personnel requirement.
+   - Solution drawing -
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+       rev. Sep. 2017
+*****************************************************************!)
+  
+model "Personnel Planning (CP)"
+ uses "kalis","mmsvg"
+ 
+ parameters
+   MAXSOL=10
+ end-parameters  
+
+ forward procedure draw_solution 
+ forward procedure print_solution 
+
+ declarations
+  PERS = {"David","Andrew","Leslie","Jason","Oliver","Michael",
+          "Jane","Marilyn"}                ! Set of personnel
+  LOC = 1..4                               ! Set of locations
+  LOCNAMES = {"Ticketoffice", "Theater1", "Theater2", 
+              "Cloakroom"}                 ! Names of locations
+  LOCNUM: array(LOCNAMES) of integer       ! Numbers assoc. with loc.s
+  REQ: array(LOC) of integer               ! No. of pers. req. per loc.
+
+  place: array(PERS) of cpvar              ! Workplace assigned to each peson
+ end-declarations
+
+! Initialize data
+ LOCNUM("Ticketoffice"):= 1; LOCNUM("Theater1"):= 2
+ LOCNUM("Theater2"):= 3; LOCNUM("Cloakroom"):= 4
+ REQ:: (1..4)[3, 2, 2, 1]
+
+! Each variable has a lower bound of 1 (Ticketoffice) and an upper bound 
+! of 4 (Cloakroom)
+ forall(p in PERS) do
+  setname(place(p),"workplace["+p+"]")
+  setdomain(place(p), LOC)
+ end-do
+
+! "Leslie must be at the second entrance of the theater"
+ place("Leslie") = LOCNUM("Theater2")
+
+! "Michael must be at the first entrance of the theater"
+ place("Michael") = LOCNUM("Theater1")
+
+! "David, Michael and Jason cannot work with each other"
+ all_different({place("David"), place("Michael"), place("Jason")})
+
+! "If Oliver is selling tickets, Marylin must be with him"
+ implies(place("Oliver")=LOCNUM("Ticketoffice"),
+         place("Marilyn")=LOCNUM("Ticketoffice"))
+	 
+! Creation of a resource constraint of for every location
+! forall(d in LOC) occurrence(LOCNUM(d), place) = REQ(d)
+
+! Formulation of resource constraints using global cardinality constraint
+ distribute(place,LOC,REQ)
+
+! Setting parameters of the enumeration
+ cp_set_branching(assign_var(KALIS_SMALLEST_MIN, KALIS_MAX_TO_MIN, place))
+
+! Solve the problem
+ if not cp_find_next_sol then
+  writeln("Problem is infeasible")
+  exit(1)
+ end-if
+
+! Solution output
+ nbSolutions:= 1 
+ print_solution
+ draw_solution
+
+! Search for other solutions
+ while (cp_find_next_sol and nbSolutions<MAXSOL and not svgclosing) do
+  nbSolutions += 1
+  print_solution
+  draw_solution
+ end-do
+ 
+ cp_show_stats
+
+ svgsave("persplan.svg")
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+
+! **** Solution printout and graphical display ****
+ procedure draw_solution 
+  svgerase
+  svgaddgroup("PersGraph", "Personnel")
+  svgsetstyle(SVG_TEXTANCHOR, "end")
+  svgaddgroup("LocGraph", "Locations")
+  svgaddgroup("AsgnGraph", "Assignments", SVG_BLACK)
+ 
+  forall(d in LOCNAMES)
+   svgaddtext("LocGraph", 4, LOCNUM(d), d)
+
+  FACT:=LOCNAMES.size/PERS.size
+  idx:= 1
+  forall(p in PERS, idx as counter) do
+   svgaddline("AsgnGraph", 2, idx*FACT, 4, getsol(place(p)))
+   svgaddtext("PersGraph", 2, idx*FACT, p)
+  end-do
+
+  svgsetgraphscale(75)
+  svgsetgraphviewbox(0,0,5,LOCNAMES.size+1)
+  svgrefresh
+
+  ! Uncomment to pause at every iteration:          
+  if nbSolutions<MAXSOL then svgpause; end-if
+ end-procedure
+
+! **** Solution printout **** 
+ procedure print_solution 
+  declarations
+   LOCIDX: array(LOC) of string
+  end-declarations
+  forall(l in LOCNAMES) LOCIDX(LOCNUM(l)):=l
+  
+  writeln("\nSolution number ", nbSolutions)
+  forall(p in PERS)
+   writeln(" Working place of ", p, ": ", LOCIDX(getsol(place(p))))
+ end-procedure
+
+end-model
+

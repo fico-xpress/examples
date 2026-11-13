@@ -1,0 +1,99 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file unioninout.mos
+   ```````````````````
+   Reading/writing unions from/t databases via ODBC.
+   - Using 'initializations from' with odbc IO driver -
+   
+   (c) 2021 Fair Isaac Corporation
+       author: S. Heipcke, Apr. 2021
+*******************************************************!)
+model "Union handling (ODBC)"
+ uses 'mmodbc', 'mmsystem'
+
+ parameters
+                              ! Use mysql database `uniondata' (not provided)
+!  CNCTIO = 'mmodbc.odbc:debug;DSN=mysql;DB=uniondata'
+                              ! Use SQLite database 'uniondata.sqlite' via ODBC
+!  CNCTIO = 'mmodbc.odbc:debug;DSN=sqlite;DATABASE=uniondata.sqlite'
+                              ! Use SQLite database 'uniondata.sqlite' directly 
+   CNCTIO = "mmodbc.odbc:debug;uniondata.sqlite"
+ end-parameters
+
+ declarations
+   L,L2: list of any
+   L3: list of text or real
+   LS: list of text
+ end-declarations
+
+ ! Date and time formats
+(! Access and Excel:
+ setparam("timefmt", "%y-%0m-%0d %0H:%0M:%0S")
+ setparam("datefmt", "%y-%0m-%0d")
+ setparam("datetimefmt", "%y-%0m-%0d %0H:%0M:%0S")
+!)
+(! mysql:
+ setparam("timefmt", "%0H:%0M:%0S")
+ setparam("datefmt", "%y-%0m-%0d")
+ setparam("datetimefmt", "%y-%0m-%0d %0H:%0M:%0S")
+!)
+(! SQLite:
+ setparam("timefmt", "%0H:%0M:%0S")
+ setparam("datefmt", "%y-%0m-%0d")
+ setparam("datetimefmt", "%y-%0m-%0d %0H:%0M:%0S")
+!)
+
+ setparam("SQLverbose",true)
+
+ ! Reading data of different types from a database
+ initializations from CNCTIO
+   L as "UnionTab"
+   L2 as "UnionLst"
+   L3 as "UnionTab"
+ end-initializations
+
+ write("L orig: ")
+ forall(i in L) write (i,": ", i.typeid, "; ")
+ writeln
+ ! Date and time types are read in textual form 
+ L(5).date:=date(text(L(5)))
+ L(6).time:=time(text(L(6)))
+ write("L new:  ")
+ forall(i in L) write (i,": ", i.typeid, "; ")
+ writeln
+
+ ! Reading into a list defined with a restricted set of types
+ write("L3:     ")
+ forall(i in L3) write (i,": ", i.typeid, "; ")
+ writeln
+
+ ! Textual database types are always read as string 
+ write("L2:     ")
+ forall(i in L2) write (i,": ", i.typeid, "; ")
+ writeln
+
+
+(! Delete existing contents of result tables: 
+  SQLconnect(CNCT)
+  SQLexecute("delete from UnionOut")
+  SQLexecute("delete from Union2Out")
+  SQLdisconnect
+!)
+ LS:=sum(i in L) [text(i)]
+
+ initializations to CNCTIO
+  ! Writing data of type 'any' to a database table with various different types
+   L as "UnionOut(IVal,RVal,BVal,SVal,DVal,TVal)"
+  ! Writing data of type 'any' into textual fields of a database
+   L as "Union2Out"
+  ! Writing data of a union type to a database
+   L3 as "UnionOut(IVal,RVal,BVal,SVal,DVal,TVal)"
+  ! Writing text-format data to a database table with various different types
+   LS as "UnionOut(IVal,RVal,BVal,SVal,DVal,TVal)"
+ end-initializations
+
+ writeln("Output to DB terminated.")
+
+end-model

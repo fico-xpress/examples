@@ -1,0 +1,72 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file duooci_out.mos 
+   ``````````````````` 
+   Two ways of writing data to Oracle databases.
+ 
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Jan. 2007, rev. Aug. 2023
+*******************************************************!)
+
+model "Duo output (OCI)"
+ uses "mmoci"
+ options keepassert
+
+ parameters
+  CNCT = 'myname/mypassword@dbname'
+ end-parameters
+
+ declarations
+  A: array(-1..1,5..7) of real
+ end-declarations
+
+ A :: [ 2,  4,  6,
+       12, 14, 16,
+       22, 24, 26]
+
+! First method: use an initializations block with the oci driver
+! ATTENTION: results from previous runs must be removed previously;
+! otherwise the new results will either be appended to the existing ones
+! or, if one of the fields has been defined as a key field in the database,
+! the insertion will fail.
+
+ initializations to "mmoci.oci:debug;"+CNCT
+  A as "MyOutTable1"
+ end-initializations
+
+! Second method: use SQL statements 
+ OCIlogon(CNCT)
+ assert(getparam("OCIsuccess"))
+ OCIexecute("delete from MyOutTable2") ! Cleaning up previous results: works
+                                       ! only for databases, cannot be used
+                                       ! with spreadsheets (instead, delete
+                                       ! previous solutions directly in the
+                                       ! spreadsheet file)
+ OCIexecute("insert into MyOutTable2 (Index1,Index2,AValue) values (:1,:2,:3)", A)
+! Alternatively:
+! OCIexecute("update MyOutTable2 set AValue=:3 where Index1=:1 and Index2=:2", A)
+ assert(getparam("OCIsuccess"))
+ OCIlogoff
+
+end-model
+
+
+
+**************************************************
+
+
+! Creation of the output tables in an Oracle database:
+
+ declarations
+  tsucc: array ({false,true}) of string
+ end-declarations
+
+ tsucc(false):="failed"; tsucc(true):="succeeded"
+
+ OCIexecute("create table MyOutTable1 (Index1 integer, Index2 integer, Value float)")
+ writeln(" - Create MyOutTable1 (",tsucc(getparam("OCIsuccess")),")")
+ OCIexecute("create table MyOutTable2 (Index1 integer, Index2 integer, AValue float)")
+ writeln(" - Create MyOutTable2 (",tsucc(getparam("OCIsuccess")),")")
+

@@ -1,0 +1,298 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file solutionpool.mos
+   `````````````````````
+   Capacitated facility location problem (CFLP) with
+   single-sourcing, used to demonstrate the MIP solution
+   pool functionality of the Xpress Optimizer:
+    (a) collecting solutions during a normal solve;
+    (b) warm-starting a re-solve from the pool after
+        fixing a facility to be open;
+    (c) enumerating the 5 best solutions overall via
+        extended branch-and-bound;
+    (d) enumerating the 5 best facility-assignment-only
+        solutions (restricting enumeration to the
+        facility-open variables).
+
+   Model:
+     Sets      I customers, J facilities
+     Data      D_i demand of customer i
+               F_j fixed cost of opening facility j
+               Q_j capacity of facility j
+               C_ij distance between customer i and
+                    facility j
+     Variables y_j =1 if facility j is open
+               x_ij=1 if customer i is served by facility j
+     Objective min sum(j) F_j y_j + sum(i,j) C_ij x_ij
+     Constraints
+       sum(j) x_ij = 1                       for every i
+       sum(i) D_i x_ij <= Q_j y_j            for every j
+
+   (c) 2026 Fair Isaac Corporation
+       author: S. Heipcke, Sep. 2026
+*******************************************************!)
+
+model "Solution Pool"
+ options noimplicit
+ version 1.0.0
+ uses "mmxprs", "mmsystem"
+
+ declarations
+  NCUST = 25                     ! Number of customers
+  NFAC = 10                      ! Number of facilities
+  Customers = 1..NCUST           ! Index set of customers
+  Facilities = 1..NFAC           ! Index set of facilities
+
+  CUSTX, CUSTY: array(Customers) of real    ! Customer coordinates
+  DEM: array(Customers) of real             ! Customer demand
+  FACX, FACY: array(Facilities) of real     ! Facility coordinates
+  CAP: array(Facilities) of real            ! Facility capacity
+  FCOST: array(Facilities) of real          ! Facility fixed opening cost
+  DIST: array(Customers, Facilities) of real    ! Customer-facility distance
+
+  open: array(Facilities) of mpvar              ! 1 if facility j is open
+  serve: array(Customers, Facilities) of mpvar  ! 1 if customer i served by j
+  MinCost: linctr                               ! Objective: total cost
+
+ ! Forward declaration of subroutines defined later on
+  procedure printsolutions
+  procedure solve_collect_solutions
+  procedure solve_warmstart_from_pool(fixed: integer)
+  procedure enumerate_all_binaries
+  procedure enumerate_facilities
+ end-declarations
+
+ ! Customer coordinates and demands (25 customers in 3 clusters + 2 outliers)
+ CUSTX:: [20, 22, 5, 6, 13,             ! cluster A
+          15, 20, 11, 3,
+          70, 69, 82, 74, 77,           ! cluster B
+          82, 72, 70,
+          56, 53, 50, 39, 55,           ! cluster C
+          43,
+          46, 30]                       ! outliers
+ CUSTY:: [9, 15, 13, 26, 14,
+          19, 19, 7, 21,
+          27, 33, 26, 30, 20,
+          11, 25, 24,
+          82, 74, 84, 81, 80,
+          84,
+          47, 55]
+ DEM:: [26, 25, 37, 22, 35, 22, 43, 21, 41,
+           29, 61, 32, 41, 40, 39, 19, 72,
+           23, 40, 59, 27, 45, 25,
+           21, 40]
+
+ ! Facility coordinates, capacities and fixed costs (10 facilities)
+ FACX:: [7, 12,        ! near cluster A
+         76, 80,       ! near cluster B
+         56, 52,       ! near cluster C
+         45, 63,       ! central bridge
+         3, 3]         ! peripheral
+ FACY:: [15, 19,
+         19, 21,
+         88, 79,
+         50, 48,
+         93, 88]
+ CAP:: [307, 98, 86, 298, 211, 190, 70, 205, 140, 165]
+ FCOST:: [787, 233, 257, 756, 567, 517, 227, 535, 367, 445]
+
+ ! Compute service costs (Euclidean distance from customer to facility)
+ forall(i in Customers, j in Facilities)
+  DIST(i,j):= sqrt((CUSTX(i)-FACX(j))^2 + (CUSTY(i)-FACY(j))^2)
+
+ forall(j in Facilities) open(j) is_binary
+ forall(i in Customers, j in Facilities) serve(i,j) is_binary
+
+ ! Demand satisfaction constraints: each customer served by exactly one facility
+ forall(i in Customers)
+  sum(j in Facilities) serve(i,j) = 1
+
+ ! Capacity and activation constraints: a facility can only serve
+ ! customers, up to its capacity, if it is open 
+ forall(j in Facilities)
+  sum(i in Customers) DEM(i)*serve(i,j) <= CAP(j)*open(j)
+
+ ! Objective: total fixed opening cost plus total service (distance) cost
+ MinCost:= sum(j in Facilities) FCOST(j)*open(j) +
+  sum(i in Customers, j in Facilities) DIST(i,j)*serve(i,j)
+
+ ! Display solver log
+ ! setparam("XPRS_VERBOSE", true)
+
+ ! Solve the model and collect up to 10 solutions into the pool.
+ solve_collect_solutions
+
+ ! Force a facility to be opened and reoptimize, carrying the existing
+ ! solutions through as warm-start solutions for the next solve.
+ solve_warmstart_from_pool(3)
+
+ ! Run an enumeration search to find the 5 best solutions.
+ enumerate_all_binaries
+
+ ! Run an enumeration search to find the 5 best facility assignments.
+ enumerate_facilities
+
+! ***********************************************************************
+
+ (! **** Print the list of collected solutions: objective value, number of
+    facilities opened, and maximum distance between a facility and a
+    customer it serves. **** !)
+ procedure printsolutions
+  declarations
+   psize: integer
+   nopen: integer
+   maxdist: real
+  end-declarations
+
+  psize:= getparam("XPRS_POOLSIZE")
+  writeln("\n", psize, " solution(s) collected:")
+  writeln("  Sol#     Objective    Facilities        Max dist")
+  forall(p in 1..psize) do
+   selectsol(p)
+   nopen:= sum(j in Facilities) round(getsol(open(j)))
+   maxdist:= 0
+   forall(i in Customers, j in Facilities |
+          getsol(serve(i,j))>0.5 and DIST(i,j)>maxdist)
+    maxdist:= DIST(i,j)
+   writeln(formattext("%6d%14.2f%5d %-13s%8.2f", p, MinCost.sol, nopen, 
+     text(union(j in Facilities | round(getsol(open(j)))=1) {j}), maxdist))
+  end-do
+ end-procedure
+
+ ! **** Solve the model and collect up to 10 solutions into the pool. ****
+ procedure solve_collect_solutions
+  ! Collect up to ten solutions during the MIP search. Solutions are
+  !  stored from best to worst; index 1 always holds the best solution.
+  setparam("XPRS_POOLLIMIT", 10)
+
+  writeln("\nSolving problem to collect solutions")
+  minimize(MinCost)
+  if getprobstat<>XPRS_OPT then
+   writeln("Failed to solve problem, status ", getprobstat)
+  else
+   writeln("Solved problem to optimality.")
+   printsolutions
+  end-if
+ end-procedure
+
+ (! **** Assumes that we have already solved the problem and that the pool
+    contains a set of solutions. This procedure forces a single facility
+    to be open and uses the pooled solutions to warm-start the next solve:
+    If we open an additional facility, all existing solutions should remain 
+    feasible - the presolver should take care of satisfying the fixed binary. 
+    The warm-start solutions will not be optimal since no customers are served
+    by the new facility. **** !)
+ procedure solve_warmstart_from_pool(fixed: integer)
+  declarations
+   fixfac: integer
+  end-declarations
+
+  ! Make sure the problem is in its original state before we change it.
+  ! If the problem is already in its original state, this call simply
+  ! returns without doing anything.
+  postsolve
+
+  ! We need to set XPRS_POOLKEEPSOLS to transfer any existing solutions
+  ! to the warm-start pool before we fix a variable, since any
+  ! modifications will invalidate all collected solutions. 
+  setparam("XPRS_POOLKEEPSOLS", -1)
+
+  ! Force a facility to be open. The setub/setlb routines modify directly
+  ! the problem definition in the solver. Any other modifications to the
+  ! problem, such as addition/deletion/modification of constraints, will
+  ! trigger reloading of the problem in the next call to 'minimize', in which
+  ! case any pooled solutions are automatically cleared and the automatic
+  ! warm-starting will not work.
+  fixfac:=if(fixed not in Facilities, 3, fixed)
+  setlb(open(fixfac), 1)
+
+  writeln("\nReoptimizing with facility ", fixfac, " fixed open")
+  minimize(MinCost)
+  if getprobstat<>XPRS_OPT then
+   writeln("Failed to resolve problem, status ", getprobstat)
+  else
+   writeln("Resolved problem to optimality.")
+   printsolutions
+  end-if
+
+  ! Reset controls. We should do this before modifying the problem below
+  ! to avoid automatically transferring the solutions when restoring the bound.
+  setparam("XPRS_POOLKEEPSOLS", 0)    ! Reset to default value
+  setlb(open(fixfac), 0)              ! Undo the fixed facility
+ end-procedure
+
+ (! **** Use the built-in solution enumeration to find the 5 best solutions 
+    to the problem. The solver, by default, considers two solutions distinct
+    if they differ in any binary-restricted variable. To speed up the
+    solve, the search is limited to solutions within 50% of the best
+    solution's objective value. **** !)
+ procedure enumerate_all_binaries
+  ! Collect up to 5 best solutions.
+  setparam("XPRS_POOLLIMIT", 5)
+  ! Enable automatic solution enumeration.
+  setparam("XPRS_POOLENUMSTRATEGY", XPRS_POOLENUMSTRATEGY_FULL)
+  ! We limit collection to solutions that are within 50% of the best solution.
+  setparam("XPRS_POOLRELGAP", 0.50)
+
+  ! Solve the problem, which will automatically trigger an extended 
+  ! branch-and-bound search to find all 5 best solutions.
+  writeln("\nSolving problem to find 5 best solutions")
+  minimize(MinCost)
+  if getprobstat<>XPRS_OPT then
+   writeln("Failed to solve problem, status ", getprobstat)
+  else
+   writeln("Solved problem to optimality.")
+   ! Print the collected solutions.
+   printsolutions
+  end-if
+
+  ! Reset controls to default values
+  setparam("XPRS_POOLLIMIT", 10)
+  setparam("XPRS_POOLENUMSTRATEGY", XPRS_POOLENUMSTRATEGY_STANDARD)
+  setparam("XPRS_POOLRELGAP", 0)
+ end-procedure
+
+ (! **** We want to find the 5 best combinations of opening facilities but 
+    the demand sourcing should be optimal in each solution. To achieve this,
+    we tell the solver to enumerate only through solutions that differ in
+    facility variables, by specifying branching directives only on the
+    facility variables. The solver will automatically treat two solutions
+    with the same facility assignment as duplicates and keep only the
+    best one, resulting in the optimal demand assignment for each
+    facility assignment. **** !)
+ procedure enumerate_facilities
+  ! Make sure the problem is in its original state before we change it.
+  ! If the problem is already in its original state, this call simply
+  ! returns without doing anything.
+  postsolve
+  ! Collect up to 5 best solutions.
+  setparam("XPRS_POOLLIMIT", 5)
+  ! Enable automatic solution enumeration.
+  setparam("XPRS_POOLENUMSTRATEGY", XPRS_POOLENUMSTRATEGY_FULL)
+
+  ! Apply branching directives to the facility binaries. Binaries
+  ! without a directive will not be enumerated.
+  forall(j in Facilities) setmipdir(open(j), XPRS_BR)
+
+  ! Solve the problem, which will automatically trigger an extended
+  ! branch-and-bound search to find the 5 best facility assignments.
+  writeln("\nSolving problem to find 5 best facility assignments")
+  minimize(MinCost)
+  if getprobstat<>XPRS_OPT then
+   writeln("Failed to resolve problem, status ", getprobstat)
+  else
+   writeln("Resolved problem to optimality.")
+   ! Print the collected solutions.
+   printsolutions
+  end-if
+
+  ! Reset controls to default values
+  setparam("XPRS_POOLLIMIT", 10)
+  setparam("XPRS_POOLENUMSTRATEGY", XPRS_POOLENUMSTRATEGY_STANDARD)
+
+  clearmipdir                            ! Clear branching directives
+ end-procedure
+
+end-model

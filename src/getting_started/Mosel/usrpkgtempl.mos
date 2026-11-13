@@ -1,0 +1,31 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file usrpkgtempl.mos
+   ````````````````````
+   Entry point template for user constraint definition  
+   -- Defining entry points (subroutine called by main model)
+      and usable entities from the main model (requirements) --
+
+   Compile to file 'usrpkg.bim'   
+   
+  (c) 2021 Fair Isaac Corporation
+      author: S.Heipcke, Apr. 2021, rev. Aug. 2024
+*******************************************************!)
+package usrpkg
+ ! uses "mmsvg"
+    ! Any libraries loaded here also need to be loaded by the main model
+
+ ! Entities from main model available to this package 
+ ! (this results in an implicit 'public' declaration of these entities)
+  requirements
+    Return,LimRisk: linctr
+    SHARES: set of string
+    frac: array(SHARES) of mpvar 
+  end-requirements
+
+  public procedure userctrdef
+    writeln("Add user constraint definitions here")
+  end-procedure
+end-package

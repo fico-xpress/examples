@@ -1,0 +1,269 @@
+(!*******************************************************
+   Mosel Example Problems
+   ======================
+
+   file elscb_graph.mos
+   ````````````````````
+   Economic lot sizing, ELS, problem
+
+   Basic version with large data set and logging callbacks.
+
+   Economic lot sizing (ELS) considers production planning 
+   over a given planning horizon. In every period, there is 
+   a given demand for every product that must be satisfied by 
+   the production in this period and by inventory carried over 
+   from previous periods.
+   A set-up cost is associated with production in a period, 
+   and the total production capacity per period is limited. 
+   The unit production cost per product and time period is 
+   given. There is no inventory or stock-holding cost.
+       
+   - Using the GAPNOTIFY and CHECKTIME callbacks -  
+   - Drawing progress graph of MIP gap -
+       
+   (c) 2012 Fair Isaac Corporation
+       author: S. Heipcke, Sep. 2012, rev. Sep. 2022
+  *******************************************************!)
+
+model "ELS with logging callbacks"
+ uses "mmxprs","mmsystem","mmsvg"
+
+ parameters
+  DATAFILE = "els4.dat"
+  T = 60
+  P = 4
+ end-parameters 
+
+ forward function cb_node: boolean 
+ forward procedure cb_intsol
+ forward procedure cb_gapnotify(rt,at,aot,abt:real)
+ forward function cb_checktime: boolean 
+
+ declarations
+  TIMES = 1..T                               ! Range of time
+  PRODUCTS = 1..P                            ! Set of products
+
+  DEMAND: array(PRODUCTS,TIMES) of integer   ! Demand per period
+  SETUPCOST: array(TIMES) of integer         ! Setup cost per period
+  PRODCOST: array(PRODUCTS,TIMES) of integer ! Production cost per period
+  CAP: array(TIMES) of integer               ! Production capacity per period
+  D: array(PRODUCTS,TIMES,TIMES) of integer  ! Total demand in periods t1 - t2
+
+  produce: array(PRODUCTS,TIMES) of mpvar    ! Production in period t
+  setup: array(PRODUCTS,TIMES) of mpvar      ! Setup in period t
+
+  starttime, logtime, objval, mipgap: real   ! Scalars used for logging info
+  ctchecks, ctnode: integer                  ! Counters used in callbacks
+ end-declarations
+
+ initializations from DATAFILE
+  DEMAND SETUPCOST PRODCOST CAP
+ end-initializations
+
+ forall(p in PRODUCTS,s,t in TIMES) D(p,s,t):= sum(k in s..t) DEMAND(p,k)
+
+! Objective: minimize total cost
+ MinCost:= sum(t in TIMES) (SETUPCOST(t) * sum(p in PRODUCTS) setup(p,t) + 
+                            sum(p in PRODUCTS) PRODCOST(p,t) * produce(p,t) )
+
+! Satisfy the total demand
+ forall(p in PRODUCTS,t in TIMES) 
+   Dem(p,t):= sum(s in 1..t) produce(p,s) >= sum (s in 1..t) DEMAND(p,s)
+
+! If there is production during t then there is a setup in t
+ forall(p in PRODUCTS, t in TIMES) 
+  ProdSetup(p,t):= produce(p,t) <= D(p,t,getlast(TIMES)) * setup(p,t)
+
+! Capacity limits
+ forall(t in TIMES) Capacity(t):= sum(p in PRODUCTS) produce(p,t) <= CAP(t)
+
+! Variables setup are 0/1
+ forall(p in PRODUCTS, t in TIMES) setup(p,t) is_binary 
+
+! Uncomment to get detailed MIP output
+ setparam("XPRS_VERBOSE", true)
+ 
+! All cost data are integer, we therefore only need to search for integer 
+! solutions
+ setparam("XPRS_MIPADDCUTOFF", -0.999)
+
+!**** Setting callbacks for logging
+ setcallback(XPRS_CB_INTSOL, ->cb_intsol)
+(! The INTSOL callback implements the stopping criterion
+   'Stop if model runs for more than 60sec and new solution is just slightly 
+   better'. 
+   A simpler version, namely 'Stop MIP search after n seconds without a new 
+   incumbent' can be obtained by setting the control MAXSTALLTIME:
+ setparam("XPRS_MAXSTALLTIME", 60)
+!)
+ setcallback(XPRS_CB_PRENODE, ->cb_node) 
+ mipgap:= 0.10
+ setparam("XPRS_MIPRELGAPNOTIFY", mipgap)
+ setcallback(XPRS_CB_GAPNOTIFY, ->cb_gapnotify) 
+! Invoke the CHECKTIME callback once every 4 seconds only:
+ setparam("XPRS_CALLBACKCHECKTIMEDELAY", 4000)
+ setcallback(XPRS_CB_CHECKTIME, ->cb_checktime)
+ ctchecks:=0
+  
+!**** Configuration of graphical output
+ svgaddgroup("msg", "Model output")
+ svgsetstyle(SVG_FONTSIZE, "6pt")
+ svgaddgroup("bbound", "Best bound")
+ svgaddgroup("sol", "Solutions")
+ xoffset:=-150.0
+ lastxb:=0.0; lastxs:=0.0; 
+ svgsetgraphlabels("Time (in sec)", "MIP gap")
+ svgsetreffreq(5)          ! High update frequency
+ svgrefresh
+
+ starttime:=gettime
+ logtime:=starttime
+
+!**** Solve the problem
+! Stop after root LP to initialize graph setup info 
+ setparam("XPRS_MIPSTOPSTAGE", XPRS_MIPSTOPSTAGE_INITIALRELAXATION)
+ minimize(MinCost)
+ initval:=getobjval
+ indl:=initval*1.01; lastys:=initval; lastyb:=initval;
+ svgsetgraphviewbox(xoffset-10,initval,300,400)
+
+! Continue solving
+ setparam("XPRS_MIPSTOPSTAGE", XPRS_MIPSTOPSTAGE_NONE)
+ minimize(XPRS_CONT, MinCost)
+
+ case getparam("XPRS_MIPSTATUS") of
+   XPRS_MIP_SOLUTION:
+     svgaddtext("msg", xoffset, indl, "Search incomplete")
+   XPRS_MIP_OPTIMAL:
+     svgaddtext("msg", xoffset, indl, "Optimality proven")
+ end-case 
+ bbound:=getparam("XPRS_BESTBOUND")
+ if bbound-lastyb>0 then
+   grtime:=2*gettime
+   svgaddline("sol", lastxs, lastys, grtime, objval)
+   svgaddline("bbound", lastxb, lastyb, grtime, bbound)
+ end-if
+ svgrefresh
+
+ writeln("Time: ", gettime-starttime, "sec,  Nodes: ", getparam("XPRS_NODES"),
+         ",  Solution: ", getobjval) 
+ write("Period  setup    ")
+ forall(p in PRODUCTS) write(strfmt(p,-7))
+ forall(t in TIMES) do
+  write("\n ", strfmt(t,2), strfmt(getsol(sum(p in PRODUCTS) setup(p,t)),8), "     ")
+  forall(p in PRODUCTS) write(getsol(produce(p,t)), " (",DEMAND(p,t),")  ")
+ end-do
+ writeln
+
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+
+!*****************************************************************
+
+!@doc.descr Function called at every B&B node
+!@doc.info Return value 'true' marks node as infeasible
+ function cb_node: boolean 
+   if svgclosing then 
+     writeln("Stopped by closing display window")
+     stopoptimize(XPRS_STOP_USER) 
+   end-if
+   timeNow:=gettime
+   if timeNow-logtime>=5 then
+     bbound:= getparam("XPRS_BESTBOUND")
+
+     grtime:=2*gettime
+     if lastxs<>0.0 then
+       svgaddline("sol", lastxs, lastys, grtime, objval)
+     end-if
+     lastxs:=grtime; lastys:=objval
+     svgaddline("bbound", lastxb, lastyb, grtime, bbound)
+     lastxb:=grtime; lastyb:=bbound
+     svgrefresh
+
+     actnodes:= getparam("XPRS_ACTIVENODES")
+     writeln(timeNow-starttime, "sec. Best bound:", bbound, "  best sol.:",
+             if(getparam("XPRS_MIPSTATUS")=XPRS_MIP_SOLUTION, 
+                text(objval), text(" - ")), 
+             "  active nodes: ", actnodes)
+     logtime:=timeNow
+   end-if 
+   returned:= false 
+ end-function
+
+!@doc.descr Store and display new solution
+ procedure cb_intsol
+   lastobjval:=objval
+   objval:= getparam("XPRS_LPOBJVAL")   ! Retrieve current objective value
+   writeln(gettime-starttime, "sec. New solution: ", objval)
+   
+   bbound:= getparam("XPRS_BESTBOUND")
+   svgaddtext("msg", xoffset, indl, "New solution "+ objval)
+   indl+=10   
+   grtime:=2*gettime
+   svgaddpoint("sol", grtime, objval)
+   svgsetstyle(svggetlastobj, SVG_STROKE, SVG_GREEN)
+   svgsetstyle(svggetlastobj, SVG_FILL, SVG_GREEN)
+   if lastxs<>0.0 then
+     svgaddline("sol", [lastxs, lastys, grtime, lastys, grtime, objval])
+   end-if
+   lastxs:=grtime; lastys:=objval
+   svgaddline("bbound", lastxb, lastyb, grtime, bbound)
+   lastxb:=grtime; lastyb:=bbound
+   svgrefresh
+
+   ! If model runs for more than 50sec and new solution is just slightly
+   ! better, then interrupt search
+   if gettime-starttime>50 and abs(lastobjval-objval)<=5 then 
+     writeln("Stopping search (insufficient improvement after time limit)")
+     svgaddtext("msg", xoffset, indl, "Stopping search at time limit")
+     indl+=10
+     svgrefresh
+     stopoptimize(XPRS_STOP_USER)
+   end-if
+ end-procedure
+
+!@doc.descr Notify about gap changes
+(!@doc.info With the setting XPRS_MIPRELGAPNOTIFY=0.10 this routine will be 
+  called first when gap reaches 10%. We then reset the target, so that it 
+  gets called once more at a 2% smaller gap
+!)
+ procedure cb_gapnotify(rt,at,aot,abt:real)
+   writeln(gettime-starttime, "sec. Reached ", 100*mipgap, "% gap")
+   svgaddtext("msg", xoffset, indl, "Reached "+100*mipgap+ "% gap")
+   svgrefresh
+   indl+=10
+   mipobj:= getparam("XPRS_MIPOBJVAL")
+   bbound:= getparam("XPRS_BESTBOUND")
+   relgap:= abs( (mipobj-bbound)/mipobj )
+   if relgap<=0.1 then
+     ! Call "setgndata" to return new target value to the Optimizer 
+     mipgap-=0.02
+     setgndata(XPRS_GN_RELTARGET, mipgap)
+   end-if
+   if relgap<=0.02 then
+     setgndata(XPRS_GN_RELTARGET, -1)  ! Don't call gapnotify callback any more
+   end-if
+ end-procedure
+
+!@doc.descr Notify about time limit checks within the solver
+(!@doc.info Return value 'true' will stop the solver.
+!)
+ function cb_checktime: boolean
+   returned:=false
+   ctchecks+=1
+   tcompl:= getparam("XPRS_TREECOMPLETION")*100	   
+   cnode:=getparam("XPRS_NODES")
+   localsetparam("realfmt", "%.4g")
+   writeln(gettime-starttime, "sec. Checking time limit (", ctchecks, 
+     " total checks), nodes: ", cnode, ". Est. tree completion ", tcompl, "%")
+   svgaddtext("msg", xoffset, indl, text(ctchecks) + 
+     " time checks, tree completion "+tcompl+"%")
+   svgrefresh
+   indl+=10
+   ctnode:=cnode
+
+(!   if gettime-starttime > 5 then
+      writeln("**** Stopping search from checktime")
+     returned:=true
+   end-if !)
+ end-function  
+end-model

@@ -1,0 +1,108 @@
+(!*********************************************************************
+   Mosel Example Problems
+   ======================
+
+   file boat2.mos
+   ``````````````
+   Boat problem - multiperiod
+   
+     Example solution for exercise 3.3 in section 3.7 of
+     J. Kallrath: Business Optimization Using Mathematical Programming -
+     An Introduction with Case Studies and Solutions in Various Algebraic 
+     Modeling Languages. 2nd edition, Springer Nature, Cham, 2021 
+
+   author: S. Heipcke, Mar 2020
+
+   (c) Copyright 2020 Fair Isaac Corporation
+  
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+*********************************************************************!)
+
+model 'boat2'
+  uses "mmxprs", "mmsvg"
+
+  declarations
+    PERIODS: set of string            ! Seasons
+    p,s: array(PERIODS) of mpvar      ! Numbers of premier and standard boats
+    REVP,REVS: array(PERIODS) of real ! Revenue per boat type 
+    MCOST: array(PERIODS) of real     ! Maintenance cost per period
+    MAXB: array(PERIODS) of real      ! Limit on total number of boats
+    MAXP: array(PERIODS) of real      ! Limit on number of premier boats
+    PDESCR: array(PERIODS) of string  ! Labels for pretty display
+  end-declarations
+
+  PDESCR:: (['e','h','l'])["early season", "high season", "late season"]
+  REVP:: (['e','h','l'])[500,700,400]
+  REVS:: (['e','h','l'])[400,600,350]
+  MCOST:: (['e','h','l'])[1000,14000,1000]
+  MAXB:: (['e','h','l'])[300,350,300]
+  MAXP:: (['e','h','l'])[150,200,150]
+
+ ! Objective function: total revenue
+  Rev:= sum(t in PERIODS) (REVP(t)*p(t) + REVS(t)*s(t))
+ 
+ ! The total number of boats is limited
+  forall(t in PERIODS) p(t)+s(t) <= MAXB(t)
+
+ ! Limited maintenance capacity
+  forall(t in PERIODS) 4*p(t)+3*s(t) <= MCOST(t)
+
+ ! Fewer/more premier boats than standard
+  forall(t in {'e','l'}) p(t) <= s(t)
+  p('h') >= s('h')
+
+ ! Limit on number of premier boats
+  forall(t in PERIODS) p(t) <= MAXP(t)
+
+  maximise(Rev)
+  writeln("Solution: Revenue=", getobjval)
+  forall(t in PERIODS)
+  writeln(strfmt(PDESCR(t),-15), "Premier:", p(t).sol, "  Standard:", s(t).sol)
+
+ ! Graphical representation of the solution
+  
+  BWIDTH:=1/(PERIODS.size+2)
+  BHEIGHT:=max(t in PERIODS) MAXB(t)
+  WFAC:= BHEIGHT/2
+
+  forall(b in ["standard","premier"]) do
+    pids(b):=b
+    svgaddgroup(pids(b),b+" boats")
+    svgsetstyle(SVG_FILL, SVG_CURRENT)
+    svgsetstyle(SVG_STROKE, SVG_GREY)
+    svgsetstyle(SVG_STROKEWIDTH, BWIDTH/2)
+  end-do
+  tpos:=0.0
+  svgaddgroup("msg","Periods",SVG_BLACK)
+  svgsetstyle(SVG_FONTSIZE, 7)
+  forall(t in ['e','h','l']) do
+    svgaddtext("msg",tpos+1,1,PDESCR(t))
+    vpos:=p(t).sol
+    svgaddrectangle(pids("premier"), tpos, 0, BWIDTH*WFAC, vpos)
+    svgaddrectangle(pids("standard"), tpos, vpos, BWIDTH*WFAC, s(t).sol)
+    tpos+=(BWIDTH*WFAC*1.25)
+  end-do
+
+  svgsetgraphviewbox(0,0,PERIODS.size*BWIDTH*WFAC*1.25,BHEIGHT+10)
+  svgsetgraphlabels("Seasons", "Number of boats")
+
+ ! Draw the graph 
+  svgrefresh
+
+ ! Optionally save graphic to a file
+  svgsave("boat2.svg")
+
+ ! Wait for display window to close 
+  svgwaitclose("Close browser window to terminate model execution.", 1)
+end-model

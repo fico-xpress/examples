@@ -1,0 +1,126 @@
+(!*********************************************************************
+   Mosel NL examples
+   =================
+   file emfl_graph.mos
+   ```````````````````
+   Euclidean facility location problem
+   Convex NLP problem
+
+   Based on AMPL model emfl_eps.mod
+   Source: http://www.orfe.princeton.edu/~rvdb/ampl/nlmodels/facloc/
+
+   - Graphical representation of results -
+
+   *** This model cannot be run with a Community Licence
+       for the provided data instance ***
+
+   (c) 2008 Fair Issac Corporation
+       author: S. Heipcke, Sep. 2008, rev. Jun. 2023
+*********************************************************************!)
+
+model "emfl"
+ uses "mmxnlp", "mmsvg"
+
+ parameters
+  EPS = 1.0E-8
+  M = 200                         ! Number of existing facilities
+  N1 = 5
+  N2 = 5
+ end-parameters
+
+ declarations
+  N = N1*N2                       ! Number of new facilities
+  RM = 1..M                       ! Set of existing facilities
+  R2 = 1..2
+  RN = 1..N                       ! Set of new facilities
+  POS: array(RM,R2) of real       ! Coordinates of existing facility
+  WEIGHTON: array(RM,RN) of real  ! Weights associated with old-new connections
+  WEIGHTNN: array(RN,RN) of real  ! Weights associated with new-new connections
+  IVAL: array(RN,R2) of real      ! Start values for x
+
+  x: array(RN,R2) of mpvar        ! Coordinates of new facilities
+ end-declarations
+
+ forall(i in RN,j in R2) x(i,j) is_free
+
+ setrandseed(3)
+ forall(i in RM, k in 1..2) POS(i,k):= random
+ forall(j in RN, jj in RN | j < jj) WEIGHTNN(j,jj):= 0.2
+
+ forall(j1 in 1..N1, j2 in 1..N2) do
+  IVAL(j1+N1*(j2-1),1):= (j1-0.5)/N1
+  IVAL(j1+N1*(j2-1),2):= (j2-0.5)/N2
+  setinitval(x(j1+N1*(j2-1),1), IVAL(j1+N1*(j2-1),1))
+  setinitval(x(j1+N1*(j2-1),2), IVAL(j1+N1*(j2-1),2))
+ end-do
+
+ forall(i in RM, j in RN)
+   WEIGHTON(i,j):= if(abs(POS(i,1)-IVAL(j,1)) <= 1/(2*N1) and
+                      abs(POS(i,2)-IVAL(j,2)) <= 1/(2*N2),
+                      0.95,
+                      if(abs(POS(i,1)-IVAL(j,1)) <= 2/(2*N1) and
+                         abs(POS(i,2)-IVAL(j,2)) <= 2/(2*N2),
+                         0.05, 0) )
+
+! Objective function: distances
+! A small positive constant 'EPS' is added to make sure 'sqrt' is differentiable
+ SumEucl:= sum(i in RM,j in RN) WEIGHTON(i,j)*sqrt(EPS + sum(k in R2) (x(j,k)-POS(i,k))^2) +
+        sum(j,jj in RN | j<jj) WEIGHTNN(j,jj)*sqrt(EPS + sum(k in R2) (x(j,k)-x(jj,k))^2)
+
+ setparam("XNLP_verbose", true)
+! Since this is a convex problem, it is sufficient to call a local solver 
+ setparam("xprs_nlpsolver", 1)    
+ setparam("XNLP_solver", 0)       ! Solver choice: Xpress NonLinear (SLP)
+ minimise(SumEucl)
+
+ writeln("Solution: ", SumEucl.sol, " (eps), ",
+   getsol(sum(i in RM,j in RN) WEIGHTON(i,j)*sqrt(sum(k in R2) (x(j,k)-POS(i,k))^2) +
+     sum(j,jj in RN | j<jj) WEIGHTNN(j,jj)*sqrt(sum(k in R2) (x(j,k)-x(jj,k))^2)) )
+
+ forall(i in RN) do
+  write(i, ": ")
+  forall(j in R2) write(x(i,j).sol, ", ")
+  writeln
+ end-do
+
+!**************** Graphical representation of results ****************
+
+! Draw links between facilities
+ svgaddgroup("GrXSArc", "Arcs w<0.15", svgcolor(255,200,50))
+ svgsetstyle(SVG_STROKEWIDTH, 0.5)
+ forall(j in RN, jj in RN | j < jj and WEIGHTNN(j,jj)<0.15 and WEIGHTNN(j,jj)>0)
+  svgaddline(x(j,1).sol, x(j,2).sol, x(jj,1).sol, x(jj,2).sol)
+ forall(i in RM, j in RN | WEIGHTON(i,j)<0.15 and WEIGHTON(i,j)>0)
+  svgaddline(POS(i,1), POS(i,2), x(j,1).sol, x(j,2).sol)
+
+ svgaddgroup("GrSArc", "Arcs w<0.5", svgcolor(240,175,35))
+ svgsetstyle(SVG_STROKEWIDTH, 1)
+ forall(j in RN, jj in RN | j < jj and WEIGHTNN(j,jj)<0.5 and WEIGHTNN(j,jj)>=0.15)
+  svgaddline(x(j,1).sol, x(j,2).sol, x(jj,1).sol, x(jj,2).sol)
+ forall(i in RM, j in RN | WEIGHTON(i,j)<0.5 and WEIGHTON(i,j)>=0.15)
+  svgaddline(POS(i,1), POS(i,2), x(j,1).sol, x(j,2).sol)
+
+ svgaddgroup("GrMArc", "Arcs w>=0.5", svgcolor(225,150,20))
+ svgsetstyle(SVG_STROKEWIDTH, 3)
+ forall(j in RN, jj in RN | j < jj and WEIGHTNN(j,jj)>=0.5)
+  svgaddline(x(j,1).sol, x(j,2).sol, x(jj,1).sol, x(jj,2).sol)
+ forall(i in RM, j in RN | WEIGHTON(i,j)>=0.5)
+  svgaddline(POS(i,1), POS(i,2), x(j,1).sol, x(j,2).sol)
+
+! Draw facility nodes
+ svgaddgroup("OldFac", "Existing facilities", svgcolor(135,135,135))
+ forall(i in RM) svgaddpoint(POS(i,1), POS(i,2))
+
+ svgaddgroup("NewFac", "New facilities", svgcolor(163,18,14))
+ forall(j in RN) svgaddpoint(x(j,1).sol, x(j,2).sol)
+
+! Scale the size of the displayed graph
+ svgsetgraphscale(500)
+ svgsetgraphpointsize(2)
+ svgsetgraphstyle(SVG_STROKEWIDTH,2)
+
+ svgsave("emfl.svg")
+ svgrefresh
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+
+end-model

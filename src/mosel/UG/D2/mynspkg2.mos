@@ -1,0 +1,27 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file mynspkg2.mos 
+   `````````````````
+   Testing namespaces
+   - main model: mynstest.mos -
+ 
+   (c) 2018 Fair Isaac Corporation
+       author: S. Heipcke, 15 May 2018
+*******************************************************!)
+
+package mynspkg2
+ uses 'mynspkg1'
+ namespace ns3~ns31                   ! Namespace used in this package
+ nssearch ns1                         ! 'ns1' can be used without prefix
+
+ public procedure frompkg2(val: integer)
+   proc1(val)                         ! Procedure in namespace 'ns1'
+   writeln("  frompkg2:",ns3~ns31~vi) ! Namespace 'ns3~ns31' is not searched
+!   writeln("  vi=", vi)              ! This fails: private symbol of pkg1
+   writeln("  vp=", vp)               ! Public symbol of pkg1
+   writeln("  Ar(5)=", Ar(5))         ! Contained in 'ns1' (prefix optional)
+ end-procedure
+end-package
+

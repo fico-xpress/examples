@@ -1,0 +1,160 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file j4grit_graph.mos
+   `````````````````````
+   Gritting roads in a village
+ 
+   A directed graph representing street intersections (nodes)
+   and streets required to be gritted (arcs) is provided.
+   Street lengths are arc attributes, and the initial location
+   of a gritting truck is also known. Determine a tour for the
+   gritting truck of minimum total length that passes through 
+   all streets.
+
+   The graph is implemented as an adjacency matrix. Decision
+   variables represent the frequency of use of an arc (streets).
+   Since a Eulerian circuit is asked, the function 'addpath'
+   is implemented to obtain the Eulerian circuit post optimization
+   from the decision variables solution.
+   The resulting circuit is displayed graphically.
+  
+   (c) 2008-2022 Fair Isaac Corporation
+       author: S. Heipcke, Mar. 2002, rev. Mar. 2022
+*******************************************************!)
+
+model "J-4 Gritting circuit"
+ uses "mmxprs", "mmsvg"
+
+ forward function findunused(J: array(range) of integer):integer
+ forward function addpath(node:integer, J: array(range) of integer):integer
+ forward procedure drawtour
+
+ declarations
+  ISEC = 1..12                              ! Set of street intersections
+
+  LEN: dynamic array(ISEC,ISEC) of integer  ! Length of streets
+
+  use: dynamic array(ISEC,ISEC) of mpvar    ! Frequency of use of streets
+ end-declarations
+
+ initializations from 'j4grit.dat'
+  LEN
+ end-initializations
+
+ forall(i,j in ISEC | exists(LEN(i,j))) create(use(i,j))
+
+! Objective: length of circuit
+ Length:= sum(i,j in ISEC | exists(LEN(i,j))) LEN(i,j)*use(i,j)
+
+! Balance traffic flow through intersections
+ forall(i in ISEC) sum(j in ISEC) use(i,j) = sum(j in ISEC) use(j,i)
+
+! Grit every street
+ forall(i,j in ISEC | exists(LEN(i,j))) use(i,j) >= 1
+
+! Solve the problem
+ minimize(Length)
+
+! Solution printing
+ writeln("Total length: ", getobjval)
+
+ ct:=round(getsol(sum(i,j in ISEC) use(i,j)))
+
+ declarations
+  TOUR: array(1..ct+1) of integer
+  TCOUNT: array(ISEC,ISEC) of integer
+ end-declarations
+
+! Main loop of the Eulerian circuit algorithm
+ forall(i,j in ISEC | exists(LEN(i,j))) TCOUNT(i,j):=round(getsol(use(i,j)))
+ TOUR(1):=1
+ ct-=addpath(1,TOUR)
+ while(ct>0)
+  ct-=addpath(findunused(TOUR),TOUR)
+ writeln("Tour: ", TOUR)
+
+ drawtour
+
+!-----------------------------------------------------------------
+
+! Find first node in list with free path(s)
+ function findunused(J: array(range) of integer):integer
+  i:=1
+  returned:=1
+  while(J(i)>0 and i<getsize(J))
+   if (sum(j in ISEC) TCOUNT(J(i),j) > 0) then
+    returned:=J(i)
+    break
+   else
+    i+=1
+   end-if
+ end-function
+
+!-----------------------------------------------------------------
+
+! Add a subtour to the current tour
+ function addpath(node:integer, J: array(range) of integer):integer
+  declarations
+   NEWJ: array(1..getsize(J)) of integer
+  end-declarations
+
+ ! Insertion position
+  pos:=1
+  while(J(pos)<>node and pos<getsize(J)) pos+=1
+
+ ! Find a new path
+  cur:=node; newct:=0
+  while(sum(j in ISEC) TCOUNT(cur,j) > 0) do
+   forall(j in ISEC) if(TCOUNT(cur,j) > 0) then
+     TCOUNT(cur,j)-=1
+     newct+=1; NEWJ(newct):=j
+     cur:=j
+     break
+    end-if
+  end-do
+
+ ! Add the new path to main journey
+  i:=getsize(J)-newct
+  while(i>pos) do
+   J(i+newct):=J(i)
+   i-=1
+  end-do
+  forall(j in 1..newct) J(pos+j):=NEWJ(j)
+  returned:=newct
+ end-function
+
+!-----------------------------------------------------------------
+ procedure drawtour
+   declarations
+     XPOS,YPOS: array(ISEC) of integer
+     ARC:dynamic array(ISEC,ISEC) of integer
+   end-declarations
+
+   forall(i in ISEC) do
+     XPOS(i):= (i-1) mod 4
+     YPOS(i):= 3 - ((i-1) div 4)
+   end-do
+   writeln(XPOS,YPOS)
+
+   svgaddgroup("Tour", "Eulerian Graph")
+   forall(i in 2..TOUR.size) ARC(TOUR(i-1),TOUR(i))+=1
+   forall(i,j in ISEC | exists(ARC(i,j))) do
+     svgaddarrow(XPOS(i),YPOS(i),XPOS(j),YPOS(j))
+     svgsetstyle(svggetlastobj, SVG_STROKEWIDTH, 0.25*ARC(i,j))
+   end-do
+   svgaddgroup("Node", "Intersections")
+   svgsetstyle(SVG_FONTSIZE, "3px")
+   forall(i in ISEC) 
+     svgaddtext(XPOS(i)-0.3,YPOS(i)+0.15, text(i))
+
+   svgsetgraphviewbox(-1,-1,5,5)
+   svgsetgraphscale(10)
+
+   svgsave("grit.svg")
+   svgrefresh
+   svgwaitclose("Close browser window to terminate model execution.", 1)
+ end-procedure
+
+end-model

@@ -1,0 +1,112 @@
+(!*********************************************************************
+   Mosel NL examples
+   =================
+   file loadbal.mos
+   ````````````````
+   Convex NLP problem 
+
+   Static load balancing in a tree computer network with two-way traffic. 
+   A set of heterogeneous host computers are interconnected, in which each 
+   node processes jobs (the jobs arriving at each node according to a time 
+   invariant Poisson process) locally or sends it to a remote node. 
+   In the latter case, there is a communication delay of forwarding the job 
+   and getting a response back.
+   The problem is then to minimize the mean response time of a job.
+   The example considered here features 11 computers arranged as follows:
+         1      6      9
+          \     |     /
+           \    |    /
+        2---4---5---8---10
+           /    |    \
+          /     |     \
+         3      7      11
+
+   Based on AMPL model loadbal.mod
+   Source: http://www.orfe.princeton.edu/~rvdb/ampl/nlmodels/cute 
+   Reference:
+   J. Li and H. Kameda, 
+   "Optimal load balancing in tree network with two-way traffic",
+   Computer networks and ISDN systems, vol. 25, pp. 1335-1348, 1993.
+
+   (c) 2008 Fair Issac Corporation
+       author: S. Heipcke, Sep. 2008, rev. Jun. 2023
+*********************************************************************!)
+
+model "loadbal"
+ uses "mmxnlp", "mmsystem"
+
+ declarations
+   NODES : range                  ! Set of nodes (computers)
+   RL : range                     ! Set of directional arcs
+   ARC: dynamic array(NODES,NODES) of integer ! Network topology: matching node pairs with arcs
+   NCAP: array(NODES) of real     ! Limits on node workload
+   DEM: array(NODES) of real      ! Processing requests at nodes
+   FCAP: array(RL) of real        ! Capacity of arcs
+
+   flow: array(RL) of mpvar       ! Flow on arcs
+   process: array(NODES) of mpvar ! Workload at nodes
+ end-declarations
+
+ initialisations from "loadbal.dat"
+   ARC
+   DEM NCAP FCAP  
+ end-initialisations
+
+! Push variables away from bounds to avoid division by zero
+ BoundaryPush := 0.01
+
+! Bounds and start values
+ forall(n in NODES) do
+   process(n)>=0; process(n)<=NCAP(n) - BoundaryPush
+   setinitval(process(n), DEM(n))
+ end-do 
+
+! Objective function: minimize response time
+ Obj:= sum(n in NODES) process(n)/(NCAP(n)-process(n))/102.8 +
+       sum(n,m in NODES | exists(ARC(n,m))) 
+       ((flow(ARC(n,m))/(BoundaryPush + FCAP(ARC(n,m))-(80*flow(ARC(n,m))+20*flow(ARC(m,n))))/6.425)+
+        (flow(ARC(n,m))/(BoundaryPush + FCAP(ARC(n,m))-(20*flow(ARC(n,m))+80*flow(ARC(m,n))))/25.7))
+
+! Limits on arcs
+ forall(n,m in NODES | exists(ARC(n,m)))
+  CtrA(ARC(n,m)):= 20*flow(ARC(n,m))+80*flow(ARC(m,n)) <= FCAP(ARC(n,m))
+
+! Flow balance in nodes
+ forall(n in NODES)
+  CtNODES(n):= sum(m in NODES | exists(ARC(m,n))) flow(ARC(m,n)) -
+            sum(m in NODES | exists(ARC(n,m))) flow(ARC(n,m)) = process(n) - DEM(n) 
+            
+! Since this is a convex problem, it is sufficient to call a local solver 
+ setparam("xprs_nlpsolver", 1)
+ setparam("XNLP_solver", 0)       ! Solver choice: Xpress NonLinear (SLP)
+
+ setparam("XNLP_verbose", true)
+
+! Solve the problem
+ minimise(Obj)
+ 
+! Test whether a solution is available
+ nlstat:=getparam("XNLP_STATUS")
+ if nlstat<>XNLP_STATUS_LOCALLY_OPTIMAL and nlstat<>XNLP_STATUS_OPTIMAL then
+   writeln("No solution found.")
+   exit(0)
+ end-if   
+ 
+! Display the results 
+ writeln("Solution: ", Obj.sol)
+
+ EPS:=0.001
+ writeln("Transfer:")
+ forall(n,m in NODES | exists(ARC(n,m)) and flow(ARC(n,m)).sol>EPS)
+   writeln("  ", n, "->", m, ": ", flow(ARC(n,m)).sol)
+ writeln("Workload at nodes:")  
+ forall(n in NODES) do
+   write(strfmt(n,3), ": dem: ", DEM(n), " sol: ", process(n).sol, " (lim:", NCAP(n), ")")
+   forall(m in NODES | exists(ARC(n,m)) and flow(ARC(n,m)).sol>EPS)
+     write(" ->", m, ": ", flow(ARC(n,m)).sol)
+   forall(m in NODES | exists(ARC(m,n)) and flow(ARC(m,n)).sol>EPS)
+     write(" <-", m, ": ", flow(ARC(m,n)).sol)
+   writeln
+ end-do 
+
+end-model

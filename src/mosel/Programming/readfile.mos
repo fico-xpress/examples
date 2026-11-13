@@ -1,0 +1,66 @@
+(!*******************************************************
+  * Mosel Example Problems                              *
+  * ======================                              *
+  *                                                     *
+  * file readfile.mos                                   *
+  * `````````````````                                   *
+  * Example for the use of the Mosel language           *
+  * (Read a data file)                                  *
+  *                                                     *
+  * (c) 2008 Fair Isaac Corporation                     *
+  *     author: Y. Colombani, 2001                      *
+  *******************************************************!)
+
+model readfile
+
+parameters
+ F="Data/datafile.dat"
+end-parameters
+
+declarations
+ t1,t2:integer
+end-declarations
+
+fopen(F,F_INPUT)            ! Open the file F for reading
+write("Reading file `",F,"'...")
+
+fskipline("#\n")            ! Skip lines starting with a '#' and empty lines
+readln(t1,t2)               ! Read the size of the table on a line
+
+declarations
+ TF:array(1..t1,1..t2) of integer
+ TD:array(string,string) of real
+ S: set of string
+ s1,s2:string
+end-declarations
+
+fskipline("#\n")            ! Skip lines starting with a '#' and empty lines
+forall (i in 1..t1)
+do
+ forall (j in 1..t2)
+  read(TF(i,j))             ! Read t2 values
+ readln                     ! on each line
+end-do
+
+fskipline("#\n")            ! Skip lines starting with a '#' and empty lines
+repeat
+ readln(s1,'|',s2,'|',TD(s1,s2))    ! Read the indices and the value on a line
+until getparam("nbread")<5  ! Until a line is not properly constructed
+
+fskipline("#\n")            ! Skip lines starting with a '#' and empty lines
+read(s1)                    ! Read a string
+while (s1<>'.' and not iseof)
+do                          ! While the string is not '.' and the end of file
+                            ! is not reached
+ S+={s1}                    ! Add the string to the set
+ read(s1)                   ! Read another string
+end-do
+
+fclose(F_INPUT)
+writeln(" Done.\n")
+
+writeln("TF=",TF)
+writeln("TD=",TD)
+writeln("S =",S)
+end-model
+

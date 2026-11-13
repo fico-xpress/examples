@@ -1,0 +1,123 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file producer_consumer_alt.mos
+   ``````````````````````````````
+   Resource-constrained project planning problem (construction of 
+   a house) modeled with a producer-consumer constraint.
+
+   *** This model cannot be run with a Community Licence *** 
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+       Creation: 2007, rev. Mar. 2013
+*****************************************************************!)
+model "Cumulative Scheduling"  
+ uses "kalis" 
+
+ setparam("KALIS_DEFAULT_LB",0)
+ setparam("KALIS_DEFAULT_UB",100)
+
+ declarations
+ ! Task indices
+  Masonry = 1; Carpentry= 2; Roofing       = 3; Windows      = 4
+  Facade  = 5; Garden   = 6; Plumbing      = 7; Ceiling      = 8
+  Painting= 9; MovingIn =10; InitialPayment=11; SecondPayment=12
+  BUILDTASKS = 1..10
+  PAYMENTS = 11..12
+  TASKS = BUILDTASKS+PAYMENTS
+  TNAMES: array(TASKS) of string
+  
+  obj:cpvar                                ! Objective variable
+  starts   : array(TASKS) of cpvar         ! Start times variables  
+  ends     : array(TASKS) of cpvar         ! Completion times  
+  durations: array(TASKS) of cpvar         ! Durations of tasks  
+  consos   : dynamic array(TASKS) of cpvar ! Res. consumptions   
+  sizes    : dynamic array(TASKS) of cpvar ! Consumption sizes 
+  prods    : dynamic array(TASKS) of cpvar ! Res. production  
+  sizep    : dynamic array(TASKS) of cpvar ! Production sizes 
+  Strategy : cpbranching                   ! Branching strategy  
+ end-declarations
+
+ TNAMES:: (1..12)["Masonry", "Carpentry", "Roofing", "Windows",  
+           "Facade", "Garden", "Plumbing", "Ceiling", "Painting", 
+	   "MovingIn", "InitialPayment", "SecondPayment"]
+ 
+! Setting the names of the variables 
+  forall(j in TASKS) do
+    starts(j).name := TNAMES(j)+".start"
+    ends(j).name := TNAMES(j)+".end"
+    durations(j).name := TNAMES(j)+".duration"
+  end-do
+
+! Creating consumption variables
+  forall(j in BUILDTASKS) do
+    create(sizes(j))
+    sizes(j).name := TNAMES(j)+".size"
+    create(consos(j))
+    consos(j).name := TNAMES(j)+".conso"
+  end-do
+
+! Setting durations of building tasks
+ durations(Masonry) =7; durations(Carpentry)=3; durations(Roofing) =1
+ durations(Windows) =1; durations(Facade)   =2; durations(Garden)  =1
+ durations(Plumbing)=8; durations(Ceiling)  =3; durations(Painting)=2
+ durations(MovingIn)=1
+
+! Precedence constraints among building tasks
+ starts(Carpentry) >= ends(Masonry)
+ starts(Roofing)   >= ends(Carpentry)
+ starts(Windows)   >= ends(Roofing)
+ starts(Facade)    >= ends(Roofing)
+ starts(Garden)    >= ends(Roofing)
+ starts(Plumbing)  >= ends(Masonry)
+ starts(Ceiling)   >= ends(Masonry)
+ starts(Painting)  >= ends(Ceiling)
+ starts(MovingIn)  >= ends(Windows)
+ starts(MovingIn)  >= ends(Facade)
+ starts(MovingIn)  >= ends(Garden)
+ starts(MovingIn)  >= ends(Painting)
+
+! Setting task consumptions
+ consos(Masonry)  = 7; consos(Carpentry) = 3; consos(Roofing)  = 1 
+ consos(Windows)  = 1; consos(Facade)    = 2; consos(Garden)   = 1 
+ consos(Plumbing) = 8; consos(Ceiling)   = 3; consos(Painting) = 2 
+ consos(MovingIn) = 1
+
+! Production (amount) of payment tasks
+ forall(j in PAYMENTS) do
+  create(prods(j))
+  prods(j).name := TNAMES(j)+".prod"
+  create(sizep(j))
+  sizep(j).name := TNAMES(j)+".sizep"
+ end-do
+
+! Payment data
+ prods(InitialPayment)    = 20; prods(SecondPayment)     = 9
+ durations(InitialPayment) = 1; durations(SecondPayment) = 1
+ starts(InitialPayment)    = 0; starts(SecondPayment)    = 15
+
+
+! Objective: makespan of the schedule
+ obj = maximum({ ends(Masonry) , ends(Carpentry), ends(Roofing), 
+         ends(Windows), ends(Facade), ends(Garden), ends(Plumbing),
+	 ends(Ceiling), ends(Painting), ends(MovingIn)})
+
+! Posting the producer_consumer constraint
+ producer_consumer(starts,ends,durations,prods,sizep,consos,sizes)
+
+! Setting the search strategy
+ Strategy:= assign_var(KALIS_SMALLEST_MIN, KALIS_MIN_TO_MAX, starts)
+ cp_set_branching(Strategy) 
+ 
+! Find the optimal solution
+ if cp_minimize(obj) then 
+  writeln("Minimum makespan: ", obj.sol)
+  forall(j in BUILDTASKS)
+    writeln(TNAMES(j), ": ", starts(j).sol, " - ", ends(j).sol) 
+ else
+  writeln("No solution found")
+ end-if
+
+end-model
+

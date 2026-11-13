@@ -1,0 +1,175 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file transport.mos
+   ``````````````````
+   TYPE:         Transport problem
+   DIFFICULTY:   2
+   FEATURES:     simple LP problem, using dynamic arrays for data and
+                 decision variables, formatted output printing, inline `if',
+                 format of data files
+   DESCRIPTION:  A company produces the same product at different plants. 
+                 Every plant has a different production cost per unit and 
+                 a limited total capacity. The customers (grouped into 
+                 customer regions) may receive the product from different 
+                 production locations. The transport cost is proportional 
+                 to the distance between plants and customers, and the 
+                 capacity on every delivery route is limited. The objective 
+                 is to minimize the total cost, whilst satisfying the 
+                 demands of all customers.     
+   FURTHER INFO: `Mosel User Guide', Section 3.1 `A transport example',
+                 Section 10.1 `Producing formatted output'.
+                 Similar problem:
+                 `Applications of optimization with Xpress-MP', 
+                 Section 10.1 `Car rental'
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S.Heipcke, Jan. 2001, rev. Nov. 2017
+*******************************************************!)
+
+model Transport
+ uses "mmxprs", "mmsvg"
+
+ forward procedure print_table
+ forward procedure draw_solution
+
+ declarations
+  REGION: set of string                 ! Set of customer regions
+  PLANT: set of string                  ! Set of plants
+
+  DEMAND: array(REGION) of real         ! Demand at regions
+  PLANTCAP: array(PLANT) of real        ! Production capacity at plants
+  PLANTCOST: array(PLANT) of real       ! Unit production cost at plants
+  TRANSCAP: dynamic array(PLANT,REGION) of real ! Capacity on each route plant->region
+  DISTANCE: dynamic array(PLANT,REGION) of real ! Distance of each route plant->region
+  FUELCOST: real                        ! Fuel cost per unit distance
+
+  flow: dynamic array(PLANT,REGION) of mpvar    ! Flow on each route
+ end-declarations
+ 
+
+ initializations from 'transport.dat'
+  DEMAND
+  [PLANTCAP,PLANTCOST] as 'PLANTDATA'
+  [DISTANCE,TRANSCAP] as 'ROUTES'
+  FUELCOST
+ end-initializations
+ 
+! Create the flow variables that exist
+ forall(p in PLANT, r in REGION | exists(TRANSCAP(p,r)) ) create(flow(p,r))
+ 
+! Objective: minimize total cost
+ MinCost:= sum(p in PLANT, r in REGION | exists(flow(p,r))) 
+            (FUELCOST * DISTANCE(p,r) + PLANTCOST(p)) * flow(p,r)
+ 
+! Limits on plant capacity
+ forall(p in PLANT) Capacity(p):= sum(r in REGION) flow(p,r) <= PLANTCAP(p)
+
+! Satisfy all demands
+ forall(r in REGION) Demand(r):= sum(p in PLANT) flow(p,r) = DEMAND(r)
+ 
+! Bounds on flows
+ forall(p in PLANT, r in REGION | exists(flow(p,r))) 
+  flow(p,r) <= TRANSCAP(p,r)
+
+! Solve the problem
+ minimize(MinCost)
+
+! Solution printing 
+ print_table
+
+! Solution drawing
+ draw_solution
+
+!***********************************************************************
+
+ procedure print_table
+  declarations
+   rsum: array(REGION) of integer    ! Auxiliary data table for printing
+   psum,prsum,ct,iflow: integer      ! Counters
+  end-declarations
+
+  ! Print heading and the first line of the table
+  writeln("\nProduct Distribution\n--------------------")
+  writeln(strfmt("Sales Region",44))
+  write(strfmt("",14))
+  forall(r in REGION) write(strfmt(r,9))
+  writeln(strfmt("TOTAL",9), " Capacity") 
+
+  ! Print the solution values of the flow variables and
+  ! calculate totals per region and per plant
+  ct:=0
+  forall(p in PLANT) do
+    ct += 1
+    write(if(ct=2,"Plant ","      "), strfmt(p,-8))
+    psum:=0
+    forall(r in REGION) do
+      iflow:=integer(getsol(flow(p,r)))
+      psum += iflow
+      rsum(r) += iflow
+      write(if( iflow<>0, strfmt(iflow,9), "      -- "))
+    end-do
+    writeln(strfmt(psum,9), strfmt(integer(PLANTCAP(p)),9))
+  end-do
+
+  ! Print the column totals
+  write("\n", strfmt("TOTAL",-14)) 
+  prsum:=0 
+  forall(r in REGION) do
+    prsum += rsum(r)
+    write(strfmt(rsum(r),9))
+  end-do
+  writeln(strfmt(prsum,9)) 
+
+  ! Print demand of every region
+  write(strfmt("Demand",-14)) 
+  forall(r in REGION) write(strfmt(integer(DEMAND(r)),9))
+
+  ! Print objective function value
+  writeln("\n\nTotal cost of distribution = ", strfmt(getobjval/1e6,0,3),
+          " million.")
+
+ end-procedure
+
+!***********************************************************************
+ procedure draw_solution
+  declarations
+   YP: array(PLANT) of integer           ! y-coordinates of plants
+   YR: array(REGION) of integer          ! y-coordinates of sales regions
+  end-declarations
+  
+  ! Scale the size of the displayed graph
+  svgsetgraphviewbox(0,1,4,getsize(REGION)+1)
+  svgsetgraphscale(100)
+
+  ! Determine y-coordinates for plants and regions  
+  ct:= 1+floor((getsize(REGION)-getsize(PLANT))/2)
+  forall(p in PLANT, ct as counter) YP(p):= ct
+
+  ct:=1
+  forall(r in REGION, ct as counter) YR(r):= ct
+  
+  ! Draw the plants
+  svgaddgroup("PGr", "Plants", svgcolor(0,63,95))
+  forall(p in PLANT) svgaddtext(0.55, YP(p)-0.05, p)
+  
+  ! Draw the sales regions
+  svgaddgroup("RGr", "Regions", svgcolor(0,157,169))
+  forall(r in REGION) svgaddtext(3.1, YR(r)-0.05, r)
+  
+  ! Draw all transport routes
+  svgaddgroup("TGr", "Routes", SVG_GREY)
+  forall(p in PLANT, r in REGION | exists(TRANSCAP(p,r)) ) 
+   svgaddline(1, YP(p), 3, YR(r))
+   
+  ! Draw the routes used by the solution
+  svgaddgroup("SGr", "Solution", SVG_ORANGE)
+  forall(p in PLANT, r in REGION | exists(flow(p,r)) and getsol(flow(p,r)) > 0)
+   svgaddarrow(1, YP(p), 3, YR(r))
+
+  svgsave("transport.svg")
+  svgrefresh
+  svgwaitclose("Close browser window to terminate model execution.", 1)
+ end-procedure
+end-model

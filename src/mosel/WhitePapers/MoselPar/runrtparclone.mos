@@ -1,0 +1,41 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file runrtparclone.mos
+   ``````````````````````
+   Running several instances of a model from another
+   Mosel model.
+   - Parallel cloned submodels -
+
+   (c) 2020 Fair Isaac Corporation
+       author: S. Heipcke, Apr. 2020
+*******************************************************!)
+
+model "Run model rtparams in parallel"
+ uses "mmjobs"
+
+ declarations
+  A = 1..10
+  modPar: array(A) of Model
+ end-declarations
+                                   ! Compile the model file
+ if compile("rtparams.mos")<>0 then exit(1); end-if
+
+ forall(i in A) do
+  if i=1 then
+   load(modPar(i), "rtparams.bim") ! Load the bim file
+  else
+   load(modPar(i), modPar(1))      ! Clone the already loaded bim
+  end-if
+                                   ! Start model execution
+  run(modPar(i), "PARAM1=" + i + ",PARAM2=" + 0.1*i +
+                 ",PARAM3='string " + i + "'" + ",PARAM4=" + isodd(i))
+ end-do
+ 
+ forall(i in A) do
+  wait                             ! Wait for model termination
+  dropnextevent                    ! Ignore termination event message
+ end-do
+
+end-model 

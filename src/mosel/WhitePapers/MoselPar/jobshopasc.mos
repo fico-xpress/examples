@@ -1,0 +1,281 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file jobshopasc.mos
+   ```````````````````
+   Job shop production planning, 
+   second, generic formulation.`
+   -- Parallel version using cloning --
+
+   *** ATTENTION: This model will return an error if no  ***
+   *** sufficient number of Xpress licences is available ***
+   
+   (c) 2020 Fair Isaac Corporation
+       author: S. Heipcke, Apr. 2020, rev. Sep. 2022
+*******************************************************!)
+
+model "B-3 Job shop (2) Clone"
+ uses "mmxprs", "mmjobs", "mmsystem"
+
+ parameters
+  DATAFILE = "mt10.dat"           ! mt06.dat : Fisher and Thompson 6x6 instance
+
+  ALG = 1              ! 0: Default solving, 1: Add partial solution, 
+                       ! 2: Augment Jobshop problem with one sequencing problem
+  MACH = 1                        ! Subproblem identifier
+  MAXTHRD = 2                     ! Max number of parallel threads for one inst.
+ end-parameters
+
+ declarations
+ ! Shared data
+  NBJOBS: shared integer                     ! Number of jobs
+  NBRES: shared integer                      ! Number of resources
+  JOBS: shared range                         ! Set of jobs
+  TASKS: shared range                        ! Set of tasks (one per machine)
+  TASKSM1: shared range                      ! Set of tasks without last
+  RESOURCES: shared range                    ! Set of resources
+  DUR: shared array(JOBS,TASKS) of integer          ! Durations of tasks
+  RESIND: shared array(RESOURCES,JOBS) of integer   ! Task index per resource
+  MAXDUR: shared array(RESOURCES) of integer
+  BIGM: integer                              ! Used in formulation of main prob
+
+  cutoff,starttime: real                     ! Temp. value used in main problem
+  bbindex: integer                           ! Temp. value used in main problem
+
+ ! Declarations for main problem
+  start: array(JOBS,TASKS) of mpvar          ! Start times of tasks
+  comp: array(JOBS,TASKS) of mpvar           ! Completion times of tasks
+  makespan: mpvar                            ! Schedule completion time
+  y: dynamic array(RESOURCES,JOBS,JOBS) of mpvar  ! Disjunction variables 
+
+ ! Declarations for sequencing subproblems
+  heursol: dynamic array(set of mpvar) of real  
+  rank: array(JOBS,JOBS) of mpvar            ! =1 if job j at position k
+  jcomp,tstart: array(JOBS) of mpvar         ! Start time of job at position k
+
+ ! Model and solution handling 
+  SeqMod: array(RESOURCES) of Model             ! Models
+  NOSOL=2                                       ! "No sol found" event
+  NEWSOL=3                                      ! "Solution found" event
+  pos: shared array(RESOURCES,JOBS) of integer  ! Subproblem solutions
+  Makespan: shared array(RESOURCES) of real     ! Subproblem makespan
+ end-declarations
+
+!************ Data input (main problem) ************
+ procedure readdata
+   initializations from DATAFILE
+     NBJOBS NBRES
+   end-initializations
+   JOBS := 1..NBJOBS; finalize(JOBS)
+   TASKS := 1..NBRES ; finalize(TASKS)
+   TASKSM1 := 1..NBRES-1  ; finalize(TASKSM1)
+   RESOURCES := 0..NBRES-1 ; finalize(RESOURCES)
+
+   declarations
+     taskUse: array(JOBS,TASKS) of integer   ! Resource use of tasks 
+   end-declarations
+
+   initializations from DATAFILE
+     taskUse  DUR as "taskDuration"
+   end-initializations 
+
+   forall(m in RESOURCES,j in JOBS,t in TASKS | taskUse(j,t) = m) RESIND(m,j):=t
+
+   BIGM:=sum(j in JOBS,t in TASKS) DUR(j,t)  ! Some (sufficiently) large value
+   forall(m in RESOURCES) MAXDUR(m):=sum(j in JOBS) DUR(j,RESIND(m,j))
+ end-procedure
+
+!************ Create disjunctive constraints (main problem) ************
+ procedure disjunctiveconstraints(m:integer)
+   forall(i,j in JOBS | i<j) do
+     create(y(m,i,j))
+     y(m,i,j) is_binary               !=1 if i>>j, =0 if i<<j
+
+     start(i,RESIND(m,i))+DUR(i,RESIND(m,i)) <= 
+       start(j,RESIND(m,j))+BIGM*y(m,i,j)
+     start(j,RESIND(m,j))+DUR(j,RESIND(m,j)) <=
+       start(i,RESIND(m,i))+BIGM*(1-y(m,i,j))
+    end-do
+ end-procedure  
+
+ ! Alternative formulation of disjunctions
+ procedure disjunctiveconstraintsind(m:integer)
+   forall(i,j in JOBS | i<j) do
+     create(y(m,i,j))
+     y(m,i,j) is_binary               !=1 if i>>j, =0 if i<<j
+
+     indicator(-1,y(m,i,j), 
+               start(i,RESIND(m,i))+DUR(i,RESIND(m,i)) <= start(j,RESIND(m,j)))
+     indicator(1,y(m,i,j), 
+               start(j,RESIND(m,j))+DUR(j,RESIND(m,j)) <= start(i,RESIND(m,i)) )
+    end-do
+ end-procedure  
+
+!************ Single machine sequencing subproblem ************
+ procedure sequencemachine(m:integer)
+  ! One job per position
+   forall(k in JOBS) sum(j in JOBS) rank(j,k) = 1
+
+  ! One position per job 
+   forall(j in JOBS) sum(k in JOBS) rank(j,k) = 1
+
+  ! Sequence of jobs
+   forall(k in 1..NBJOBS-1)
+     tstart(k+1) >= 
+       tstart(k) + sum(j in JOBS) DUR(j,RESIND(m,j))*rank(j,k)
+
+  ! Start times (release date = min total duration for preceding tasks)
+   forall(j in JOBS) REL(j):= sum(t in 1..RESIND(m,j)-1) DUR(j,t)
+   forall(j in JOBS) DURSUCC(j):= sum(t in RESIND(m,j)+1..NBRES) DUR(j,t)
+
+   forall(k in JOBS) tstart(k) >= sum(j in JOBS) REL(j)*rank(j,k)
+
+  ! Completion times
+   forall(k in JOBS) jcomp(k) = 
+     tstart(k) + sum(j in JOBS) (DUR(j,RESIND(m,j))+DURSUCC(j))*rank(j,k)
+
+   forall(j,k in JOBS) rank(j,k) is_binary 
+ 
+  ! Objective function: minimize latest completion time
+   forall(k in JOBS) makespan >= jcomp(k)
+ end-procedure
+
+ procedure solvesub(m:integer)
+   minimize(makespan)            ! Solve the problem
+  ! Solution reporting
+   if getprobstat=XPRS_OPT then
+    ! writeln_("*** Machine ", m, ": ", getobjval)
+     forall(j in JOBS) pos(m,j):= round(sum(k in JOBS) k*rank(j,k).sol) 
+     Makespan(m):=getobjval
+ 
+    ! Send "solution found" signal  
+     send(NEWSOL, getobjval) 
+   else
+     send(NOSOL, 0)
+   end-if
+ end-procedure
+
+!************ Status of loaded solutions (main problem) ************
+ procedure solnotify(id:string, status:integer)
+   writeln_("Optimiser loaded solution ",id," status=",status)
+ end-procedure
+
+!************ Main problem: Job-shop scheduling problem ************
+ procedure solvemain
+
+  ! Precedence constraints between last task of every job and makespan
+   forall(j in JOBS) makespan >= start(j,NBRES) + DUR(j,NBRES) 
+
+  ! Precedence constraints between the tasks of every job
+   forall(j in JOBS,t in TASKSM1)
+     start(j,t) + DUR(j,t) <= start(j,t+1)
+
+  ! Disjunctions
+   forall(r in RESOURCES) disjunctiveconstraints(r)
+
+  ! Linking start and completion times
+   forall(j in JOBS,t in TASKS) start(j,t)+DUR(j,t) = comp(j,t)
+
+  ! Bound on latest completion time 
+   makespan <= BIGM
+
+   starttime:=gettime
+
+   if ALG>0 then
+    ! Solve the single machine sequencing problems
+     forall(m in RESOURCES) do
+       load(SeqMod(m))                      ! Clone the current model
+       SeqMod(m).uid:= m
+       setworkdir(SeqMod(m), ".")
+       run(SeqMod(m), "MACH="+m +",MAXTHRD="+1)
+     end-do
+     tct:=0
+     while (tct<NBRES) do
+       wait                                 ! Wait for the next event
+       Msg:= getnextevent                   ! Get the event
+       mid:= Msg.fromuid                    ! Get model number of sender
+       if getclass(Msg)=NEWSOL then         ! Get the event class
+         if Makespan(mid)>cutoff then 
+           cutoff:= Makespan(mid); 
+           bbindex:=mid
+         end-if
+         writeln_("*** (", gettime-starttime, "s) Machine ", mid, ": ", Makespan(mid))
+
+         forall(i,j in JOBS | i<j ) heursol(y(mid,i,j)):= if(pos(mid,i)<pos(mid,j), 0, 1)
+         loadprob(makespan)                 ! Make sure problem is loaded
+
+         if ALG=1 then
+           id:="mach"+mid
+           addmipsol(id,heursol)            ! Load the heuristic solution
+           writeln_("Loaded solution Id: ",id)
+           setcallback(XPRS_CB_SOLNOTIFY,->solnotify)
+         end-if
+         delcell(heursol)                   ! Delete saved solution values
+       elif getclass(Msg)=NOSOL then
+         writeln_("Subproblem ", mid, " has no solution. Stopping")
+         exit(1)
+       else
+         tct+=1
+         unload(SeqMod(mid))                ! Delete subproblem
+       end-if
+     end-do
+      
+     writeln_("(", gettime-starttime, "s) Best lower bound: ", cutoff)
+  ! makespan >= cutoff
+
+     if ALG=2 then
+       MD:=max(m in RESOURCES) MAXDUR(m)
+       forall(m in RESOURCES) bbindex:=if(MAXDUR(m)=MD, m, bbindex)
+       writeln_("Bottelneck machine: ", bbindex)
+  
+     ! Add the subproblem that has provided the largest lower bound 
+       sequencemachine(bbindex)
+
+     ! Connect subproblem to main problem
+       forall(j in JOBS) 1 + sum(i in JOBS | i<j) (1-y(bbindex,i,j)) +
+        sum(i in JOBS | i>j) y(bbindex,j,i) = sum(k in JOBS) k*rank(j,k)
+     end-if
+   
+     if ALG=1 then
+      ! Re-inforce use of user solutions by local search MIP heuristics
+       setparam("XPRS_USERSOLHEURISTIC",3)
+     end-if
+   end-if   ! ALG>0
+
+   setparam("XPRS_VERBOSE", true)
+   setparam("XPRS_SOLTIMELIMIT", 5)
+
+  ! Solve the problem: minimize latest completion time
+   minimize(makespan)
+ end-procedure
+
+!************ Solution printing (main problem) ************
+ procedure printsol
+   writeln_("(", gettime-starttime, "s) Total completion time: ", getobjval)
+   forall(j in JOBS) write(strfmt(j,8))
+   writeln
+   forall(m in RESOURCES) do
+     write(strfmt((m+1),-3))
+     forall(j in JOBS)
+       if(DUR(j,RESIND(m,j))>0) then
+         write(formattext("%4d-%3d", round(getsol(start(j,RESIND(m,j)))), 
+              round(getsol(start(j,RESIND(m,j)))+DUR(j,RESIND(m,j)))))
+       else
+         write(strfmt(" ",6))
+       end-if 
+     writeln
+   end-do
+ end-procedure
+
+!****************************************************************
+
+ if getparam("sharingstatus")<=0 then
+   readdata
+   solvemain
+   printsol
+ else
+   sequencemachine(MACH)
+   solvesub(MACH)
+ end-if
+end-model 

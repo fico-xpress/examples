@@ -1,0 +1,37 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file listenum.mos 
+   ````````````````` 
+   Enumerating a list in inverse order.
+ 
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Oct. 2006
+*******************************************************!)
+
+model "Reversing lists"
+
+ declarations
+  K,L: list of integer
+ end-declarations
+ 
+ L:= [1,2,3,4,5,6,7,8,9,10] 
+
+! Standard enumeration
+ forall(i in L) writeln(i)
+
+! Enumeration in inverse order:
+ ! 1. Splitting off the last list element
+ K:=L
+ while (K <> []) writeln(getfirst(splittail(K,1)))
+
+ ! 2. Reversing the list itself
+ reverse(L)
+ writeln("Reversed: ", L)
+ 
+ ! 3. Reversed copy of the list
+ K:=getreverse(L)
+ writeln("Reverse once more: ", K, L)
+
+end-model

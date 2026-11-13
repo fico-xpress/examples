@@ -1,0 +1,49 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file soslingc.mos
+   `````````````````
+   Approximation of a nonlinear function by a SOS-2.
+   Formulation using the pwlin construct 
+   - Example discussed in mipformref whitepaper -  
+     
+   (c) 2020 Fair Isaac Corporation
+       author: S. Heipcke, July 2020
+*******************************************************!)
+
+model "soslingc"
+ uses "mmxnlp"
+
+ public declarations
+  I=1..4
+  x,y: mpvar
+  R,FR: array(I) of real
+ end-declarations
+
+! These values would normally be calculated here or read in from file
+ R:: [1, 2.5, 4.5, 6.5]
+ FR::[1.5, 6, 3.5, 2.5]
+
+! The variable and the corresponding function value we want to approximate
+ y = pwlin(x, sum(i in I) [R(i),FR(i)] )
+
+! Only consider the x-values interval defined by the breakpoints
+ setrange(x, R(1), R(4))
+
+! Set a bound to make the problem more interesting
+ x >= 2
+ 
+(! Uncomment to display solver problem on screen
+ setparam("XPRS_loadnames", true)
+ loadprob(y)
+ writeprob("","l")
+!)
+
+! Solve the problem
+ minimize(y)
+ 
+ writeln("Solution: ", getobjval)
+ writeln("x: ", x.sol) 
+ 
+end-model 

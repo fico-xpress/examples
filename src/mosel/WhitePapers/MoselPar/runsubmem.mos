@@ -1,0 +1,30 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file runsubmem.mos
+   ``````````````````
+   Running a model from another Mosel model,
+   compilation to memory.
+       
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, May 2006
+*******************************************************!)
+
+model "Run model testsub"
+ uses "mmjobs", "mmsystem"
+
+ declarations
+  modSub: Model
+ end-declarations
+                                   ! Compile the model file
+ if compile("", "testsub.mos", "shmem:testsubbim")<>0 then 
+  exit(1)
+ end-if
+ load(modSub, "shmem:testsubbim")  ! Load the bim file from memory
+ fdelete("shmem:testsubbim")       ! ... and release the memory block
+ run(modSub)                       ! Start model execution
+ wait                              ! Wait for model termination
+ dropnextevent                     ! Ignore termination event message
+
+end-model 

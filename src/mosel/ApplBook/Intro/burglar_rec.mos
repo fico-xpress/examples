@@ -1,0 +1,58 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file burglar_rec.mos
+   ````````````````````
+   Use of records.
+   
+   A burglar considers eight items that have different values
+   and weights. He wants to take a group of items that maximizes
+   the total value while the total weight is not more than the
+   maximum 'WTMAX' he can carry.
+
+   This IP model represents the so-called knapsack problem where 
+   binary decision variable 'take(i)' takes value 1 if item 'i'
+   is taken; 0 otherwise. This implementation illustrates that 
+   data may also be given in the form of a single record, in this
+   case the array 'I' which is populated with the data file 
+   burglar_rec.dat.
+
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, July 2006
+*******************************************************!)
+
+model "Burglar (records)"
+ uses "mmxprs"
+ 
+ declarations
+  WTMAX = 102                    ! Maximum weight allowed
+  ITEMS = {"camera", "necklace", "vase", "picture", "tv", "video", 
+           "chest", "brick"}     ! Index set for items
+  
+  I: array(ITEMS) of record
+   VALUE: real                   ! Value of items
+   WEIGHT: real                  ! Weight of items
+  end-record
+  take: array(ITEMS) of mpvar    ! 1 if we take item i; 0 otherwise
+ end-declarations
+
+ initializations from 'burglar_rec.dat'
+  I
+ end-initializations
+
+! Objective: maximize total value
+ MaxVal:= sum(i in ITEMS) I(i).VALUE*take(i) 
+
+! Weight restriction
+ sum(i in ITEMS) I(i).WEIGHT*take(i) <= WTMAX
+
+! All variables are 0/1
+ forall(i in ITEMS) take(i) is_binary  
+
+ maximize(MaxVal)                 ! Solve the MIP-problem
+
+! Print out the solution
+ writeln("Solution:\n Objective: ", getobjval)
+ forall(i in ITEMS)  writeln(" take(", i, "): ", getsol(take(i)))
+end-model

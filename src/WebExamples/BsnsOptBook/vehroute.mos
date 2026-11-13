@@ -1,0 +1,128 @@
+(!*********************************************************************
+   Mosel Example Problems
+   ======================
+
+   file vehroute.mos
+   `````````````````
+   Heating oil delivery (Traveling Salesman Problem) 
+   
+     Example discussed in section 7.2.3 of
+     J. Kallrath: Business Optimization Using Mathematical Programming -
+     An Introduction with Case Studies and Solutions in Various Algebraic 
+     Modeling Languages. 2nd edition, Springer Nature, Cham, 2021 
+
+     Original version: e4delivr.mos (S. Heipcke, 2002)
+
+   See https://examples.xpress.fico.com/example.pl?id=vrpgr
+   and https://examples.xpress.fico.com/example.pl?id=mosel_app_5_4
+   for additional versions.
+
+   author: S. Heipcke, October 2020
+
+   (c) Copyright 2020 Fair Isaac Corporation
+  
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+*********************************************************************!)
+
+model "vehroute"
+ uses "mmxprs"
+
+ declarations
+  NS = 7
+  SITES = 1..NS                       ! Set of locations, 1=refinery
+  CLIENTS = 2..NS
+
+  DEM: array(SITES) of integer        ! Demands
+  DIST: array(SITES,SITES) of integer ! Distances between locations
+  CAP: integer                        ! Lorry capacity
+
+  prec: array(SITES,SITES) of mpvar   ! 1 if i immediately precedes j, 
+                                      ! 0 otherwise 
+  quant: array(CLIENTS) of mpvar      ! Quantity delivered up to i
+ end-declarations
+
+ CAP:= 39000
+ DEM::(2..7)[14000, 3000, 6000, 16000, 15000, 5000]
+ DIST::(1..7,1..7) [
+        0, 148, 55,  32,  70, 140, 73,
+      148,   0, 93, 180,  99,  12, 72,
+       55,  93,  0,  85,  20,  83, 28,
+       32, 180, 85,   0, 100, 174, 99,
+       70,  99, 20, 100,   0,  85, 49,
+      140,  12, 83, 174,  85,   0, 73,
+       73,  72, 28,  99,  49,  73,  0]
+
+! Objective: total distance driven
+ Length:= sum(i,j in SITES | i<>j) DIST(i,j)*prec(i,j)
+
+! Enter and leave every city only once (except the depot)
+ forall(j in CLIENTS) sum(i in SITES| i<>j) prec(i,j) = 1
+ forall(i in CLIENTS) sum(j in SITES| i<>j) prec(i,j) = 1
+
+! If i is the first client of a tour, then quant(i)=DEM(i)
+ forall(i in CLIENTS) quant(i) <= CAP + (DEM(i)-CAP)*prec(1,i)
+
+! If j comes just after i in a tour, then quant(j) is greater than the 
+! quantity delivered during the tour up to i plus the quantity to be 
+! delivered at j (to avoid loops and keep capacity limit of the tanker)
+ forall(i,j in CLIENTS| i<>j) quant(j) >= quant(i) + DEM(j) - CAP +
+                           CAP*prec(i,j) + (CAP-DEM(j)-DEM(i))*prec(j,i)
+
+! Additional constraints (added as model cuts=optional redundant constraints)
+! If i is not the first client of a tour, quant(i) is larger than the sum 
+! of the quantities to deliver to i and to his predecessor on the tour
+(!
+ declarations
+  modcut: array(CLIENTS) of linctr
+ end-declarations
+
+ forall(i in CLIENTS) do
+  modcut(i):= quant(i) >= DEM(i) + sum(j in SITES| i<>j) DEM(j)*prec(j,i)
+  setmodcut(modcut(i))
+ end-do
+!)
+
+ forall(i in CLIENTS) do
+  quant(i) <= CAP
+  quant(i) >= DEM(i)
+ end-do
+ 
+ forall(i,j in SITES | i<>j) prec(i,j) is_binary
+
+! Uncomment the following line to see the Optimizer log
+! setparam("XPRS_VERBOSE",true)
+
+! Solve the problem
+ minimize(Length)
+
+! Solution printing
+ writeln("Total distance: ", getobjval)
+ tct:=0
+ forall(i in CLIENTS)
+  if(getsol(prec(1,i))>0) then
+   tct+=1
+   writeln("Tour ", tct, ":")
+   ct:=DEM(i)
+   writeln("  ", 1, " -> ", i)
+   p:=i
+   while(p<>1) do
+    n:= integer(round(sum(j in SITES) j*getsol(prec(p,j))))
+    writeln("  ", p, " -> ", n)
+    ct+=DEM(n)
+    p:=n
+   end-do
+   writeln("  Quantity delivered: ", ct)
+  end-if
+ 
+end-model

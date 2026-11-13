@@ -1,0 +1,158 @@
+(!*******************************************************
+  * Mosel Example Problems                              *
+  * ======================                              *
+  *                                                     *
+  * file goalobj.mos                                    *
+  * ````````````````                                    *
+  * Example for the use of the Mosel language           *
+  * (Archimedian and pre-emptive goal programming       *
+  *  using objective functions)                         *
+  *                                                     *
+  * (c) 2008 Fair Isaac Corporation                     *
+  *     author: S. Heipcke, 2001, rev. Sep. 2022        *
+  *******************************************************!)
+
+model GoalObj                       ! Start a new model
+
+uses "mmxprs"                       ! Load the optimizer library
+uses "mmsystem"
+
+forward procedure preemptive        ! Declare some procedures that are
+forward procedure archimedian       ! defined later
+
+declarations
+ NGOALS=3                           ! Number of goals
+ GOALS=1..NGOALS
+ x,y: mpvar                         ! Variables
+ Type: array(GOALS) of string       ! Type of goal objectives
+ Sense: array(GOALS) of string      ! Sense of goal objectives
+ Weight: array(GOALS) of real       ! Weights of goals
+ Deviation: array(GOALS) of real    ! Max. deviation from goals
+ Target: array(GOALS) of real       ! Target (RHS) values for goals
+ WObj: linctr                       ! Objective function
+ Goal: array(GOALS) of linctr       ! Goal constraints
+end-declarations
+
+ Limit:= 42*x + 13*y <= 100         ! Define a constraint
+
+                                    ! Define the goal objectives
+ Weight::[100, 1, 0.1]
+ Type:: ["perc", "abs", "perc"]
+ Sense:: ["max", "min", "max"]
+ Deviation:: [10, 4, 20] 
+ Goal(1):=   5*x +  2*y - 20
+ Goal(2):=  -3*x + 15*y - 48
+ Goal(3):= 1.5*x + 21*y - 3.8
+
+ archimedian                        ! Archimedian goal programming
+ preemptive                         ! Pre-emptive goal programming
+
+!***********************************************************************
+ 
+procedure archimedian
+
+  writeln("Archimedian:")
+  
+! Define the objective function as weighted sum of the goals
+  forall(g in GOALS)
+   if(Sense(g)="max") then
+     WObj-=Weight(g)*Goal(g)
+   else 
+     WObj+=Weight(g)*Goal(g)
+   end-if  
+
+  minimize(WObj)                    ! Solve the LP-problem
+ 
+                                    ! Solution printout 
+  writeln(" Solution: x: ", x.sol, ", y: ", y.sol)
+  writeln(" Goal", textfmt("Target",9), textfmt("Value",12))
+  forall(g in GOALS)
+    writeln(formattext("%4d %8s %12.6f", g, Sense(g), 
+      Goal(g).act + Goal(g).coeff )) 
+
+end-procedure
+
+!***********************************************************************
+
+procedure preemptive
+
+  writeln("\nPre-emptive:")
+ 
+(! 
+  Optimize successively the goals. After optimizing a goal turn it 
+  into a constraint.
+!)
+
+  localsetparam("realfmt","%10.6f")
+
+  i:=0
+  while (i<NGOALS) do
+    i+=1
+    case Sense(i) of
+     "max": do
+             maximize(Goal(i))                  ! Optimize the next goal
+             if(getprobstat<>XPRS_OPT) then
+               writeln("Cannot satisfy goal ",i)
+               break
+             else
+               Target(i):=getobjval
+               if (Type(i)="perc") then
+                 Target(i)-= abs(Target(i))*Deviation(i)/100
+               else
+                 Target(i)-= Deviation(i)
+               end-if
+               if(i<NGOALS) then
+                 Goal(i):= Goal(i) >= Target(i) ! Turn goal into a constraint
+               else
+                 Goal(i).type:=CT_GEQ           ! Only for printout
+               end-if
+             end-if 
+            end-do
+     "min": do
+             minimize(Goal(i))                  ! Optimize the next goal
+             if(getprobstat<>XPRS_OPT) then
+               writeln("Cannot satisfy goal ",i)
+               break
+             else
+               Target(i):=getobjval
+               if (Type(i)="perc") then
+                 Target(i)+= abs(Target(i))*Deviation(i)/100
+               else
+                 Target(i)+= Deviation(i)
+               end-if
+               if(i<NGOALS) then
+                 Goal(i):= Goal(i) <= Target(i) ! Turn goal into a constraint
+               else
+                 Goal(i).type:=CT_LEQ           ! Only for printout
+               end-if
+             end-if
+            end-do
+     else  writeln("Unknown objective sense")
+           break
+    end-case  
+   
+    writeln(" Solution(", i,"): x: ", x.sol, ", y: ", y.sol, ", obj: ", getobjval)
+  end-do
+
+                                    ! Some declarations for a nice printout
+  declarations
+    STypes={CT_GEQ, CT_LEQ}
+    ATypes: array(STypes) of string
+  end-declarations
+ 
+  ATypes::([CT_GEQ, CT_LEQ])[">=", "<="]
+                                    ! Solution printout 
+  localsetparam("realfmt","%12.6f")
+  writeln(" Goal", textfmt("Target",15), textfmt("Value",12))
+  forall(g in 1..i) do
+    write(formattext("%4d %3s %11.6f", g, ATypes(Goal(g).type), Target(g)))
+    if(g=NGOALS) then
+      writeln(getobjval)
+    else   
+      writeln(Goal(g).act+Goal(g).coeff+Target(g)) 
+    end-if 
+  end-do
+
+end-procedure
+
+end-model

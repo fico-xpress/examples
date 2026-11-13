@@ -1,0 +1,38 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file multicol6.mos
+   ``````````````````
+   Reading several data arrays from a single table.
+   - Using 'initializations from' with csv IO driver -
+       
+   (c) 2012 Fair Isaac Corporation
+       author: S. Heipcke, Dec. 2012
+*******************************************************!)
+
+model "Multiple data columns (CSV)"
+ uses "mmsheet"
+
+ parameters
+  CSTR= 'mmsheet.csv:multicol.csv'
+ end-parameters
+
+ declarations
+  PRODUCTS: set of string
+  MACH: range
+  COST2: dynamic array(PRODUCTS,MACH) of real
+  DUR2: dynamic array(PRODUCTS,MACH) of integer
+ end-declarations
+ 
+! **** Reading data from a spreadheet ****
+! This assumes the spreadsheet contains a data table in
+! sparse format (i.e., with indices) with the columns "COST" and "DUR"
+
+ initializations from CSTR
+  [COST2,DUR2] as '[A3:D11]'
+ end-initializations
+
+ writeln("CSV:"); writeln(COST2); writeln(DUR2)
+ 
+end-model

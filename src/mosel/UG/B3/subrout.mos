@@ -1,0 +1,93 @@
+(!*******************************************************
+   Mosel User Guide Examples
+   =========================
+
+   file subrout.mos
+   ````````````````
+   Simple subroutines.
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2001, rev. Jun. 2022
+  *******************************************************!)
+
+model "Simple subroutines"
+
+ declarations
+   a:integer
+ end-declarations
+
+ function three:integer
+   returned := 3
+ end-function
+
+ function timestwo(b:integer):integer
+   returned := 2*b
+ end-function
+
+ procedure printstart
+   writeln("The program starts here.")
+ end-procedure
+
+ procedure hide_a_1
+   declarations
+     a: integer
+   end-declarations
+ 
+   a:=7
+   writeln("Procedure hide_a_1: a = ", a) 
+ end-procedure
+
+ procedure hide_a_2(a:integer)
+   a:=2
+   writeln("Procedure hide_a_2: a = ", a) 
+ end-procedure
+
+(! This version generates an error because 'a' is declared twice
+ procedure hide_a_3(a:integer)
+   declarations
+     a: integer
+   end-declarations
+
+   a := 15
+   writeln("Procedure hide_a_3: a = ", a) 
+ end-procedure
+!)
+
+! Corrected version of hide_a_3
+ procedure hide_a_3(aa:integer)
+   declarations
+     a: integer
+   end-declarations
+
+   a := 15
+   writeln("Procedure hide_a_3: a = ", a, ", aa = ", aa) 
+ end-procedure
+
+ printstart 
+ a:=three
+ writeln("a = ", a)
+ a:=timestwo(a)   
+ writeln("a = ", a)
+ hide_a_1
+ writeln("a = ", a)
+ hide_a_2(-10)
+ writeln("a = ", a)
+ hide_a_3(a)
+ writeln("a = ", a)
+
+
+! Subroutines with variable number of arguments
+ function sumall(Values:...): integer
+   returned:= sum(i in Values) i.integer
+ end-function
+
+ procedure showint(Optargs:...)
+   forall(i as counter, v in Optargs)
+     if v is integer then writeln("arg ", i, ": ", v.integer); end-if
+ end-procedure
+
+ writeln("sum = ", sumall(a, 1, 2, 3, 4, 5))
+
+ showint(1.5,0,"abc",true,5)
+
+end-model 

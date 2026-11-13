@@ -1,0 +1,73 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file sosquad.mos
+   ````````````````
+   Approximation of a nonlinear function in two variables 
+   by two SOS-2.
+   - Example discussed in mipformref whitepaper -  
+      
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2002, rev. July 2020
+*******************************************************!)
+
+model "sosquad"
+ uses "mmxprs"
+
+ parameters
+  NX=10
+  NY=10
+ end-parameters
+
+ declarations
+  RX=1..NX                         ! Set of breakpoints X-axis
+  RY=1..NY                         ! Set of breakpoints Y-axis
+  X: array(RX) of real             ! Breakpoint coordinates X-axis
+  Y: array(RY) of real             ! Breakpoint coordinates Y-axis
+  FXY: array(RX,RY) of real        ! Function values at breakpoints
+ end-declarations
+
+! Sample data: a 10x10 grid to interpolate a quadratic function.
+ forall(i in RX) X(i):=i
+ forall(j in RY) Y(j):=j
+ forall(i in RX, j in RY) FXY(i,j) := (i-5)*(j-5)
+ writeln(FXY)
+
+ declarations
+  wx: array(RX) of mpvar           ! Weight on x co-ordinate
+  wy: array(RY) of mpvar           ! Weight on y co-ordinate
+  wxy: array(RX,RY) of mpvar       ! Weight on (x,y) co-ordinates
+  x,y,f: mpvar                     ! The actual variables: x,y and f(x,y)
+ end-declarations
+
+! Definition of SOS 
+ sum(i in RX) X(i)*wx(i) is_sos2
+ sum(j in RY) Y(j)*wy(j) is_sos2
+
+! Constraints 
+ forall(i in RX) sum(j in RY) wxy(i,j) = wx(i)
+ forall(j in RY) sum(i in RX) wxy(i,j) = wy(j)
+ sum(i in RX) wx(i) = 1
+ sum(j in RY) wy(j) = 1
+
+! Then x, y and f can be calculated using 
+ x = sum(i in RX)  X(i)*wx(i)
+ y = sum(j in RY)  Y(j)*wy(j)
+ f = sum(i in RX,j in RY) FXY(i,j)*wxy(i,j)
+! But of course there is a fair amount of degeneracy in the
+! representation of P=(x,y) by the four points C.
+
+! f can take negative or positive values
+ f is_free
+
+! Set bounds to make the problem more interesting
+ x >= 2; y >= 2
+ 
+! Solve the problem
+ minimize(f)
+ 
+ writeln("Solution: ", getobjval)
+ writeln("x: ", x.sol, ", y: ", y.sol) 
+
+end-model

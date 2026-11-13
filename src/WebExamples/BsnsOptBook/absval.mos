@@ -1,0 +1,60 @@
+(!*********************************************************************
+   Mosel Example Problems
+   ======================
+
+   file absval.mos
+   ```````````````
+   Absolute values: formulation of maximize( |x1-2*x2| ) 
+   
+     Example discussed in section 6.5 of
+     J.Kallrath and J.M.Wilson: Business Optimisation Using Mathematical
+     Programming, 2nd ed, Springer 2020 
+
+   author: S. Heipcke, June 2018
+
+   (c) Copyright 2020 Fair Isaac Corporation
+  
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+*********************************************************************!)
+
+model 'absval'
+  uses "mmxprs"
+
+  declarations
+    B1= 3                        ! Bound on x1
+    B2= 4                        ! Bound on x2
+    A= 10                        ! Upper bound on the abs. value expression
+
+    x1, x2: mpvar                ! Decision variables
+    aP: mpvar                    ! The a+ variable
+    aM: mpvar                    ! The a- variable
+    delta: mpvar                 ! Whether x2 is positive or negative
+  end-declarations
+
+  Profit:= aP + aM               ! Objective function
+
+  Coupling:= x1 -2*x2 = aP - aM  ! Reformulation of |x1-2*x2| 
+  C1:= aP<= A*delta              ! The restriction on a+
+  C2:= aM<= A*(1-delta)          ! The restriction on a-
+
+  delta is_binary
+  x1<= B1
+  x2<= B2
+ 
+  maximise(Profit)               ! Solve the problem
+
+  writeln("Solution: ", getobjval)
+  writeln("x1=", x1.sol, ", x2=", x2.sol, ", |x1-2*x2|=", abs(getsol(x1-2*x2)))
+  writeln("aux. variables: delta=", delta.sol, ", aP=", aP.sol, ", aM=", aM.sol)
+end-model

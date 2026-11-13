@@ -1,0 +1,43 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file trio.mos
+   `````````````
+   Three ways of reading sparse data tables from file.
+   
+   (c) 2008 Fair Isaac Corporation
+       author: Y.Colombani, 2001, rev. May 2005, Dec. 2009
+*******************************************************!)
+
+model "Trio input"
+ uses "mmetc"                    ! Required for diskdata
+
+ declarations
+  A1, A2, A3: dynamic array(range,range) of real
+  i, j: integer
+ end-declarations
+
+! First method: use an initializations block
+ initializations from 'data_1.dat'
+  A1 as 'MYDATA'
+ end-initializations
+
+! Second method: use the built-in readln function 
+ fopen("data_2.dat",F_INPUT)
+ repeat
+  readln('Tut(', i, 'and', j, ')=', A2(i,j))
+ until getparam("nbread") < 6
+ fclose(F_INPUT)
+
+! Third method: use diskdata driver
+ initializations from 'mmetc.diskdata:'
+  A3 as 'sparse,data_3.dat'
+ end-initializations
+
+! Now let us see what we have
+ writeln('A1 is: ', A1)
+ writeln('A2 is: ', A2)
+ writeln('A3 is: ', A3)
+
+end-model

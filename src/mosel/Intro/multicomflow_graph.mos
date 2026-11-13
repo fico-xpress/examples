@@ -1,0 +1,125 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file multicomflow.mos
+   `````````````````````
+   TYPE:         Multi-commodity network flow problem
+   DIFFICULTY:   3
+   FEATURES:     MIP problem, encoding of paths, `finalize', `getsize'
+   DESCRIPTION:  A private telephone company exploits a network between 
+                 five cities. At a given moment, the company is facing 
+                 a given set of demands for circuits (telephone calls). 
+                 The objective is to transmit as much as possible of the
+                 demands and to indicate the corresponding routing, that is, 
+                 the access paths used.     
+   FURTHER INFO: `Applications of optimization with Xpress-MP', 
+                 Section 12.3 `Routing telephone calls'
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2002, rev. Sep. 2017
+*******************************************************!)
+
+model "Routing telephone calls"
+ uses "mmxprs", "mmsvg"
+
+ declarations
+  CALLS: set of string                  ! Set of demands
+  ARCS: set of string                   ! Set of arcs 
+  PATHS: range                          ! Set of paths (routes) for demands
+
+  CAP: array(ARCS) of integer           ! Capacity of arcs
+  DEM: array(CALLS) of integer          ! Demands between pairs of cities
+  CINDEX: array(PATHS) of string        ! Call (demand) index per path index 
+ end-declarations
+
+ initializations from 'multicomflow.dat'
+  CAP DEM CINDEX
+ end-initializations
+
+ finalize(CALLS); finalize(ARCS); finalize(PATHS)
+ NARC:=getsize(ARCS)
+
+ declarations
+  ROUTE: array(PATHS,1..NARC) of string ! List of arcs composing the routes
+  flow: array(PATHS) of mpvar           ! Flow on paths
+ end-declarations
+
+ initializations from 'multicomflow.dat'
+  ROUTE
+ end-initializations
+
+! Objective: total flow on the arcs
+ TotFlow:= sum(p in PATHS) flow(p)
+
+! Flow within demand limits
+ forall(d in CALLS) 
+  Demand(d):= sum(p in PATHS | CINDEX(p) = d) flow(p) <= DEM(d) 
+
+! Arc capacities
+ forall(a in ARCS) 
+  Capacity(a):= sum(p in PATHS, b in 1..NARC | ROUTE(p,b)=a) flow(p) <= CAP(a)
+
+ forall(p in PATHS) flow(p) is_integer
+
+! Solve the problem
+ maximize(TotFlow)
+ 
+! Solution printing
+ writeln("Total flow: ", getobjval)
+
+ forall(d in CALLS) do
+  writeln(d, " (demand: ", DEM(d), ", routed calls: ",
+    getsol(sum(p in PATHS | CINDEX(p) = d) flow(p)), ")")
+  forall(p in PATHS | CINDEX(p) = d)
+   if(getsol(flow(p))>0) then 
+    write("  ", getsol(flow(p)), ":")
+    forall(b in 1..NARC) write(" ", ROUTE(p,b))
+    writeln
+   end-if 
+ end-do 
+
+ writeln("Unused capacity:")
+ forall(a in ARCS) do 
+  U:=CAP(a) - getsol(sum(p in PATHS, b in 1..NARC | ROUTE(p,b)=a) flow(p))
+  write(if(U>0,"  " + a + ": " + U + "\n", ""))
+ end-do
+
+! Solution drawing
+ declarations
+   POS: array(ARCS) of list of integer     ! Position of arcs
+ end-declarations
+
+ initializations from 'multicomflow.dat'
+  POS
+ end-initializations
+
+ FACT:=15
+ svgaddgroup("Cap", "Capacity", SVG_GREEN)
+ svgsetstyle(SVG_STROKEOPACITY, 0.5)
+ forall(a in ARCS) do
+   svgaddline(POS(a))
+   svgsetstyle(svggetlastobj, SVG_STROKEWIDTH, round(CAP(a)/FACT))
+ end-do
+ svgaddgroup("Used", "Used capacity", SVG_RED)
+ svgsetstyle(SVG_STROKEOPACITY, 0.5)
+ forall(a in ARCS) do 
+   svgaddline(POS(a))
+   svgsetstyle(svggetlastobj, SVG_STROKEWIDTH,
+    round(getsol(sum(p in PATHS, b in 1..NARC | ROUTE(p,b)=a) flow(p))/FACT))
+ end-do
+
+ svgaddgroup("Msg", "", SVG_BLACK)
+ svgsetstyle(SVG_TEXTANCHOR,"middle")
+ forall(a in ARCS) do
+   p1:=gethead(POS(a),2); p2:=gettail(POS(a),2)
+   svgaddtext((p1.first+p2.first)/2,(p1.last+p2.last)/2, a)
+ end-do
+
+ svgsetgraphviewbox(0,0,100,100)
+ svgsetgraphscale(5)
+
+ svgsave("multicom.svg")
+ svgrefresh
+ svgwaitclose("Close browser window to terminate model execution.", 1) 
+end-model

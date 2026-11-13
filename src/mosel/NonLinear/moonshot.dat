@@ -1,0 +1,10 @@
+! Data file for "moonshot.mos"
+T :  1.0
+G :  1.0
+MASS_Earth: 10.0
+MASS_Moon :  1.0
+RADIUS_Earth:  2.0
+RADIUS_Moon :  1.0
+
+POS_Earth: [ 0.0  0.0 ]
+POS_Moon : [ 20.0 0.0 ]

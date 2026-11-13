@@ -1,0 +1,251 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file f5tour4m.mos
+   `````````````````
+   Tour planning - traveling salesman problem (TSP)
+   (See "Applications of optimization with Xpress-MP",
+        Section 9.6: Planning a flight tour)
+
+   Generate and load heuristic CP solutions during MIP search
+   using the 'optimized node' and 'integer solution' callbacks.
+   - Passing callback functions by name -
+   
+   For small instances (up to approx. 50 cities) pure MIP tends
+   to beat the combined approach. Beyond approx. 120 cities
+   the problem grows too large for the formulations used here. 
+
+   *** This model cannot be run with a Community Licence 
+       for the provided data instances ***
+
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Dec. 2007, rev. Jun. 2021
+*******************************************************!)
+
+model "F-5 Tour planning (MIP + CP)"
+ uses "mmxprs", "mmsystem", "kalis"
+
+ parameters
+  DATAFILE="Data/gr96.dat"
+ end-parameters 
+
+ forward public procedure update_CP
+ forward public function solve_CP: boolean
+ forward procedure print_CP_sol
+ forward procedure print_MIP_sol
+
+ declarations
+  starttime: real
+  CITIES: range                          ! Set of cities
+ end-declarations
+
+ starttime:=gettime
+
+ initializations from DATAFILE
+  CITIES
+ end-initializations
+
+ finalize(CITIES)
+ CITIES1:= CITIES-{min(i in CITIES) i}
+
+! **** MIP model ****
+
+ declarations
+  NCITIES=getsize(CITIES)
+  
+  DIST: array(CITIES,CITIES) of integer  ! Distance between cities
+  NEXTC: array(CITIES) of integer        ! Next city after i in the solution
+
+  fly: array(CITIES,CITIES) of mpvar     ! 1 if flight from i to j 
+  y: array(CITIES) of mpvar              ! Variables for excluding subtours
+ end-declarations
+
+ initializations from DATAFILE
+  DIST
+ end-initializations
+
+! Objective: total distance
+ TotalDist:= sum(i,j in CITIES | i<>j) DIST(i,j)*fly(i,j)
+
+! Visit every city once
+ forall(i in CITIES) sum(j in CITIES | i<>j) fly(i,j) = 1
+ forall(j in CITIES) sum(i in CITIES | i<>j) fly(i,j) = 1
+
+ forall(i,j in CITIES | i<>j) fly(i,j) is_binary
+
+! Exclude subtours
+ forall(i in CITIES, j in CITIES1 | i<>j) y(j) >= y(i) + 1 - NCITIES * (1 - fly(i,j))
+
+! **** CP model ****
+
+ setparam("KALIS_DEFAULT_LB", 0)
+ setparam("KALIS_DEFAULT_UB", NCITIES-1)
+
+ declarations
+  D: array(CITIES) of integer            ! Auxiliary array
+  flyc: array(CITIES) of cpvar           ! Successor of a city 
+ end-declarations
+
+ MAXD:= sum(i in CITIES) max(j in CITIES) DIST(i,j)
+
+ setparam("KALIS_DEFAULT_UB", MAXD)
+
+ declarations
+  totaldist: cpvar                       ! Total travel distance (objective)
+ end-declarations
+
+ MAXD:= max(i,j in CITIES) DIST(i,j)
+
+ setparam("KALIS_DEFAULT_UB", MAXD)
+
+ declarations
+  dist: array(CITIES) of cpvar           ! Distance to successor of city i
+  fsol: array(CITIES) of integer         ! CP solution values
+ end-declarations
+
+! Assign values to 'flyc' variables as to obtain a single cycle,
+! 'totaldist' is the distance travelled
+ cycle(flyc, totaldist, DIST)
+
+! Element constraints, defining 'dist' variables used in search
+! (redundant constraints)
+ forall(i in CITIES) do
+  forall(j in CITIES) D(j):= DIST(i,j)
+  dist(i) = element(D, flyc(i))
+ end-do 
+
+! **** Solving ****
+
+ declarations
+  CORDER: array(1..NCITIES) of integer   ! Ordered city indices
+  dsol: array(CITIES) of real            ! LP solution values
+  allsol: array(mpvar) of real           ! MIP start solution
+  sdist: integer                         ! CP objective function value
+  solct: integer                         ! CP solution counter
+ end-declarations
+
+! cp_set_solution_callback("print_CP_sol")
+
+ setparam("XPRS_VERBOSE", true)
+ setparam("XPRS_MIPLOG", -25)
+
+ setparam("XPRS_GOMCUTS",0)    
+ setparam("XPRS_MAXNODE", 100)
+
+ setcallback(XPRS_CB_OPTNODE, "solve_CP")
+ setcallback(XPRS_CB_INTSOL, "update_CP")
+ 
+ setparam("XPRS_NODESELECTION", 2)       ! Breadth-first search
+ setparam("XPRS_MIPTHREADS", 1)          ! Deactivate parallel MIP
+ 
+ minimize(TotalDist)                     ! Solve the MIP problem
+ 
+ if getparam("XPRS_MIPSOLS") > 0 then
+  print_MIP_sol
+ else
+  writeln("(", gettime-starttime, "s) No MIP solutions.")   
+ end-if
+
+!-----------------------------------------------------------------
+! Update CP with solutions found by MIP
+ public procedure update_CP
+  totaldist <= getparam("XPRS_LPOBJVAL") - 1
+ end-procedure 
+
+! Generate and load CP solutions into MIP
+ public function solve_CP:boolean
+  nd:=getparam("XPRS_NODES")
+  if nd=1 or getparam("XPRS_NODEDEPTH") MOD 4 = 0 then
+   writeln("Solving CP (node ", nd,")")
+   forall(i in CITIES) do
+    minj:=i; minv:=0.0
+    forall(j in CITIES | i<>j) 
+     if getsol(fly(i,j))>minv then
+      minj:=j; minv:=getsol(fly(i,j))
+     end-if
+    dsol(i):= minv
+    settarget(flyc(i), minj)
+    settarget(dist(i), 
+              round(sum(j in CITIES | i<>j) DIST(i,j)*getsol(fly(i,j))) )
+   end-do
+   qsort(SYS_DOWN, dsol, CORDER)
+
+   forall(i in CITIES)
+    Strategy(i):= assign_var(KALIS_LARGEST_MAX, KALIS_NEAREST_VALUE, 
+                             {dist(CORDER(i+1))})
+   cp_set_branching(Strategy)
+   setparam("KALIS_MAX_COMPUTATION_TIME", ceil(NCITIES/10))
+   setparam("KALIS_MAX_SOLUTIONS", 1)
+!   setparam("KALIS_VERBOSE_LEVEL", 2)    
+
+   if cp_find_next_sol then 
+    solct+=1
+    writeln("(", gettime-starttime, "s) CP solution ", solct,": ", getsol(totaldist))
+    sdist:= getsol(totaldist)
+    forall(i in CITIES) fsol(i):=flyc(i).sol
+    forall(i in CITIES) allsol(fly(i,fsol(i))):=1
+
+    cp_reset_search
+
+    addmipsol("CP"+solct, allsol)
+
+    forall(i in CITIES) allsol(fly(i,fsol(i))):=0
+    totaldist <= sdist - maxlist(sdist * 0.0001,1)
+   end-if
+  end-if
+ end-function
+ 
+!-----------------------------------------------------------------
+! Print the current CP solution
+ procedure print_CP_sol
+  declarations
+   ALLCITIES: set of integer
+  end-declarations
+   
+  writeln("(", gettime-starttime, "s) Total distance: ", getsol(totaldist))
+  ALLCITIES:={}
+  forall(i in CITIES) do
+   if(i not in ALLCITIES) then
+    write(i)
+    first:=i
+    repeat
+     ALLCITIES+={first}
+     write(" - ", flyc(first).sol)
+     first:= flyc(first).sol
+    until first=i
+    writeln 
+   end-if
+  end-do        
+ end-procedure
+
+! Print the current MIP solution
+ procedure print_MIP_sol
+  declarations
+   ALLCITIES: set of integer
+  end-declarations
+   
+  writeln("(", gettime-starttime, "s) Total distance: ", getobjval)
+  forall(i in CITIES) 
+   forall(j in CITIES)
+    if(getsol(fly(i,j))>0.99) then 
+     NEXTC(i):=j
+     break
+    end-if
+
+  ALLCITIES:={}
+  forall(i in CITIES) do
+   if(i not in ALLCITIES) then
+    write(i)
+    first:=i
+    repeat
+     ALLCITIES+={first}
+     write(" - ", NEXTC(first))
+     first:=NEXTC(first)
+    until first=i
+    writeln 
+   end-if
+  end-do        
+ end-procedure
+
+end-model

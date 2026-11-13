@@ -1,0 +1,59 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file blend.mos
+   ``````````````
+   Reading data from file.
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2001
+*******************************************************!)
+
+model "Blend" 
+ uses "mmxprs" 
+
+ declarations
+  REV = 125                      ! Unit revenue of product
+  MINGRADE = 4                   ! Minimum permitted grade of product
+  MAXGRADE = 5                   ! Maximum permitted grade of product
+  ORES = 1..2                    ! Range of ores
+
+  COST: array(ORES) of real      ! Unit cost of ores
+  AVAIL: array(ORES) of real     ! Availability of ores
+  GRADE: array(ORES) of real     ! Grade of ores (measured per unit of mass)
+
+  use: array(ORES) of mpvar      ! Quantities of ores used
+ end-declarations
+
+! Read data from file blend.dat
+ initializations from 'blend.dat'
+  COST
+  AVAIL
+  GRADE
+ end-initializations
+
+! Alternatively, uncomment to read data from blendb.dat
+(!
+ initializations from 'blendb.dat'
+  [COST,AVAIL,GRADE] as 'BLENDDATA'
+ end-initializations
+!)
+
+! Objective: maximize total profit
+ Profit:= sum(o in ORES) (REV-COST(o))* use(o)
+
+! Lower and upper bounds on ore quality
+ sum(o in ORES) (GRADE(o)-MINGRADE)*use(o) >= 0
+ sum(o in ORES) (MAXGRADE-GRADE(o))*use(o) >= 0
+
+! Set upper bounds on variables
+ forall(o in ORES) use(o) <= AVAIL(o)
+
+ maximize(Profit)                 ! Solve the LP-problem
+
+ ! Print out the solution
+ writeln("Solution:\n Objective: ", getobjval)
+ forall(o in ORES)  writeln(" use(" + o + "): ", getsol(use(o)))
+
+end-model

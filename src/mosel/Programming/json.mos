@@ -1,0 +1,486 @@
+(!******************************************************
+   Mosel Example Programs
+   ======================
+
+   file json.mos
+   `````````````
+   Package providing advanced union operators for 
+   representing a JSON document along with some
+   display functionality
+
+   (c) 2022 Fair Isaac Corporation
+       author: Y. Colombani, S. Heipcke, Nov. 2021, rev. Nov. 2022
+*******************************************************!)
+package json
+version 0.2.0
+uses 'mmxml','mmsystem','mmhttp'
+
+parameters
+ (!@doc.cparam.
+  @descr jcolfmt Format selection for aggregate table column printing
+  @value jcolfmt 0 Mosel text format
+  @value jcolfmt 1 JSON format
+ !)
+  "jcolfmt":integer
+ (!@doc.cparam.
+  @descr jcolmaxw Maximum column width for table format array display
+  @info jcolmaxw Values need to be positive integers
+ !)
+  "jcolmaxw":integer
+end-parameters
+
+! **** Package type definitions ****
+public declarations
+ !@doc.descr Type definition: JSON object
+  jobj=array(string) of any
+ !@doc.descr Type definition: JSON array
+  jarr=array(range) of any
+ !@doc.descr Type definition: a null value is stored as a string
+  jnull=string
+ !@doc.descr Type definition: JSON value
+ !@doc.info A 'jval' is either a scalar of type real, text, boolean, or jobj, jarr or jnull.
+  jval=text or real or boolean or jobj or jarr or jnull
+end-declarations
+
+! **** [private] Parser related data ****
+!@doc.ignore
+declarations
+  afct:array(range) of any       ! jparser callbacks
+  public jsctx=
+    record
+      l:list of jval             ! List of active elements
+    end-record
+  datafile="forjson"+newmuid     ! Unique identifier for temp. filename
+  jstxt=newmuid                  ! Unique identifier for temp. output filename
+end-declarations
+
+! **** Internal subroutines for table-format display of arrays ****
+!@doc.ignore
+declarations
+  function genheaders(o:jobj, level:integer, prefix:string): set of string
+  function genheaders(a:jarr, level:integer, prefix:string): set of string
+  function displayrow(o: jobj, txt:array(range,string) of text, rct:integer, 
+    hsel:string, subhead: set of string, level:integer, hasarray:boolean,
+    cpyhead:set of string): integer
+  function displayrow(a: jarr, txt:array(range,string) of text, rct:integer, 
+    hsel:string, subhead: set of string, level:integer): integer
+end-declarations
+
+! **** [private] Internal representations of package parameters ****
+!@doc.ignore
+declarations
+  colfmt:integer
+  colmaxw:integer
+end-declarations
+
+! **** Public subroutines ****
+
+! Generic routines for handling package control parameters
+!@doc.autogen=false
+! Get integer package parameter
+public function json~getiparam(p:string):integer
+  case p of
+    "jcolfmt": returned:=colfmt
+    "jcolmaxw": returned:=colmaxw
+  end-case
+end-function
+
+! Set value for integer package parameters
+public procedure json~setparam(p:string,v:integer)
+  case p of
+    "jcolfmt": if v in 0..1: colfmt:=v
+    "jcolmaxw": if v>0: colmaxw:=v
+  end-case
+end-procedure
+!@doc.autogen
+
+(!@doc.
+  @descr Retrieve the indexing set of a 'jobj' entity
+  @param o JSON object
+  @return indexing set (set of labels occurring in the JSON object)
+!)
+public function getfields(o:jobj):set of string
+  returned:=o.index(1)
+end-function
+
+(!@doc.
+  @descr Retrieve the indexing (range) set of a 'jarr' entity
+  @param o JSON array
+  @return index range set (position count of objects within the JSON array)
+  @info Index numbering starts with the value 1.
+!)
+public function getrange(o:jarr):range
+  returned:=o.index(1)
+end-function
+
+(!@doc.
+  @descr Load a JSON document
+  @param fname (extended) file name of a JSON document
+  @param doc structure for storing the JSON contents 
+  @return 0 if successful, 1 in case of parsing error.
+  @info The entity 'doc' passed as argument is reset by this function.
+!)
+public function loadjson(fname:text,doc:jval):integer
+  declarations
+    ctx:jsctx
+  end-declarations
+  reset(doc)
+  fopen(fname,F_INPUT)
+  returned:=jsonparse(afct,ctx)  ! Invoke the JSON parsing
+  fclose(F_INPUT)
+  if ctx.l.size>0 then
+    doc:=ctx.l(1)
+  end-if
+end-function
+
+(!@doc.
+  @descr Parse a text as a JSON document
+  @param data text containing JSON data
+  @param doc structure for storing the JSON contents 
+  @return 0 if successful, 1 in case of parsing error.
+  @info The entity 'doc' passed as argument is reset by this function.
+  @related Invokes <fctRef>loadjson</fctRef>
+!)
+public function parsejson(data:text,doc:jval):integer
+  publish(datafile,data)
+  returned:=loadjson(text("text:")+datafile,doc)
+  unpublish(datafile)
+end-function
+
+(!@doc.
+  @descr Create a JSON representation in text form for a Mosel entity
+  @param mosobj a Mosel entity
+  @param flag optional format configuration (see documentation of 'jsonwrite')
+!)
+public function jsontext(mosobj:any):text
+  publish(jstxt,returned)
+  jsonwrite("text:"+jstxt,mosobj)
+  unpublish(jstxt)
+end-function
+
+public function jsontext(mosobj:any, flag:integer):text
+  publish(jstxt,returned)
+  jsonwrite("text:"+jstxt,mosobj,flag)
+  unpublish(jstxt)
+end-function
+
+(!@doc.
+  @descr Display a JSON array in table format
+  @param a the array to be displayed
+  @param level depth of nesting for table columns (0-3, default: 2) 
+  @param headers preselected set of table headers (optional)
+  @info The package parameter <entRef>jcolmaxw</entRef> configures the maximum table column width and the parameters <entRef>jcolfmt</entRef> selects whether aggregate output is using Mosel's default text output format (value 0) or JSON format (value 1). 
+!)
+public procedure displaytable(a:jarr, level:integer, headers: list of string)
+  declarations
+    aheaders: list of string
+    tmptxt: dynamic array(R:range,sheaders: set of string) of text
+    colwidth: array(sheaders) of integer
+    subhead,cpyhead,genhead: set of string
+    tmpt: text
+  end-declarations
+  if level>3: level:=3         ! Too deep nesting will be unreadable
+  if headers.size=0 then 
+    aheaders:= list(genheaders(a,level,""))
+  else 
+    aheaders:=headers
+   ! Complete specified headers with paths to subheaders
+    forall(h in aheaders) do
+      tmpt:=h
+      while (findtext(tmpt,".",1)>0 and tmpt<>"") do
+        asproc(pathsplit(SYS_EXTN,tmpt,tmpt))
+        if findfirst(aheaders,string(tmpt))=0 then
+          aheaders+=[string(tmpt)] 
+          genhead+={string(tmpt)}
+        end-if
+      end-do
+    end-do
+  end-if
+
+  rct:=0
+  forall(i in a.range,  anobj=a(i)) do
+   ! At the top level the format expects an array containing collections
+    if anobj is jobj then
+      rct+=1; hasarray:=false
+      forall(h in aheaders | exists(anobj.jobj(h)), ao=anobj.jobj(h)) do
+        if ao is jarr then
+          if level>0 and not hasarray then
+            subhead:=union(k in aheaders | startswith(k,h+".")) {substr(k,h.size+2,k.size)}
+            cpyhead:=union(k in aheaders | startswith(k,h+".")) {k}
+            newct:=displayrow(ao.jarr, tmptxt, rct, h+".", subhead, level-1)
+            hasarray:=true
+          else
+            tmptxt(rct,h):= if(colfmt=1, text(jsontext(ao),colmaxw), text(ao,colmaxw))
+          end-if
+        elif ao is jobj then
+          if level>0 then
+            subhead:=union(k in aheaders | startswith(k,h+".")) {substr(k,h.size+2,k.size)}
+            newct:=displayrow(ao.jobj, tmptxt, rct, h+".", subhead, level-1, hasarray, cpyhead)
+            if newct>rct : hasarray:=true 
+          else
+            tmptxt(rct,h):= if(colfmt=1, text(jsontext(ao),colmaxw), text(ao,colmaxw))
+          end-if
+        else
+          tmptxt(rct,h):= text(ao,colmaxw)
+        end-if
+      end-do
+      if newct>rct then
+        tmphead:=union(s in sheaders-cpyhead | exists(tmptxt(rct,s))) {s}
+        forall(jj in tmphead, tmpt2=tmptxt(rct,jj), ii in (rct+1)..newct) 
+          tmptxt(ii,jj):=tmpt2
+        rct:=newct
+        hasarray:=false
+      end-if
+    end-if
+  end-do
+
+ ! Calculate actual column widths
+  forall(h in sheaders | h not in genhead) 
+    colwidth(h):=maxlist(h.size, minlist(colmaxw, max(r in R) tmptxt(r,h).size))+1
+  ctwidth:=if(R.size>0, ceil(log(R.last))+2, 1)
+
+ ! Display the headers
+  write(" "*ctwidth)
+  forall(h in sheaders | h not in genhead) write(textfmt(h,-colwidth(h)))
+  writeln
+ ! Display the table body
+  forall(r in R) do
+    write(textfmt(r,-ctwidth))
+    forall(h in sheaders | h not in genhead) 
+      if exists(tmptxt(r,h)) then
+        write(textfmt(tmptxt(r,h),-colwidth(h)))
+      else write(textfmt("Nan",-colwidth(h)))
+      end-if
+    writeln
+  end-do
+end-procedure
+
+public procedure displaytable(a:jarr, headers: list of string)
+  displaytable(a,2,headers)
+end-procedure
+
+public procedure displaytable(a:jarr, level:integer)
+  displaytable(a,level,[])
+end-procedure
+
+public procedure displaytable(a:jarr)
+  displaytable(a,2,[])
+end-procedure
+
+!------------Internal subroutines: json parser callback funtions-------------
+
+! jparser callback: open an object
+function js_open_object(ctx:jsctx, name:text):integer
+  if ctx.l.size>0 then
+    with o=ctx.l(ctx.l.size) do
+      if o is jobj then
+        sname:=string(name)
+        create(o.jobj(sname).jobj)
+        ctx.l+=[o.jobj(sname).jobj]
+      else   ! jarr
+        create(o.jarr(o.jarr.size+1).jobj)
+        ctx.l+=[o.jarr(o.jarr.size).jobj]
+      end-if
+    end-do
+  else
+    ctx.l+=[(jobj)]
+  end-if
+end-function
+
+! jparser callback: close an object
+function js_close_object(ctx:jsctx):integer
+  if ctx.l.size>1 then
+    cuttail(ctx.l,1)
+  end-if
+end-function
+
+! jparser callback: open an array
+function js_open_array(ctx:jsctx, name:text):integer
+  if ctx.l.size>0 then
+    with o=ctx.l(ctx.l.size) do
+      if o is jobj then
+        sname:=string(name)
+        create(o.jobj(sname).jarr)
+        ctx.l+=[o.jobj(sname).jarr]
+      else   ! jarr
+        create(o.jarr(o.jarr.size+1).jarr)
+        ctx.l+=[o.jarr(o.jarr.size).jarr]
+      end-if
+    end-do
+  else
+    ctx.l+=[(jarr)]
+  end-if
+end-function
+
+! jparser callback: close an array
+function js_close_array(ctx:jsctx):integer
+  if ctx.l.size>1 then
+    cuttail(ctx.l,1)
+  end-if
+end-function
+
+! jparser callback: a textual value
+function js_text_val(ctx:jsctx, name:text, type:integer, val:text):integer
+  if ctx.l.size>0 then
+    with o=ctx.l(ctx.l.size) do
+      if o is jobj then
+        o.jobj(string(name)):=val
+      else   ! jarr
+        o.jarr(o.jarr.size+1):=val
+      end-if
+    end-do
+  else
+    ctx.l+=[val]
+  end-if
+end-function
+
+! jparser callback: a numerical value
+function js_num_val(ctx:jsctx, name:text, val:real):integer
+  if ctx.l.size>0 then
+    with o=ctx.l(ctx.l.size) do
+      if o is jobj then
+        o.jobj(string(name)):=val
+      else   ! jarr
+        o.jarr(o.jarr.size+1):=val
+      end-if
+    end-do
+  else
+    ctx.l+=[val]
+  end-if
+end-function
+
+! jparser callback: a Boolean value
+function js_bool_val(ctx:jsctx, name:text, val:boolean):integer
+  if ctx.l.size>0 then
+    with o=ctx.l(ctx.l.size) do
+      if o is jobj then
+        o.jobj(string(name)):=val
+      else   ! jarr
+        o.jarr(o.jarr.size+1):=val
+      end-if
+    end-do
+  else
+    ctx.l+=[val]
+  end-if
+end-function
+
+! jparser callback: the 'null' value
+function js_null_val(ctx:jsctx, name:text):integer 
+  if ctx.l.size>0 then
+    with o=ctx.l(ctx.l.size) do
+      if o is jobj then
+        o.jobj(string(name)):="null"
+      else   ! jarr
+        o.jarr(o.jarr.size+1):="null"
+      end-if
+    end-do
+  else
+    ctx.l+=["null"]
+  end-if
+end-function
+
+!------------Internal subroutines: Table-format display of arrays------------
+
+! Generating the set of table headers
+function genheaders(o:jobj, level:integer, prefix:string): set of string
+  fset:=getfields(o)
+  forall(f in fset) returned+={prefix+f}
+  if level>0 then
+    forall(f in fset) do
+      if o(f) is jobj then
+        returned+=genheaders(o(f).jobj, level-1, prefix+f+".")
+      elif o(f) is jarr then
+        returned+=genheaders(o(f).jarr, level-1, prefix+f+".")
+      end-if
+    end-do
+  end-if   
+end-function
+
+function genheaders(a:jarr, level:integer, prefix:string): set of string
+  forall(i in a.range, anobj=a(i)) 
+    if anobj is jobj then
+      returned+=genheaders(anobj.jobj, level, prefix)
+    end-if
+end-function
+
+! Displaying a collection (jobj)
+function displayrow(o: jobj, txt:array(range,string) of text, rct:integer,
+                    hsel:string, subhead: set of string, level:integer, 
+                    hasarray:boolean, cpyhead:set of string): integer
+  returned:=rct
+  forall(h in subhead | exists(o(h)), ao=o(h)) do
+    if ao is jarr then
+      if level>0 and not hasarray then
+        newsubhead:=union(k in subhead | startswith(k,h+".")) {substr(k,h.size+2,k.size)}
+        cpyhead:=union(k in subhead | startswith(k,hsel+h+".")) {k}
+        returned:=displayrow(ao.jarr, txt, rct, hsel+h+".", newsubhead, level-1)
+        hasarray:=true
+      else
+        txt(rct,hsel+h):=
+          if(colfmt=1, text(jsontext(ao),colmaxw),text(ao,colmaxw))
+      end-if
+    elif ao is jobj then
+      if level>0 then
+        newsubhead:=union(k in subhead | startswith(k,h+".")) {substr(k,h.size+2,k.size)}
+        returned:=displayrow(ao.jobj, txt, rct, hsel+h+".", newsubhead, level-1, hasarray, cpyhead)
+        if returned>rct: hasarray:=true
+      else
+        txt(rct,hsel+h):= 
+          if(colfmt=1, text(jsontext(ao),colmaxw),text(ao,colmaxw))
+      end-if
+    else
+      txt(rct,hsel+h):= text(ao,colmaxw)
+    end-if
+  end-do 
+end-function
+
+! Displaying an array (jarr)
+function displayrow(a: jarr, txt:array(range,string) of text, rct:integer, 
+                    hsel:string, subhead: set of string, level:integer): integer
+  declarations
+    cpyhead: set of string
+  end-declarations
+  returned:=rct
+  forall(i in a.range,  anobj=a(i)) do
+    if anobj is jobj then
+      forall(h in subhead | exists(anobj.jobj(h)), ao=anobj.jobj(h)) do
+        if ao is jarr then
+          txt(returned,hsel+h):=
+            if(colfmt=1, text(jsontext(ao),colmaxw),text(ao,colmaxw))
+        elif ao is jobj then
+          if level>0 then
+            newsubhead:=union(k in subhead | startswith(k,h+".")) {substr(k,h.size+2,k.size)}
+            newct:=displayrow(ao.jobj, txt, returned, hsel+h+".", newsubhead, level-1, true, cpyhead)
+          else
+            txt(returned,hsel+h):=
+              if(colfmt=1, text(jsontext(ao),colmaxw),text(ao,colmaxw))
+          end-if
+        else
+          txt(returned,hsel+h):= text(ao,colmaxw)
+        end-if
+      end-do
+      if i<a.range.last: returned+=1
+    else
+      txt(returned,substr(hsel,1,hsel.size-1)):= 
+        if(colfmt=1, text(jsontext(anobj),colmaxw), text(anobj,colmaxw))
+    end-if
+  end-do
+end-function
+
+!--------------------------Package initialisation---------------------------
+
+! Set default values for parameters
+ colfmt:=0
+ colmaxw:=25
+
+! Module initialisation (definition of JSON parser callbacks)
+ afct(JSON_FCT_OPEN_OBJ):=->js_open_object
+ afct(JSON_FCT_CLOSE_OBJ):=->js_close_object
+ afct(JSON_FCT_OPEN_ARR):=->js_open_array
+ afct(JSON_FCT_CLOSE_ARR):=->js_close_array
+ afct(JSON_FCT_TEXT):=->js_text_val
+ afct(JSON_FCT_NUM):=->js_num_val
+ afct(JSON_FCT_BOOL):=->js_bool_val
+ afct(JSON_FCT_NULL):=->js_null_val
+
+end-package

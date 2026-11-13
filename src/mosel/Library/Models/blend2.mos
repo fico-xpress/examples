@@ -1,0 +1,47 @@
+(!*******************************************************
+  * Mosel Example Problems                              *
+  * ======================                              *
+  *                                                     *
+  * file blend2.mos                                     *
+  * ```````````````                                     *
+  * Example for the use of the Mosel language           *
+  * (Blending problem from XPRESS-MP User Guide)        *
+  *                                                     *
+  * Data given in the model.                            *
+  *                                                     *
+  * (c) 2008 Fair Isaac Corporation                     *
+  *     author: S. Heipcke, 2001                        *
+  *******************************************************!)
+
+model Blend                    ! Start a new model
+
+uses "mmxprs"                  ! Load the optimizer library
+
+public declarations
+ ROres = 1..2                  ! Range of Ores
+ REV = 125                     ! Unit revenue of product
+ MINGRADE = 4                  ! Min permitted grade of product
+ MAXGRADE = 5                  ! Max permitted grade of product
+ COST: array(ROres) of real    ! Unit cost of ores
+ AVAIL: array(ROres) of real   ! Availability of ores
+ GRADE: array(ROres) of real   ! Grade of ores (measured per unit of mass)
+
+ x: array(ROres) of mpvar      ! Quantities of ores used
+ LoGrade: linctr
+end-declarations
+
+ COST  :: [85.00, 93.00]
+ AVAIL :: [60.00, 45.00]
+ GRADE :: [2.1, 6.3]
+                               ! Objective: maximize total profit 
+ Profit:= sum(o in ROres) (REV-COST(o))* x(o)  
+
+                               ! Lower and upper bounds on ore quality
+ LoGrade:= sum(o in ROres) (GRADE(o)-MINGRADE) * x(o) >= 0
+ UpGrade:= sum(o in ROres) (MAXGRADE-GRADE(o)) * x(o) >= 0 
+
+                               ! Set upper bounds on variables
+ forall(o in ROres) x(o) <= AVAIL(o)
+
+ maximize(Profit)              ! Solve the LP-problem
+end-model

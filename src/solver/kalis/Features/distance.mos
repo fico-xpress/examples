@@ -1,0 +1,48 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file distance.mos
+   `````````````````
+   Abs and distance constraints.
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+       Creation: 2005, rev. Mar. 2013
+*****************************************************************!)
+model "Distance constraints"
+ uses "kalis"
+ 
+ setparam("KALIS_DEFAULT_LB", -50); setparam("KALIS_DEFAULT_UB", 50)
+
+ declarations
+  x, y, z: cpvar
+  Dist: cpctr
+ end-declarations  
+  
+ setname(x,"x")
+ setname(y,"y")
+ setname(z,"z")
+
+ abs(x) = y
+ writeln("Absolute value of x: ", x,y,z)
+
+ y >= 20
+ writeln("Bounding y by 20: ", x,y,z)
+  
+! abs(y-z) <= 3
+! Equivalent version of this constraint:
+ distance(y,z) <= 3
+
+ writeln("Max distance betw. y and z: ", x,y,z)
+ 
+ Dist:= distance(x,z) = 5
+ 
+ if(cp_post(Dist)) then
+  writeln("Distance between x and z: ", x,y,z) 
+ else
+  writeln("Problem is infeasible")
+ end-if
+ 
+ cp_show_prob
+
+end-model

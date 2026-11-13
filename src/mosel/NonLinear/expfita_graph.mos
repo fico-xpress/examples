@@ -1,0 +1,113 @@
+(!*********************************************************************
+   Mosel NL examples
+   =================
+   file expfita_graph.mos
+   ``````````````````````
+   Approximating an exponential function by a quadratic polynomial.
+
+   Convex NLP problem
+ 
+   Based on AMPL model expfita.mod by Hande Y. Benson
+   Source: http://www.orfe.princeton.edu/~rvdb/ampl/nlmodels/cute/
+   Reference:
+     M.J.D. Powell, "A tolerant algorithm for linearly constrained optimization 
+     calculations", Mathematical Programming 45(3), pp.561--562, 1989.
+
+   - Graphical representation of results -   
+
+   (c) 2008 Fair Issac Corporation
+       author: S. Heipcke, Sep. 2008, rev. Jun. 2023
+*********************************************************************!)
+
+model "expfita"
+ uses "mmxnlp", "mmsvg"
+
+ parameters
+  DATAFILE = "expfita.dat"
+  R = 15                             ! Number of points
+ end-parameters
+
+ declarations
+  RR = 1..R                          ! Set of points defining the function to approximate
+  T: array(RR) of real               ! x-coordinates of given points
+  ET: array(RR) of real              ! y-coordinates of given points
+  RP: range
+  PInit: array(RP) of integer        ! Start values for coefficients of the polynom
+ end-declarations
+
+ forall(i in RR) T(i):= 5*(i-1)/(R-1)
+ forall(i in RR) ET(i):= exp(T(i))   ! Function to approximate
+
+ initialisations from DATAFILE
+  PInit
+ end-initialisations
+
+ declarations
+  pcoeff: array(RP) of mpvar         ! Coefficients of the polynom sought
+  RQ = 1..2
+  qcoeff: array(RQ) of mpvar         ! Coefficients   
+ end-declarations
+
+ forall(i in RP) do
+  pcoeff(i) is_free
+  setinitval(pcoeff(i), PInit(i))
+ end-do
+
+ forall(i in RQ) do
+  qcoeff(i) is_free
+  setinitval(qcoeff(i),0)
+ end-do
+ 
+! Objective function
+ ErrF:= sum(i in RR) ((pcoeff(0)+pcoeff(1)*T(i)+pcoeff(2)*T(i)^2) / 
+                   (ET(i)*(1+qcoeff(1)*(T(i)-5)+qcoeff(2)*(T(i)-5)^2)) - 1)^2
+
+ forall(i in RR) 
+  Cons1(i):= pcoeff(0) + pcoeff(1)*T(i) + pcoeff(2)*T(i)^2 -   
+             (T(i)-5)*ET(i)*qcoeff(1) - (T(i)-5)^2*ET(i)*qcoeff(2)-ET(i) >= 0
+ forall(i in RR) 
+  Cons2(i):= (T(i)-5)*qcoeff(1) + (T(i)-5)^2*qcoeff(2) >= -1
+  
+! Since this is a convex problem, it is sufficient to call a local solver 
+  setparam("xprs_nlpsolver", 1)
+
+! Solve the problem  
+ setparam("XNLP_verbose", true)
+ 
+ minimise(ErrF)
+
+! Solution printing 
+ declarations
+   SolP: array(RR) of real	
+ end-declarations
+ 
+ forall(i in RR) SolP(i):= pcoeff(0).sol+pcoeff(1).sol*T(i)+pcoeff(2).sol*T(i)^2
+ writeln("Solution: ", ErrF.sol)
+ write("Polynomials: \n P: ")
+ forall(i in RP) write(if(pcoeff(i).sol>0, " +"," "), strfmt(pcoeff(i).sol,5,3), "*x^", i)
+ write("\n Q: ")
+ forall(i in RQ) write(if(qcoeff(i).sol>0, " +"," "), strfmt(qcoeff(i).sol,5,3), "*x^", i)
+ writeln("\nEvaluation of P at data points:")
+ forall(i in RR) writeln(" (",strfmt(T(i),6,3), ",", strfmt(ET(i),6,3) ,") ", SolP(i)) 
+
+!**************** Graphical representation of results ****************
+
+ svgaddgroup("F", "Given function", svgcolor(170,170,170))
+ forall(i in RR) svgaddpoint(T(i)*10, ET(i)) 
+ svgaddline(sum(i in RR) [T(i)*10, ET(i)])
+
+ svgaddgroup("A", "Approximation", SVG_RED)
+ forall(i in RR) svgaddpoint(T(i)*10, SolP(i))  
+ svgaddline(sum(i in RR) [T(i)*10, SolP(i)])  
+
+! Scale the size of the displayed graph
+ svgsetgraphscale(3)
+! svgsetgraphpointsize(2)
+ svgsetgraphviewbox(svggetgraphviewbox)
+ svgsetgraphlabels("x","f(x)")
+
+ svgsave("expfita.svg")
+ svgrefresh
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+
+end-model

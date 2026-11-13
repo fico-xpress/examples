@@ -1,0 +1,83 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file intromip.mos
+   `````````````````
+   Various code snippest from introductory section of
+   the mipformref whitepaper 
+
+   (c) 2024 Fair Isaac Corporation
+       author: S. Heipcke, Sep. 2024, rev. Aug. 2026
+*******************************************************!)
+
+model "intro mip"
+ uses "mmxprs"
+ 
+ public declarations
+  PRODS,LINES: range
+  MAXVAL: integer
+  d: mpvar
+  ifmake: array(PRODS,LINES) of mpvar
+  x: mpvar
+ end-declarations
+
+ d is_binary                      ! Single binary variable
+ forall(p in PRODS, l in LINES)
+  ifmake(p,l) is_binary           ! An array of binaries
+      
+ ACtr:= x is_integer              ! An integer variable
+ x <= MAXVAL                      ! Upper bound on the variable
+
+ exportprob("")
+
+ ACtr:= x is_semcont 10           ! Change type to semi-continuous
+ x <= 20
+
+ exportprob("")
+
+ ACtr:= 0                         ! Delete constraint
+! Equivalently:
+ ACtr:= x is_continuous           ! Change type to continuous
+
+ exportprob("")
+
+ public declarations
+   I=1..4
+   b: array(I) of mpvar
+   CAP: array(I) of real
+   My_Set, Ref_row: linctr
+ end-declarations
+
+ CAP::[1,10,12,25]
+ My_Set:= sum(i in I) CAP(i)*b(i) is_sos1
+
+ exportprob("")
+
+! Alternatively (if a coeff is 0):
+ CAP::[0,10,12,25]
+ Ref_row:= sum(i in I) CAP(i)*b(i)
+ makesos1(My_Set, union(i in I) {b(i)}, Ref_row)
+
+ exportprob("")
+
+ ! Mock constraint for testing
+ d + x >= 10
+
+ minimize(d)
+ 
+ case getparam("XPRS_MIPSTATUS") of
+  XPRS_MIP_NOT_LOADED,
+    XPRS_MIP_LP_NOT_OPTIMAL: writeln("Solving not started")
+  XPRS_MIP_LP_OPTIMAL:       writeln("Root LP solved")
+  XPRS_MIP_UNBOUNDED:        writeln("LP unbounded")
+  XPRS_MIP_NO_SOL_FOUND,
+    XPRS_MIP_INFEAS:         writeln("MIP search started, no solution")
+  XPRS_MIP_SOLUTION,
+    XPRS_MIP_OPTIMAL:        writeln("MIP solution: ", getobjval)
+ end-case
+ 
+ writeln("x: ", getsol(x))
+ writeln("d: ", d.sol)
+  
+end-model

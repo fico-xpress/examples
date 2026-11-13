@@ -1,0 +1,107 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file datesinout3.mos
+   ````````````````````
+   Reading/writing dates from/to
+   spreadsheets or databases via ODBC.
+   - Using 'initializations from' with the excel driver -
+
+!!! If running this model produces the message
+!!!   'Unexpected date/time format: ...' 
+!!! then the date format used by your spreadsheet is not among the 
+!!! preconfigured format settings tested by this model.  
+!!! You need to adapt the date and time formats to the format used 
+!!! internally by the spreadsheet, according to the date shown with 
+!!! the error message output by Mosel. 
+!!! (NB: these formats may be different from the spreadsheet display format)
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Nov. 2007, rev. Sep. 2014
+*******************************************************!)
+
+model "Dates and times (Excel)"
+ uses "mmsystem", "mmsheet"
+
+ parameters
+  CSTR = 'mmsheet.excel:datetime.xls'
+ end-parameters
+
+ declarations
+  T: time
+  D: date
+  DT: datetime
+  Dates: array(1..5) of date
+  DList: list of date
+  r: real
+  testdate: string
+ end-declarations
+
+! Read a date into a string as a test for the date format: 
+! if the date format is recognized, we select the corresponding settings
+ initializations from CSTR
+   testdate as "skiph;Date1"
+ end-initializations
+ 
+ if testdate="2/20/2002" then          ! m/d/y
+  setparam("timefmt", "%h:%0M:%0S %P")
+  setparam("datefmt", "%m/%d/%y")
+  setparam("datetimefmt", "%m/%d/%y %h:%0M:%0S %P")
+ elif testdate="20/02/2002" then       ! dd/mm/yyyy
+  setparam("timefmt", "%0H:%0M:%0S")
+  setparam("datefmt", "%0d/%0m/%y")
+  setparam("datetimefmt", "%0d/%0m/%y %0H:%0M:%0S")
+ elif testdate="20.02.2002" then       ! dd.mm.yyyy
+  setparam("timefmt", "%0H:%0M:%0S")
+  setparam("datefmt", "%0d.%0m.%y")
+  setparam("datetimefmt", "%0d.%0m.%y %0H:%0M:%0S")
+ else
+  writeln("Unexpected date/time format: ", testdate)
+  exit(0)
+ end-if
+
+! Read in dates / time
+ initializations from CSTR
+  r as "skiph;Time1"                ! Time is stored as a real
+  D as "skiph;Date1"
+  DT as "skiph;DateTime1"
+  Dates as "skiph;noindex;Dates"
+  DList as "skiph;Dates"
+ end-initializations
+
+ T:=time(round(r*24*3600*1000))
+ writeln(D, ", ", T)
+ writeln(DT)
+ writeln(Dates)
+ writeln(DList)
+
+! Read date / time from strings (spreadsheet cells are formatted as text)
+ setparam("timefmt", "%Hh%0Mm")
+ setparam("datefmt", "%dm%0my%0y")
+ setparam("datetimefmt", "%dm%0my%0y, %Hh%0Mm")
+
+ initializations from CSTR
+  T as "skiph;Time2"
+  D as "skiph;Date2"
+  DT as "skiph;DateTime2"
+ end-initializations
+
+ writeln(D, ", ", T)
+ writeln(DT)
+
+! Use Mosel's default format
+ setparam("timefmt", "")
+ setparam("datefmt", "")
+ setparam("datetimefmt", "")
+
+ writeln(D, ", ", T)
+ writeln(DT)
+
+ initializations to CSTR
+  T as "TimeOutE"
+  D as "DateOutE"
+  DT as "DateTimeOutE"
+ end-initializations
+
+end-model

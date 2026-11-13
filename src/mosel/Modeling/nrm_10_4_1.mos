@@ -1,0 +1,38 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file nrm_10_4_1.mos
+   ```````````````````
+   MAXSAT solving with Mosel.
+
+   -- Mosel version of the problem instance normalized-mds_10_4_1.opb --
+      Source: http://www.cril.univ-artois.fr/PB07/
+
+   (c) 2020 Fair Isaac Corporation
+       author: Y.Colombani, Jun. 2020
+*******************************************************!)
+
+model nrm_10_4_1
+uses 'mmxprs'
+
+declarations
+ x: array(1..10) of boolvar
+end-declarations
+
+not x(1) and x(4) or not x(1) and x(7) or not x(1) and x(8) or not x(1) and x(6) or not x(1) and x(3) or not x(1) and x(5) or not x(1) and x(9) or x(1)
+not x(2) and x(4) or not x(2) and x(6) or not x(2) and x(7) or not x(2) and x(3) or not x(2) and x(5) or x(2)
+x(1) and not x(3) or x(2) and not x(3) or not x(3) and x(10) or not x(3) and x(8) or not x(3) and x(5) or not x(3) and x(9) or x(3)
+x(1) and not x(4) or x(2) and not x(4) or not x(4) and x(10) or not x(4) and x(7) or not x(4) and x(9) or x(4)
+x(1) and not x(5) or x(2) and not x(5) or x(3) and not x(5) or not x(5) and x(7) or x(5)
+x(1) and not x(6) or x(2) and not x(6) or not x(6) and x(9) or not x(6) and x(8) or not x(6) and x(10) or x(6)
+x(1) and not x(7) or x(2) and not x(7) or x(4) and not x(7) or x(5) and not x(7) or x(7)
+x(1) and not x(8) or x(3) and not x(8) or x(6) and not x(8) or not x(8) and x(10) or x(8)
+x(1) and not x(9) or x(3) and not x(9) or x(4) and not x(9) or x(6) and not x(9) or x(9)
+x(3) and not x(10) or x(4) and not x(10) or x(6) and not x(10) or x(8) and not x(10) or x(10)
+
+! Solve as MAXSAT problem and report solution values
+ minimise(sum(i in 1..10) x(i).var)
+ writeln("Obj:", getobjval)
+ forall(i in 1..10) writeln("x(",i,")=", x(i).sol)
+end-model

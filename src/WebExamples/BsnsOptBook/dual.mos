@@ -1,0 +1,49 @@
+(!*********************************************************************
+   Mosel Example Problems
+   ======================
+
+   file dual.mos
+   `````````````
+   Simple dual problem 
+   
+     Example solution to exercise 3.1 (b) in section 3.7 /
+     problem description in section 3.5 of
+     J. Kallrath: Business Optimization Using Mathematical Programming -
+     An Introduction with Case Studies and Solutions in Various Algebraic 
+     Modeling Languages. 2nd edition, Springer Nature, Cham, 2021 
+
+   author: S. Heipcke, June 2018
+
+   (c) Copyright 2020 Fair Isaac Corporation
+  
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+*********************************************************************!)
+model 'dual'
+  uses "mmxprs"
+
+  declarations
+    y1,y2: mpvar        ! The decision variables
+  end-declarations
+
+  Obj:= 20*y1 + 30*y2   ! Objective function
+
+  C1:= 2*y1 + y2>= 2
+  C2:= y1 + 2*y2>= 3
+  C3:= y1>= 1
+
+  minimise(Obj)
+  writeln("Solution: ", getobjval)
+  writeln("  y1=", y1.sol, " y2=", y2.sol)
+  writeln("  Dual values: C1=", C1.dual, " C2=", C2.dual, " C3=", C3.dual)
+end-model

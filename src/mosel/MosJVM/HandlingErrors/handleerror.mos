@@ -1,0 +1,40 @@
+(!*******************************************************
+   file handleerror.mos
+   ````````````````````
+   a model that demonstrates handling exceptions thrown by Java code
+
+   This example requires an installation of Java, see
+   the manual 'mosjvm Module for Mosel' for
+   compatible versions and setup instructions.
+   
+   The compiled FileUtils.class file must be in the current working
+   directory.
+
+   (c) 2016 Fair Isaac Corporation
+       author: J. Farmer, 2016
+  *******************************************************!)
+
+
+model myModel
+  uses 'mosjvm','mmsystem'
+  
+  declarations
+    classAndMethodName = "FileUtils.readFileToString"
+    fileToRead = "input.txt"
+    result: text
+  end-declarations
+ 
+  ! Tell Java to look for classes in work directory
+  setparam('jvmclasspath',getparam('workdir'))
+ 
+  ! Call into Java to read file
+  ! (note that the given filename does not exist, so the Java class will throw a FileNotFoundException)
+  result := jvmcalltext( classAndMethodName, fileToRead )
+  if jvmstatus=false then
+    writeln('ERROR from Java: ',jvmgetexceptionclass,': ',jvmgetexceptionmsg)
+    exit(8)
+  else
+    writeln('Read data from ',fileToRead,' as follows:')
+    writeln(result)
+  end-if
+end-model

@@ -1,0 +1,61 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file j2bigbro.mos
+   `````````````````
+   CCTV surveillance
+   
+   A town council has determined candidate street intersections  
+   where cameras can be installed. A map providing the possible 
+   locations is given. Where should the cameras be located
+   to monitor all the streets to minimize the total number
+   of installed cameras?
+
+   This problem is modeled as a graph-based IP model. Nodes
+   in the graph correspond to street intersections where 
+   cameras can be installed, and links correspond to the 
+   streets connecting nodes. The undirected graph is 
+   encoded by a symmetric adjacency matrix. The unique set
+   of constraints guarantees that every street needs
+   to be surveyed by at least one camera.
+
+   (c) 2008-2022 Fair Isaac Corporation
+       author: S. Heipcke, Mar. 2002, rev. Mar. 2022
+*******************************************************!)
+
+model "J-2 CCTV surveillance"
+ uses "mmxprs"
+
+ declarations
+  NODES=1..49
+  STREET: dynamic array(NODES,NODES) of integer  ! 1 if a street connects 
+                                                 ! two nodes, 0 otherwise
+  
+  place: array(NODES) of mpvar     ! 1 if camera at node, 0 otherwise
+ end-declarations
+
+ initializations from 'j2bigbro.dat'
+  STREET
+ end-initializations
+
+ forall(n,m in NODES | exists(STREET(n,m)) and n<m ) 
+  STREET(m,n):= STREET(n,m)
+
+! Objective: number of cameras to install
+ Total:= sum(n in NODES) place(n)
+
+! Flow balances in nodes
+ forall(n,m in NODES | exists(STREET(n,m)) ) place(n)+place(m) >= 1
+
+ forall(n in NODES) place(n) is_binary
+
+! Solve the problem
+ minimize(Total)
+ 
+! Solution printing
+ writeln("Total number of cameras: ", getobjval)
+ forall(n in NODES | getsol(place(n))>0) write(" ", n)
+ writeln
+ 
+end-model

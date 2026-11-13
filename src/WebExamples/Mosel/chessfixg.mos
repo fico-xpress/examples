@@ -1,0 +1,58 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file chessfixg.mos
+   ``````````````````
+   Display solution information for a MIP problem.
+
+   * Solve the MIP problem
+   * Fix all discrete variables to their solution values
+   * Re-solve the remaining LP problem
+   * Display solution information (including dual and
+     reduced cost values)
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2007, rev. Sep. 2022
+*******************************************************!)
+
+model "Chess (fixmipentities)"
+ uses "mmxprs" 
+
+ public declarations
+  R = 1..2                               ! Index range
+  DUR, WOOD, PROFIT: array(R) of real    ! Coefficients
+  x: array(R) of mpvar                   ! Array of variables
+  ifusesoft: mpvar                       ! Whether soft wood is used
+  MTime, Wood: linctr                    ! Constraints
+ end-declarations
+
+ DUR   :: [3, 2]                         ! Initialize data arrays
+ WOOD  :: [1, 3]
+ PROFIT:: [5, 20]
+
+ Wood:= sum(i in R) WOOD(i)*x(i) <= 200  ! Limit on raw material    
+                                         ! Add. capacity if using soft wood 
+ MTime:= sum(i in R) DUR(i)*x(i) <= 160 + 40*ifusesoft     
+ ifusesoft is_binary
+
+ Profit:= sum(i in R) PROFIT(i)*x(i)
+
+ maximize(Profit)                        ! Solve the full MIP problem
+ writeln("Solution: ", getobjval)
+ 
+ fixmipentities                          ! Fix discrete variables
+ maximize(XPRS_LIN, Profit)              ! Solve reduced problem as LP
+ 
+ setparam("realfmt","%.4g")              ! Set real number display format
+ writeln("Ctr: \tDual  \t Slack + Activity = RHS")
+ CtrSet:= {MTime, Wood}
+ forall(c in CtrSet)
+  writeln(" ", getname(c), ":\t", getdual(c), "\t ", getslack(c), "\t", 
+          getact(c), "\t", -1*getcoeff(c))
+
+ writeln("Var:   Solution\t RCost")
+ forall(i in R)
+  writeln(" x(", i, "):  ", getsol(x(i)), "\t ", getrcost(x(i)))
+ 
+end-model

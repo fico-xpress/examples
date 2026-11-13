@@ -1,0 +1,51 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file unioninit.mos 
+   ``````````````````
+   Initializing unions from a text file.
+ 
+   (c) 2021 Fair Isaac Corporation
+       author: S. Heipcke, Mar. 2021
+*******************************************************!)
+model "Initializing unions"
+  uses "mmsystem"
+
+  declarations
+    L: list of any                  ! List of type 'any'
+    S: set of any                   ! Set of type 'any'
+    mytype = text or integer or real or boolean
+    B: array(R:range) of mytype     ! Array of union type 'mytype'
+    TNAME: array(integer) of text   ! Type names for display
+  end-declarations
+
+ ! Reading from text format file
+  initializations from "uniondata.dat"
+    L  S  B
+  end-initializations
+
+  TNAME(integer.id):="integer"; TNAME(real.id):="real"
+  TNAME(string.id):="string"; TNAME(text.id):="text"
+  TNAME(boolean.id):="boolean"
+
+  writeln("L=", L)
+  forall(i in L) writeln("  ", i, ":", i.typeid, " ", TNAME(i.typeid))
+  writeln("S=", S)
+  forall(i in S) writeln("  ", i, ":", i.typeid, " ", TNAME(i.typeid))
+  writeln("B=", B)
+  forall(i in R)
+    writeln("  B", i, "=", B(i),":", B(i).typeid, " ", TNAME(B(i).typeid)) 
+
+ ! Writing to text format file
+  declarations
+    x: mpvar                        ! This type does not support 'tostring'
+  end-declarations
+  L+= [any(x)]
+  writeln(L)
+
+  initializations to "unionout.dat"
+    L  S  B
+  end-initializations
+
+end-model  

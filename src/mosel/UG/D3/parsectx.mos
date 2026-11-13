@@ -1,0 +1,94 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file parsectx.mos 
+   `````````````````
+   Parsing with parser contexts.
+ 
+   (c) 2015 Fair Isaac Corporation
+       author: S. Heipcke, Apr 2015
+*******************************************************!)
+model "parsing context" 
+ uses "mmsystem"
+
+ declarations
+   pctx,pctx1,pctx2,pctx3,pctxi: parsectx
+   values,values1,values2: list of real
+   ivalues,ivalues2: list of integer
+   comma=getchar(",",1)              ! ASCII value for ","
+ end-declarations
+
+ txt:= text(", , 123.4 , 345.6 ,")
+
+! Parsing without context
+ setparam("sys_sepchar", comma)      ! Comma as separation character
+ setparam("sys_trim", true)          ! Trim blanks around separation character
+ while (nextfield(txt)) do           ! Get next field
+   values+= [parsereal(txt)]         ! Read a real number from the field
+   writeln("Read up to position ", getparam("sys_endparse")) 
+ end-do
+ writeln("##parse0: ", values)
+! Output: [123.4,345.6]
+
+
+! Parsing real numbers with context
+ setsepchar(pctx1, comma)            ! Comma as separation character
+ settrim(pctx1, true)                ! Trim blanks around separation character
+ while (nextfield(txt,pctx1)) do     ! Get next field
+   values1+= [parsereal(txt, pctx1)] ! Read a real number from the field
+   writeln("Read up to position ", pctx1.endparse) 
+ end-do
+ writeln("##parse1: ", values1)
+! Output: [123.4,345.6]
+
+
+! Parsing with context, using error checks
+ setendparse(pctx, 0)                ! Start at the beginning of text 
+ setsepchar(pctx, comma)             ! Comma as separation character
+ settrim(pctx, true)                 ! Trim blanks around separation character
+ while (nextfield(txt,pctx)) do      ! Get next field
+   if getchar(txt, pctx.endparse)=comma or pctx.endparse>=txt.size then
+     values2+=[0.0]                  ! The field is empty
+   else  
+     r:=parsereal(txt, pctx)         ! Read a real number from the field
+     if getsysstat=0 then values2+= [r]
+     else
+       writeln("Malformed field contents at position ", pctx.endparse,
+       " (", copytext(txt, pctx.endparse,pctx.endparse+2), ")")
+     end-if
+   end-if
+   writeln("Read up to position ", pctx.endparse) 
+ end-do
+ writeln("##parse2: ", values2)
+! Output: [0,0,123.4,345.6,0]
+
+
+! Parsing integer numbers with context
+ pctx3.endparse:=0                   ! Start at the beginning of text
+ pctx3.sepchar:=comma                ! Comma as separation character
+ pctx3.trim:=true                    ! Trim blanks around separation character
+ while (nextfield(txt,pctx3)) do     ! Get next field
+   i:=parseint(txt,pctx3)            ! Read an integer number from the field
+   if getsysstat=0 then ivalues+= [i]; end-if
+   writeln("Read up to position ", pctx3.endparse)
+ end-do
+ writeln("##parse3: ", ivalues)
+! Output: [123]   (nextfield fails after reading an incomplete field)
+
+
+! Parsing using 2 contexts
+ setsepchar(pctx2, comma)            ! Comma as separation character
+ settrim(pctx2, true)                ! Trim blanks around separation character
+ while (nextfield(txt,pctx2)) do     ! Get next field
+   tt:=parsetext(txt, pctx2)         ! Get contents of the field
+   pctxi.endparse:=1                 ! Reset start to beginning of the text
+   i:=parseint(tt,pctxi)             ! Read an integer number from the field
+   if getsysstat=0 then ivalues2+= [i]; end-if
+   writeln("Read up to position ", pctx2.endparse) 
+ end-do
+ writeln("##parse4: ", ivalues2)
+! Output: [123,345]
+
+end-model
+ 

@@ -1,0 +1,56 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file threedimarr5.mos
+   `````````````````````
+   Reading 3-dimensional arrays.
+   - Using 'initializations from' with the xls/xlsx driver -
+       
+   (c) 2012 Fair Isaac Corporation
+       author: S. Heipcke, Dec. 2012, rev. Apr. 2014
+*******************************************************!)
+
+model "ThreeDimArr (generic spreadsheet)"
+ uses "mmsheet"
+
+ parameters
+  CSTR1= 'mmsheet.xls:threedim.xls'
+  CSTR2= 'mmsheet.xlsx:threedim.xlsx'
+ end-parameters
+
+ declarations
+  I: range
+  J: set of string
+  K = 1..5	              ! The last index set must be defined in the model
+  A,B,C: dynamic array(I,J,K) of real
+ end-declarations
+
+ initializations from CSTR1
+  A as 'partndx;Tab_23'
+ end-initializations
+
+ writeln("A: ")
+ forall(i in I, j in J, k in K | exists(A(i,j,k)))
+  writeln("A(", i, ",", j, ",", k, "): ", A(i,j,k))
+
+ initializations from CSTR2
+  B as 'partndx;Tab_23'
+ end-initializations
+
+ writeln("B: ")
+ forall(i in I, j in J, k in K | exists(B(i,j,k)))
+  writeln("B(", i, ",", j, ",", k, "): ", B(i,j,k))
+
+! Using explicit cell addresses instead of a named range:
+ initializations from CSTR1
+  C as 'partndx;[Sheet1$A3:G8]'
+ end-initializations
+
+ writeln("C: ")
+ forall(i in I, j in J, k in K | exists(C(i,j,k)))
+  writeln("C(", i, ",", j, ",", k, "): ", C(i,j,k))
+  
+end-model
+
+

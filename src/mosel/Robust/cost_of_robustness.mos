@@ -1,0 +1,34 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================   
+
+   Example model for the 
+   Robust Optimization with Xpress white paper
+
+   (c) 2014 Fair Isaac Corporation
+       
+*******************************************************!)
+model PriceRobustness
+  uses "mmrobust"                    ! Load the robust library
+
+  declarations
+    x : mpvar
+    u : uncertain
+  end-declarations
+
+  0 <= u
+  u <= 3
+
+  (1+u)*x <= 1
+
+  maximize(XPRS_NOMINAL, x)
+  nominal_objective := getobjval
+  writeln("Objective at nominal values:", nominal_objective );
+
+  maximize(x)
+  robust_objective := getobjval
+  writeln("Robust objective:", robust_objective );
+  writeln("Price of robustness:", nominal_objective - robust_objective );
+  writeln("Worst value of uncertain:", u.sol)
+
+end-model

@@ -1,0 +1,63 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file nlinctr.mos
+   ````````````````
+   Definition and use of non-linear constraints.
+
+   *** This model cannot be run with a Community Licence ***  
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+       Creation: 2005, rev. Mar. 2013
+*****************************************************************!)
+
+model "Non-linear constraints" 
+ uses "kalis"
+
+ parameters
+  PREC =  1e-10 
+ end-parameters
+
+! Setting default precision of continuous variables 
+ setparam("KALIS_DEFAULT_PRECISION_VALUE", PREC)
+ 
+ declarations
+  ISET = 1..8
+  x: array(ISET) of cpfloatvar
+ end-declarations
+ 
+ ! Setting variable names
+ forall(i in ISET) x(i).name:= "x"+i
+
+ ! Setting variable bounds
+ forall(i in ISET) do
+  x(i) >= -100; x(i) <= 100
+ end-do
+
+ ! Defining and posting non-linear constraints
+ x(1) + x(2)*(x(1)+x(3)) + x(4)*(x(3)+x(5)) + x(6)*(x(5)+x(7)) - 
+   (x(8)*((1/8)-x(7))) = 0
+ x(2) + x(3)*(x(1)+x(5)) + x(4)*(x(2)+x(6)) + x(5)*x(7) -
+   (x(8)*((2/8)-x(6))) = 0
+ x(3)*(1 + x(6)) + x(4)*(x(1)+x(7)) + x(2)*x(5) - 
+   (x(8)*((3/8)-x(5))) = 0
+ x(4) + x(1)*x(5) + x(2)*x(6) + x(3)*x(7) - (x(8)*((4/8)-x(4))) = 0
+ x(5) + x(1)*x(6) + x(2)*x(7) - (x(8)*((5/8)-x(3))) = 0
+ x(6) + x(1)*x(7) - (x(8)*((6/8)-x(2))) = 0
+ x(7) - (x(8)*((7/8)-x(1))) = 0
+ sum(i in ISET) x(i) = -1
+
+ ! Set the enumeration strategy
+ cp_set_branching(split_domain(KALIS_WIDEST_DOMAIN, KALIS_MIDDLE_VALUE,
+                               x, true, 0))
+
+ ! Find one solution
+ if cp_find_next_sol then
+  writeln("Solution number 1" ) 
+  cp_show_sol
+  cp_show_stats
+ end-if
+
+end-model
+

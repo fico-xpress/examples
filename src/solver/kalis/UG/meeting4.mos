@@ -1,0 +1,59 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file meeting4.mos
+   `````````````````
+   Introductory example.
+   - Explicit posting of constraints. -
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+       
+*****************************************************************!)
+
+model "Meeting (4)"
+ uses "kalis"
+ 
+ declarations
+  MEETINGS = {'A','B','C','D'}        ! Set of meetings
+  TIME = 1..3                         ! Set of time slots   
+  plan: array(MEETINGS) of cpvar      ! Time slot per meeting
+  Ctr: array(range) of cpctr
+ end-declarations
+
+ forall(m in MEETINGS) do
+  setdomain(plan(m), TIME)
+  setname(plan(m), "plan"+m)
+ end-do
+ writeln("Original domains: ", plan)
+ 
+ Ctr(1):= plan('B') <= 2              ! Meeting B before day 3
+ Ctr(2):= plan('D') <> 2              ! Meeting D not on day 2
+ Ctr(3):= plan('A') = 1               ! Meeting A on day 1
+ writeln("After definition of constraints:\n ", plan)
+ 
+! Retrieve result of posting constraints
+ forall(i in 1..3) 
+  if not cp_post(Ctr(i)) then 
+   writeln("Constraint ", i, " makes problem infeasible")
+   exit(1)
+  end-if
+ 
+ writeln("After posting of constraints:\n ", plan)
+ 
+! Respect incompatibilities
+ plan('A') <> plan('B')
+ plan('A') <> plan('D')
+ plan('B') <> plan('C')
+ plan('B') <> plan('D')  
+
+! Solve the problem
+ if not cp_find_next_sol then
+  writeln("Problem is infeasible")
+  exit(1)
+ end-if   
+ 
+! Solution printing
+ forall(m in MEETINGS) writeln("Meeting ", m, ": ", getsol(plan(m)))
+
+end-model

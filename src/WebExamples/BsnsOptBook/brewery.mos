@@ -1,0 +1,210 @@
+(!*********************************************************************
+   Mosel Example Problems
+   ======================
+
+   file brewery.mos
+   ````````````````
+   Brewery distribution problem 
+   
+     Example discussed in section 8.3 of
+     J. Kallrath: Business Optimization Using Mathematical Programming -
+     An Introduction with Case Studies and Solutions in Various Algebraic 
+     Modeling Languages. 2nd edition, Springer Nature, Cham, 2021 
+
+   author: S. Heipcke, June 2018
+
+   (c) Copyright 2020 Fair Isaac Corporation
+  
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+*********************************************************************!)
+
+model 'brewery'
+  uses "mmxprs"
+
+  declarations
+    NALES:integer                 ! Number of ales
+    NLAGER:integer                ! Number of lagers
+    NP:integer                    ! Number of packaging units
+    ND:integer                    ! Number of demand points
+    NC:integer                    ! Number of commodity types
+    NT:integer                    ! Number of container types
+    NB:integer                    ! Number of breweries
+  end-declarations
+
+(!
+  initializations from 'brewdata.dat'
+    NALES NLAGER NP ND NC NT NB
+  end-initializations
+!)
+  initializations from 'mmsheet.xlsx:brewery.xlsx'
+    NALES NLAGER NP ND NC NT NB
+  end-initializations
+
+  declarations
+    NL= NALES + NLAGER            ! Calculate number of liquid types
+    RP=1..NP                      ! Packaging units
+    RB=1..NB                      ! Breweries
+    RT=1..NT                      ! Container types
+    RD=1..ND                      ! Demand points
+    IL=1..NL                      ! Liquids
+    IC=1..NC                      ! Commodity types
+
+    CTBP: array(RP,RB) of real    ! Unit transport cost from brewery b
+                                  ! to packaging unit p
+    CTPD: array(RT,RD,RP) of real ! Unit transport cost of packtype t
+                                  ! from packaging unit p to demand point d
+    RL: array(IC) of real         ! Liquid required by commodity c
+    RC: array(IC) of integer      ! Container type required by commodity c
+    CB: array(RB,1..2) of real    ! Brewing capacity at brewery b
+                                  ! 1->Ale    2->Lager
+!  CP: array(RP) of real        ! Total packaging capacity
+    CP: array(RP,RT) of real      ! Total packaging capacity
+    DEMAND: dynamic array(IC,RD) of real ! Final demand for commodity c
+                                  !  at demand point d
+    IBL: array(IL,RB) of real     ! 1 if brewery b can brew liquid l
+    IBL1: array(IL) of real       ! Number of breweries that can brew liquid l
+    BU: array(IL) of real         ! Maximum amount that can be brewed of l
+    BL: array(RB) of real         ! Minimum brew quantity at b
+    PU,PL: array(RP) of real      ! Max/min amounts that can be packed at p
+  end-declarations
+
+(!
+  initializations from 'brewdata.dat'
+    CTBP RL RC CB CP IBL DEMAND CTPD BL PL BU
+  end-initializations
+!)
+
+  initializations from 'mmsheet.xlsx:brewery.xlsx'
+    CTBP CTPD
+    [RL,RC] as "Commodities"
+    CB as "partndx;BreweryCap(#1,#2,#3)"
+    CP as "partndx;PkgContainer"
+    IBL as "partndx;BreweryLiq"
+    DEMAND  
+    BL  as "BreweryCap(#1,#4)"
+    [PL,PU] as "PkgCap" 
+    BU
+  end-initializations
+ 
+  forall(p in RP) PL(p):= 0
+  forall(p in RP,t in RT) CP(p,t):= PU(p)
+  forall(b in RB) BL(b):=0
+  forall(l in IL) BU(l):=BU(l)*10
+  forall(b in RB,l in IL)IBL(l,b):=1 
+
+!  forall(p in RP) PU(p):= CP(p)
+  forall(l in IL) IBL1(l):= sum(b in RB) IBL(l,b)
+
+  
+  declarations
+    brew: dynamic array(IL,RB) of mpvar   ! Amount of l brewed at b
+    beta: dynamic array(IL,RB) of mpvar   ! If any l brewed at b
+    s: dynamic array(IL,RP) of mpvar      ! Throughput of l at p
+    delta: dynamic array(IL,RP) of mpvar  ! If any l through p
+    ! Amount of liquid type l sent from brewery b to packaging unit p
+    ! (only defined if brewery b can brew liquid l)
+    lq: dynamic array(RB,IL,RP) of mpvar     
+    ! Amount of commodity c packed at packaging unit p
+    ! (only defined if packaging unit p can pack packtype of c)
+    pack: dynamic array(IC,RP) of mpvar
+    ! Quantity of commodity c sent from packaging unit p to demand point d
+    ! (only defined if packaging unit p can pack packtype of c and there
+    ! is a demand for c at d)
+    x: dynamic array(RP,IC,RD) of mpvar
+  end-declarations
+
+  forall(l in IL,b in RB| IBL(l,b)=1) create(brew(l,b)) 
+  forall(l in IL,b in RB| IBL(l,b)=1 AND IBL1(l)> 1) create(beta(l,b))
+  forall(l in IL,p in RP| PU(p)<>0)   !CP(p)<>0.0) 
+    create(s(l,p))
+  forall(l in IL,p in RP|  PU(p)<>0)   !CP(p)<>0.0) 
+    create(delta(l,p))
+  forall(b in RB,l in IL,p in RP| IBL(l,b)=1) create(lq(b,l,p))
+  forall(c in IC,p in RP|  CP(p,RC(c))<>0)   !CP(p)<> 0) 
+    create(pack(c,p))
+  forall(p in RP,c in IC,d in RD| CP(p,RC(c))<> 0 AND DEMAND(c,d)<>0)   !CP(p)<> 0)
+    create(x(p,c,d))
+
+  ! Objective function - minimise transport costs
+  TransCost:= sum(b in RB,l in IL,p in RP) CTBP(p,b)*lq(b,l,p) +
+            sum(p in RP,c in IC,d in RD) CTPD(RC(c),d,p)*x(p,c,d)
+
+  ! Liquid balance at breweries
+  forall(b in RB,l in IL)
+    BBAL(b,l):= sum(p in RP) lq(b,l,p) = brew(l,b)
+
+  ! Throughput of packaging units
+  forall(l in IL,p in RP)
+    PBAL(l,p):= sum(c in IC|RL(c)=l) pack(c,p) = s(l,p)
+
+  ! Capacity limits of breweries
+  forall(b in RB)
+    BrCAPA(b):= sum(p in RP,l in 1..NALES) lq(b,l,p)<= CB(b,1)
+  forall(b in RB)
+    BrCAPL(b):= sum(p in RP,l in NALES+1..NL) lq(b,l,p)<= CB(b,2)
+
+  ! Flow conservation in packaging units
+  forall(p in RP,l in IL)
+    PUL(p,l):= sum(c in IC| RL(c)=l) pack(c,p) =
+                          sum(b in RB) lq(b,l,p)
+
+  ! Capacity limits of packaging units
+  forall(p in RP)
+    PUC(p):= sum(c in IC) pack(c,p)<= PU(p)  !CP(p)
+
+  ! Flow conservation per commodity
+  forall(p in RP,c in IC)
+    AVL(p,c):= sum(d in RD) x(p,c,d) = pack(c,p)
+
+  ! Satisfy demands per commodity
+  forall(c in IC,d in RD | exists(DEMAND(c,d)))
+    Dm(c,d):= sum(p in RP) x(p,c,d) = DEMAND(c,d)
+
+  ! Minimum and maximum packaging capacities
+  forall(l in IL,p in RP)
+    UBP(l,p):= s(l,p)<= PU(p)*delta(l,p)
+  forall(l in IL,p in RP)
+    LBP(l,p):= s(l,p)>= PL(p)*delta(l,p)
+
+  ! Total brewery capacities
+  forall(l in IL,b in RB|IBL1(l)>1) 
+    UBB(l,b):= brew(l,b)<= BU(l)*beta(l,b)
+  forall(l in IL,b in RB|IBL1(l)>1) 
+    LBB(l,b):= brew(l,b)>= BL(b)*beta(l,b)
+
+  forall(l in IL,p in RP | exists(delta(l,p)))
+    delta(l,p) is_binary
+  forall(l in IL,b in RB | exists(beta(l,b)))  
+    beta(l,b) is_binary
+
+ ! Solve the problem
+  minimise(TransCost)
+  writeln("Solution: Cost=", getobjval)
+
+  forall(b in RB) do
+    write("Brewery ",b, ":")
+    forall(l in IL,p in RP | lq(b,l,p).sol>0)
+      write("  Liq", l, "->Pkg", p, ":", lq(b,l,p).sol)
+    writeln
+  end-do
+  forall(p in RP) do
+    write("Pkg unit ",p, ":")
+    forall(c in IC | or(d in RD | x(p,c,d).sol>0) true) do
+      write("  Cont", c)
+      forall(d in RD | x(p,c,d).sol>0) write(" ->Dem", d, ":", x(p,c,d).sol)
+      writeln
+    end-do
+  end-do
+
+end-model

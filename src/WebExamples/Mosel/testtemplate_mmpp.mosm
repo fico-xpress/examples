@@ -1,0 +1,83 @@
+(!*******************************************************
+  Mosel Preprocessor Examples
+  ===========================
+
+  file testtemplate_mmpp.mosm
+  ---------------------------
+
+  -- Testing the Mosel code preprocessing through mmpp.mos --
+
+  This file must be processed through the Mosel preprocessor with
+     mosel exe -m testtemplate_mmpp.mosm
+
+  Alternatively, produce a file testtemplate.mos to be run as usual 
+  with Mosel via
+     mmpp -o testtemplate.mos testtemplate_mmpp.mosm
+
+  (c) Copyright 2026 Fair Isaac Corporation
+      author: S. Heipcke
+*******************************************************!)
+
+model "testing template processing"
+ uses "mmsystem"
+
+ !**** Replacing a single template marker
+
+$forall(t) integer real boolean date datetime
+  public function listcompare(a, b: list of $t): boolean
+    returned:=(a.size=b.size)
+    if not returned then
+      writeln("Size is different")
+    else
+      forall(i in 1..a.size)
+        if a(i)<>b(i) then
+          writeln(formattext("Difference in element %d: %s %s", i, 
+                  text(a(i)), text(b(i))))
+          returned:=false
+	  break
+        end-if
+    end-if
+  end-function
+
+$end(forall)
+
+ !**** Replacing multiple template markers
+
+$forall(t1) string text
+$forall(t2) string text
+  public function listcompare(a: list of $t1, b: list of $t2): boolean
+    returned:=(a.size=b.size)
+    if not returned then
+      writeln("Size is different")
+    else
+      forall(i in 1..a.size)
+        if a(i)<>b(i) then
+          writeln(formattext("Difference in element %d: %s %s", i, a(i),b(i)))
+          returned:=false
+	  break
+        end-if
+    end-if
+  end-function
+
+$end(forall)
+$end(forall)
+
+ !**** Testing some versions of the generated subroutines ****
+  L1:=[1,2,3,4,5]; L2:=[1,2,3,5]
+  writeln("L1=L2: ", listcompare(L1,L2))
+
+  declarations
+    DL1,DL2: list of date
+  end-declarations
+  DL1:=sum(d in 1..5) [date(2024,3,d)]
+  DL2:=sum(d in 0..4) [date(19783+d)]
+  writeln("DL1=DL2: ", DL1=DL2, "/", listcompare(DL1,DL2))
+
+  declarations
+    LS: list of string
+    LT: list of text
+  end-declarations
+  LS:=['a','b','C']
+  LT:=[text('a'),text('b'),text('C')]
+  writeln("LS=LT: ", LS=LT, "/", listcompare(LS,LT))
+end-model

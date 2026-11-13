@@ -1,0 +1,134 @@
+(!*********************************************************************
+   Mosel NL examples
+   =================
+   file sphere_graph.mos
+   `````````````````````
+   Find the eqilibrium state distribution of electrons 
+   positioned on a conducting sphere.
+   Nonconvex NLP problem.
+   - Alternative objective functions selected via parameter ALG -
+
+   Based on AMPL model fekete.mod
+   Source: http://www.orfe.princeton.edu/~rvdb/ampl/nlmodels/fekete/
+
+   - Graphical representation of results -   
+
+   *** This model cannot be run with a Community Licence 
+       for the provided data instance ***
+
+   (c) 2013 Fair Issac Corporation
+       author: S. Heipcke, Mar. 2013, rev. Jun. 2023
+*********************************************************************!)
+    
+model "Points on sphere"
+  uses "mmxnlp", "mmsvg"
+
+  parameters
+    NP = 50
+    MDIM = 3
+    ALG = 2     ! 0: minimize z, 1: maximize Separation, 2: minimize Potential
+  end-parameters
+
+  declarations
+    POINTS = 1..NP                           ! Set of points to place
+    DIMS = 1..MDIM                           ! Dimensions
+    x: array(POINTS, DIMS) of mpvar          ! Coordinate tuples
+    z: mpvar                                 ! Objective variable
+  end-declarations
+
+! Set initial values (= randomly distributed points on the sphere)
+  setrandseed(3)
+  if MDIM=2 then
+    forall(i in POINTS) do
+      theta(i):= 2*M_PI*random
+      setinitval(x(i,1), cos(theta(i)) )
+      setinitval(x(i,2), sin(theta(i)) ) 
+    end-do
+  elif MDIM=3 then
+    forall(i in POINTS) do
+      theta(i):= 2*M_PI*random
+      phi(i):= M_PI*random
+      setinitval(x(i,1), cos(theta(i))*sin(phi(i)) )
+      setinitval(x(i,2), sin(theta(i))*sin(phi(i)) )
+      setinitval(x(i,3), cos(phi(i)) ) 
+    end-do
+  end-if
+
+  forall (i in 1..NP, j in DIMS) x(i,j) is_free
+         
+! Alternative objective function definitions
+  forall (i,j in POINTS | i<j) sum(k in DIMS) x(i,k)*x(j,k) <= z
+  Separation:= sum(i,j in POINTS | i<j) log(sum(k in DIMS) (x(i,k)-x(j,k))^2)
+  Potential:= sum(i,j in POINTS | i<j) 1/sqrt(sum(k in DIMS) (x(i,k)-x(j,k))^2)
+
+! All points lie on the sphere
+  forall(i in POINTS) sum(k in DIMS) x(i,k)^2 = 1.0
+
+! Setting up and solving the problem
+  setparam("xnlp_verbose", true)
+  
+! In this example we will use a local solver, since it can be time consuming to solve it to global optimality 
+  setparam("xprs_nlpsolver", 1)
+    
+  case ALG of  
+    0: minimize(z)
+    1: maximize(Separation)     ! Maximize separation between points
+    2: minimize(Potential)      ! Minimize potential energy (Coulomb potential)
+    else writeln("Invalid optimization goal choice"); exit(1)
+  end-case
+
+! Test whether a solution is available
+  nlstat:=getparam("XNLP_STATUS")
+  if nlstat<>XNLP_STATUS_LOCALLY_OPTIMAL and nlstat<>XNLP_STATUS_OPTIMAL then
+    writeln("No solution found.")
+    exit(0)
+  end-if   
+
+! Display the results
+  writeln("Value of z = ", z.sol)
+  writeln("Potential  = ", Potential.sol)
+  writeln("Separation = ", Separation.sol)
+  forall(i in POINTS) do
+    write(" x(", i, ") = [")
+    forall(k in DIMS) write(x(i,k).sol, if(k<MDIM, ",", ""))
+    writeln("]")
+  end-do  
+  
+!**************** Graphical representation of results ****************
+
+!  svgsetgraphviewbox(-1.5,-1.5,3,3)
+
+  if MDIM = 2 then         ! Planar graph
+    svgaddgroup("Sphere","Sphere", svgcolor(75,100,125))
+    svgaddcircle(0,0,1)
+    svgaddgroup("Sol","Solution", SVG_GOLD)
+    forall(i in POINTS) svgaddpoint(getsol(x(i,1)), getsol(x(i,2)))	 
+  elif MDIM>=3 then        ! 3D projection
+    svgaddgroup("S", "Sphere")
+    forall(sz in union(i in 0..50) {i*1/50}) do
+      offset:=0.2*sz
+    ! Overlay circles of different size+colour to obtain 3D effect      
+      svgaddellipse(0,0, 1-sz+offset, 1-sz+offset/2)
+      col:=svgcolor(50,50+round(100*sz),75+round(125*sz))
+      svgsetstyle(svggetlastobj, SVG_FILL,col)
+      svgsetstyle(svggetlastobj, SVG_STROKE,col)
+    end-do 
+    svgaddgroup("Sol","Solution", SVG_GOLD)
+    forall(i in POINTS | x(i,3).sol<=0 or 
+                        (x(i,1).sol+x(i,1).sol/2>0 and x(i,3).sol<=0.1)) do
+      offset:=0.2*x(i,3).sol
+      svgaddpoint(getsol(x(i,1))+offset,  getsol(x(i,2))+offset/2 )
+    end-do   
+  end-if  
+
+ svgsetgraphscale(100)
+ svgsetgraphlabels("x1","x2")
+
+! Alternatively change individual sizes:
+! svgsetgraphstyle(SVG_STROKEWIDTH,0.01)
+! svgsetgraphpointsize(0.02)
+ 
+ svgsave("sphere.svg")
+ svgrefresh
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+end-model

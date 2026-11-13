@@ -1,0 +1,97 @@
+// (c) 2024-2026 Fair Isaac Corporation
+
+/**
+ * Project planning: MIP example. A company has several projects that it must
+ * undertake in the next few months. Each project lasts for a given time (its
+ * duration) and uses up one resource as soon as it starts. The resource profile
+ * is the amount of the resource that is used in the months following the start
+ * of the project. For instance, project 1 uses up 3 units of resource in the
+ * month it starts, 4 units in its second month, and 2 units in its last month.
+ * The problem is to decide when to start each project, subject to not using
+ * more of any resource in a given month than is available. The benefit from the
+ * project only starts to accrue when the project has been completed, and then
+ * it accrues at BEN[p] per month for project p, up to the end of the time
+ * horizon.
+ */
+#include <iostream>
+#include <xpress.hpp>
+
+using namespace xpress;
+using namespace xpress::objects;
+using xpress::objects::utils::sum;
+
+std::vector<std::string> const PROJ{"A", "B", "C"}; /* Set of projects */
+int const NM = 6;                                   /* Time horizon (months) */
+std::vector<int> const MONTHS{
+    1, 2, 3, 4, 5, 6}; /* Set of time periods (months) to plan for */
+std::vector<int> const DUR{3, 3, 4}; /* Duration of project p */
+std::vector<int> const RESMAX{5, 6, 7,
+                              7, 6, 6}; /* Resource available in month m */
+std::vector<double> const BEN{
+    10.2, 12.3, 11.2}; /* Benefit per month once project finished */
+std::vector<std::vector<int>> const RESUSE{
+    /* Res. usage of proj. p in its t'th month */
+    std::vector<int>{3, 4, 2, 0, 0, 0}, std::vector<int>{4, 1, 5, 0, 0, 0},
+    std::vector<int>{3, 2, 1, 2, 0, 0}};
+
+int main(void) {
+  XpressProblem prob;
+
+  // Create the decision variables
+  // 1 if proj p starts in month m, else 0
+  auto start =
+      prob.addVariables(PROJ.size(), NM)
+          .withType(ColumnType::Binary)
+          .withName([](auto p, auto m) {
+            return "start(" + PROJ[p] + "," + std::to_string(MONTHS[m]) + ")";
+          })
+          .toArray();
+
+  // Each project starts once and only once
+  prob.addConstraints(PROJ.size(), [&](auto p) { return sum(start[p]) == 1; });
+
+  // Resource availability. A project starting in month m is in its k-m month in
+  // month k:
+  // sum(p in PROJ, m in 0..k) RESUSE[p,k-m]*start[p,m] <= RESMAX[k]
+  prob.addConstraints(NM, [&](auto k) {
+                            return sum(PROJ.size(), k + 1, [&](auto p, auto m) {
+                                     return start[p][m] * RESUSE[p][k - m];
+                                   })
+                                   <= RESMAX[k];
+  });
+
+  /*
+   * Objective: Maximize Benefit If project p starts in month m, it finishes in
+   * month m+DUR[p]-1 and contributes a benefit of BEN[p] for the remaining
+   * NM-[m+DUR[p]-1] months:
+   */
+  LinExpression obj = LinExpression::create();
+  for (unsigned p = 0; p < PROJ.size(); p++) {
+    for (int m = 0; m < NM - DUR[p]; m++) {
+      obj.addTerm(start[p][m], BEN[p] * (NM - m - DUR[p]));
+    }
+  }
+  prob.setObjective(obj, ObjSense::Maximize);
+
+  // Solve the problem
+  prob.optimize("");
+
+  std::cout << "Problem status: " << prob.attributes.getMipStatus()
+            << std::endl;
+  if (prob.attributes.getMipStatus() != MIPStatus::Solution &&
+      prob.attributes.getMipStatus() != MIPStatus::Optimal)
+    throw std::runtime_error("optimization failed with status " +
+                             to_string(prob.attributes.getMipStatus()));
+
+  // Solution printing
+  std::cout << "Solution value is: " << prob.attributes.getObjVal()
+            << std::endl;
+  auto sol = prob.getSolution();
+  for (unsigned p = 0; p < PROJ.size(); p++)
+    for (int m = 0; m < NM; m++) {
+      if (start[p][m].getValue(sol) > 0.5)
+        std::cout << "Project " << PROJ[p] << " starts in month " << MONTHS[m]
+                  << std::endl;
+    }
+  return 0;
+}

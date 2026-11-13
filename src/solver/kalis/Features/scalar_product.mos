@@ -1,0 +1,164 @@
+(!******************************************************
+   CP example problems
+   ===================
+   
+   file scalar_product.mos
+   ```````````````````````
+   Using the scalar/dot product operator for the efficient
+   creation of `cplinexpr` expressions of the form:
+     A_1 * x_1 + A_2 * x_2 + ... + A_n * x_n
+   specified as:
+     dot(x, A)
+   with `x` an array of cpvar or cpfloatvar, and
+        `A` an array of real or integer
+   in place of using this less efficient form: 
+     sum(i in 1..n) (x(i) * A(i))
+
+   Copyright(C) 2019 Artelys S.A. and Fair Isaac Corporation
+                     Creation: 2019, rev. Apr. 2022
+*******************************************************!)
+
+model "Scalar_Product"
+ uses "kalis"
+ options keepassert
+
+ setparam("KALIS_VERBOSE_LEVEL", 1)
+
+ declarations
+   n: integer         ! Specify the test size
+ end-declarations
+ n := 10
+ if isodd(n) then
+   n += 1
+ end-if
+
+!**** Case 1: Defining a linear constraint over cpvar ****
+ declarations
+   R=1..n
+   x: array(R) of cpvar
+   A: array(R) of real
+   Sp : cplinexp
+ end-declarations
+
+! Initialization
+ forall(i in R) do
+   setname(x(i), "x" +i)
+   -100 <= x(i); x(i) <= 100
+   A(i) := i
+   AInt(i) := i
+ end-do
+
+! Constraint definition
+ Sp := dot(x, A)
+! Same expression as: Sp := sum(i in R) (x(i) * A(i))
+ Sp = 3                 ! Posting the constraint
+
+!**** Case 2: Working with 2-dimensional arrays **** 
+ m := n div 2
+ declarations
+   RM=1..m
+   R2=1..2
+   x2: array(RM, R2) of cpvar
+   B: array(RM, R2) of real
+   BInt: array(RM, R2) of integer
+   Sp2 : cplinexp
+ end-declarations
+
+! Initialization
+ forall(i in RM, j in R2) do
+   setname(x2(i,j), "x" + i + "_" + j)
+   -100 <= x2(i,j); x2(i,j) <= 100
+   B(i,j) := i + j
+   BInt(i,j) := i + j
+ end-do
+
+! Constraint definition
+ Sp2 := dot(x2, B)
+ Sp2 = 3
+
+!**** Case 3: Defining a linear constraint with cpfloatvar ****
+ writeln("Sub test 3")
+ declarations
+  x3: array(R) of cpfloatvar
+  C: array(R) of real
+  CInt: array(R) of integer
+  Sp3 : cplinexp
+ end-declarations
+
+! Initialization
+ forall(i in R) do
+  setname(x3(i), "y_" + i)
+  -100 <= x3(i); x3(i) <= 100
+  C(i) := i
+  CInt(i) := i
+ end-do
+
+! Constraint definition
+ Sp3 := dot(x3, C)
+ Sp3 = 3  
+
+
+!**** Solve the problem ****
+ res := cp_minimise(x2(1, 1))
+ writeln("Problem solved: ", res)
+ writeln("Sp=", Sp.sol, " Sp2=", Sp2.sol, " Sp3=", Sp3.sol)
+ writeln(array(i in R) x(i).sol)
+ writeln(array(i in RM,j in R2) x2(i,j).sol)
+ writeln(array(i in R) x3(i).sol)
+
+!**** Validate the results ****
+! Case 1
+ result1 := sum(i in R) (getsol(x(i)) * A(i))
+ result2 := getsol(Sp)
+ assert(result1 = result2 and result1 = 3,
+   "TEST FAILED : failed for one-dimensional array\n"+
+   "result1="+ result1+ ", result2="+ result2, 1)
+
+! Case 2
+ result1 := sum(i in RM, j in R2) (getsol(x2(i, j)) * B(i, j))
+ result2 := getsol(Sp2)
+ assert(result1 = result2 and result1 = 3,
+   "TEST FAILED: failed for multi-dimensional array\n"+
+   "result1="+ result1+ ", result2="+ result2, 1)
+
+! Case 3
+ tol := 1e-4
+ result1 := sum(i in R) (getsol(x3(i)) * C(i))
+ result2 := getsol(Sp3)
+ assert(abs(result1 - result2) <= tol and abs(result1 - 3) <= tol,
+   "TEST FAILED: failed for cpfloatvar array\n"+
+   "result1="+ result1+ ", result2="+ result2, 1)
+
+
+!**** Validate commutativity of dot operator **** 
+ assert(getsol(dot(A, x)) = 3,
+   "TEST FAILED: failed for commutation 1: dot(ar, acpvar)",1)
+
+ assert(getsol(dot(B, x2)) = 3,
+   "TEST FAILED: failed for commutation 2: dot(ar, acpvar)",1)
+
+ assert(abs(getsol(dot(C, x3)) - 3) <= tol,
+   "TEST FAILED: failed for commutation 3: dot(ar, acpfloatvar)",1)
+
+!**** Validate dot operator with array of integer ****
+ assert(getsol(dot(x, AInt)) = 3,
+   "TEST FAILED: failed integer version 1: dot(acpvar, ai)",1)
+
+ assert(getsol(dot(x2, BInt)) = 3,
+   "TEST FAILED: failed for integer version 2: dot(acpvar, ai)",1)
+
+ assert(abs(getsol(dot(x3, CInt)) - 3) <= tol,
+   "TEST FAILED: failed for integer version 3: dot(acpfloatvar, ai)",1)
+
+ assert(getsol(dot(AInt, x)) = 3,
+   "TEST FAILED: failed for commutation 4: dot(ai, acpvar)",1)
+
+ assert(getsol(dot(BInt, x2)) = 3,
+   "TEST FAILED: failed for commutation 5: dot(ai, acpvar)",1)
+
+ assert(abs(getsol(dot(CInt, x3)) - 3) <= tol,
+   "TEST FAILED: failed for commutation 6: dot(ai, acpfloatvar)",1)
+
+ writeln("TEST PASSED")
+
+end-model

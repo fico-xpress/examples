@@ -1,0 +1,61 @@
+(!*********************************************************************
+   Mosel Example Problems
+   ======================
+
+   file prodx.mos
+   ``````````````
+   Simple production planning problem 
+   
+     Example discussed in section 2.5.1 of
+     J. Kallrath: Business Optimization Using Mathematical Programming -
+     An Introduction with Case Studies and Solutions in Various Algebraic 
+     Modeling Languages. 2nd edition, Springer Nature, Cham, 2021 
+
+   author: S. Heipcke, June 2018
+
+   (c) Copyright 2020 Fair Isaac Corporation
+  
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+*********************************************************************!) 
+
+model 'prodx'
+  uses "mmxprs"
+
+  declarations
+    PRODS=1..3                       ! Products
+    RES=1..2                         ! Resources
+    REQ: array(RES,PRODS) of real    ! Required machine hours
+    PC: array(PRODS) of real         ! Profit contribution per product
+  end-declarations
+
+  REQ::[2.2, 1.8, 1.9,
+        2.4, 2.0, 2.1]
+  PC::[24.7, 22.4, 19.7]
+
+  declarations
+    a,b,c: mpvar     
+  end-declarations
+
+ ! Objective: maximise total profit
+  Profit:= PC(1)*a + PC(2)*b + PC(3)*c
+
+ ! Limits on resource availability
+  M1:= REQ(1,1)*a + REQ(1,2)*b + REQ(1,3)*c<= 8
+  M2:= REQ(2,1)*a + REQ(2,2)*b + REQ(2,3)*c<= 10
+
+ ! Solve the problem
+  maximise(Profit)
+  writeln("Solution: Profit=", getobjval)
+  writeln("  a=", a.sol, " b=", b.sol, " c=", c.sol)
+end-model

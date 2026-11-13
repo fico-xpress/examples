@@ -1,0 +1,107 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file xmltest.mos
+   ````````````````
+   A simple model using 'mmxml'
+
+  (c) 2012 Fair Isaac Corporation
+      author: Y. Colombani, August 2012
+*******************************************************!)
+
+model xmltest
+uses 'mmxml'
+
+declarations
+ doc:xmldoc               ! A document
+ root,el,cnt:integer      ! References to nodes
+ lst:list of integer
+end-declarations
+
+
+forward procedure showtree(doc:xmldoc,n:integer,indent:string)
+
+root:=addnode(doc,0,XML_ELT,"myroot")       ! Create the root node: "myroot"
+el:=addnode(doc,root,XML_LASTCHILD,XML_ELT,"an_element")! Add a node to "myroot"
+cnt:=addnode(doc,el,XML_TXT,"content of an element")    ! Set its content...
+setattr(doc,el,"myattr",10)                             ! ... and attributes
+setattr(doc,el,"someattr","value")
+
+cnt:=addnode(doc,cnt,XML_NEXT,XML_ELT,"subelt")         ! Add a node to 'cnt'
+cnt:=addnode(doc,cnt,XML_TXT)                           ! Set its content...
+setvalue(doc,cnt,false);
+
+                           ! Add another node to "myroot" as a successor of 'el'
+el:=addnode(doc,el,XML_NEXT,XML_ELT,"another_element") 
+cnt:=addnode(doc,el,XML_TXT)                            ! Set its content...
+setvalue(doc,cnt,12.3)
+
+el:=addnode(doc,root,XML_ELT,"empty_element")  ! Add another node to "myroot"
+setattr(doc,el,"myattr",1.3)                   ! with an attribute
+
+                                               ! Add further nodes to "myroot"
+el:=addnode(doc,root,XML_LASTCHILD,XML_ELT,"an_element","some content")
+el:=addnode(doc,root,"an_element",el>0)
+el:=addnode(doc,root,"an_element",1275)
+el:=addnode(doc,root,"an_element",0.5)
+el:=addnode(doc,root,"an_element","blabla")
+
+! Print the document
+writeln("****** Output from the 'save' routine **********")
+save(doc,"")
+
+! Save it to a file
+save(doc,"mydoc.xml")
+
+! Clear the document
+reset(doc)
+
+! Load the document from a file
+load(doc,"mydoc.xml")
+
+! Display it using a procedure
+writeln
+writeln("****** Output from the 'showtree' Mosel procedure **********")
+showtree(doc,getnode(doc,"myroot"),"")
+writeln
+
+! Get all subnodes of 'myroot' named 'an_element'
+getnodes(doc,'/myroot/an_element',lst)
+writeln("number of nodes named 'an_element':",lst.size)
+
+!---------------------------------------------------------
+! **** Display a tree ****
+
+procedure showtree(doc:xmldoc,n:integer,indent:string)
+ declarations
+  l:list of integer
+ end-declarations
+
+ case gettype(doc,n) of
+  XML_ELT:
+	do
+  	 write(indent,"<",getname(doc,n))
+	 getnodes(doc,n,"attribute::*",l)
+	 forall(m in l)
+	  showtree(doc,m,"")
+	 getnodes(doc,n,"node()",l)
+	 if l.size=0 then
+	  writeln("/>")
+	 else
+	  writeln(">")
+	  forall(m in l)
+	   showtree(doc,m,indent+" ")
+	  writeln(indent,"</",getname(doc,n),">")
+	 end-if
+	end-do
+  XML_TXT: writeln(indent,getvalue(doc,n))
+  XML_CDATA: writeln(indent,"<![CDATA[",getvalue(doc,n),"]]>")
+  XML_COM: writeln(indent,"<!--",getvalue(doc,n),"-->")
+  XML_DATA: writeln(indent,getvalue(doc,n))
+  XML_PINST:writeln(indent,"<?",getname(doc,n)," ",getvalue(doc,n),"?>")
+  XML_ATTR:write(" ",getname(doc,n),'="',getvalue(doc,n),'"')
+ end-case
+end-procedure
+
+end-model

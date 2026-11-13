@@ -1,0 +1,185 @@
+(!*******************************************************
+   Mosel Example Problems
+   ======================
+
+   file elsmanagedcuts.mos
+   ```````````````````````
+   Economic lot sizing, ELS, problem
+   (Cut generation algorithm adding (l,S)-inequalities 
+    in one or several rounds at the root node or in 
+    tree nodes)
+
+   Cutting plane algorithm using the managed cuts functionality.
+   (The Optimizer will automatically manage when to load or remove 
+    such cuts from node problems.)
+
+   Economic lot sizing (ELS) considers production planning 
+   over a given planning horizon. In every period, there is 
+   a given demand for every product that must be satisfied by 
+   the production in this period and by inventory carried over 
+   from previous periods.
+   A set-up cost is associated with production in a period, 
+   and the total production capacity per period is limited. 
+   The unit production cost per product and time period is 
+   given. There is no inventory or stock-holding cost.
+
+   *** This model cannot be run with a Community Licence 
+       for the provided data instance ***
+
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Apr. 2025
+  *******************************************************!)
+
+model "ELS"
+ uses "mmxprs","mmsystem"
+
+ parameters
+  EPS = 1e-6                          ! Zero tolerance
+  SEVERALROUNDS=false
+ end-parameters 
+
+ forward function cb_cutround(ifxpresscuts:boolean):integer
+
+ declarations
+  TIMES = 1..15                              ! Range of time
+  PRODUCTS = 1..4                            ! Set of products
+
+  DEMAND: array(PRODUCTS,TIMES) of integer   ! Demand per period
+  SETUPCOST: array(TIMES) of integer         ! Setup cost per period
+  PRODCOST: array(PRODUCTS,TIMES) of integer ! Production cost per period
+  CAP: array(TIMES) of integer               ! Production capacity per period
+  D: array(PRODUCTS,TIMES,TIMES) of integer  ! Total demand in periods t1 - t2
+
+  produce: array(PRODUCTS,TIMES) of mpvar    ! Production in period t
+  setup: array(PRODUCTS,TIMES) of mpvar      ! Setup in period t
+
+  solprod: array(PRODUCTS,TIMES) of real     ! Sol. values for var.s produce 
+  solsetup: array(PRODUCTS,TIMES) of real    ! Sol. values for var.s setup
+  starttime: real
+ end-declarations
+
+ initializations from "els.dat"
+  DEMAND SETUPCOST PRODCOST CAP
+ end-initializations
+
+ forall(p in PRODUCTS,s,t in TIMES) D(p,s,t):= sum(k in s..t) DEMAND(p,k)
+
+! Objective: minimize total cost
+ MinCost:= sum(t in TIMES) (SETUPCOST(t) * sum(p in PRODUCTS) setup(p,t) + 
+                            sum(p in PRODUCTS) PRODCOST(p,t) * produce(p,t) )
+
+! Satisfy the total demand
+ forall(p in PRODUCTS,t in TIMES) 
+   Dem(p,t):= sum(s in 1..t) produce(p,s) >= sum (s in 1..t) DEMAND(p,s)
+
+! If there is production during t then there is a setup in t
+ forall(p in PRODUCTS, t in TIMES) 
+  ProdSetup(p,t):= produce(p,t) <= D(p,t,getlast(TIMES)) * setup(p,t)
+
+! Capacity limits
+ forall(t in TIMES) Capacity(t):= sum(p in PRODUCTS) produce(p,t) <= CAP(t)
+
+! Variables setup are 0/1
+ forall(p in PRODUCTS, t in TIMES) setup(p,t) is_binary 
+
+! Uncomment to get detailed MIP output
+ setparam("XPRS_VERBOSE", true)
+ 
+! All cost data are integer, we therefore only need to search for integer 
+! solutions
+ setparam("XPRS_MIPADDCUTOFF", -0.999)
+
+! Set Mosel comparison tolerance to a sufficiently small value
+ setparam("ZEROTOL", EPS/100)
+ 
+ 
+ ! Set the cutround callback for user branch-and-cut
+ setcallback(XPRS_CB_CUTROUND, ->cb_cutround)  
+
+ starttime:=gettime
+ minimize(MinCost)                    ! Solve the problem
+
+ solvestatus:=getparam("XPRS_SOLVESTATUS")
+ solstatus:=getparam("XPRS_SOLSTATUS")
+ if not (solvestatus = XPRS_SOLVESTATUS_COMPLETED and
+         solstatus = XPRS_SOLSTATUS_OPTIMAL) then
+   writeln("Failed to solve problem with solvestatus ", solvestatus,
+    " and solstatus ", solstatus)
+   exit(1)
+ end-if
+
+ writeln("Time: ", gettime-starttime, "sec,  Nodes: ", getparam("XPRS_NODES"),
+         ",  Solution: ", getobjval) 
+ write("Period  setup    ")
+ forall(p in PRODUCTS) write(strfmt(p,-7))
+ forall(t in TIMES) do
+  write("\n ", strfmt(t,2), strfmt(getsol(sum(p in PRODUCTS) setup(p,t)),8), "     ")
+  forall(p in PRODUCTS) write(getsol(produce(p,t)), " (",DEMAND(p,t),")  ")
+ end-do
+ writeln
+
+!*************************************************************************
+!  Cut generation loop:                         
+!    get the solution values                                            
+!    identify and set up violated constraints                           
+!    add violated constraints as managed cuts to the problem                 
+!*************************************************************************
+
+ function cb_cutround(ifxpresscuts:boolean):integer
+  declarations
+   ncut:integer                        ! Counter for cuts
+   cut: array(range) of linctr         ! Cuts
+   type: array(range) of integer       ! Cut constraint type 
+   ds: real
+  end-declarations
+
+ (! If we modified the problem in the callback, Xpress will automatically
+    trigger another roound of cuts, so there is no need to set the return value.
+  !)
+  returned:=0   
+
+ (! Apply only one round of cutting on each node unless SEVERALROUNDS=true.
+   Because the CutRound callback is fired *before* a round of cutting, 
+   the CUTROUNDS attribute will start from 0 on the first invocation of 
+   the callback. !)
+  cnt:=getparam("XPRS_CUTROUNDS")
+  if cnt=0 or SEVERALROUNDS then
+   ncut:=0 
+
+ ! Get the solution values
+   forall(t in TIMES, p in PRODUCTS) do
+     solprod(p,t):=getsol(produce(p,t))
+     solsetup(p,t):=getsol(setup(p,t))
+   end-do
+  
+ ! Search for violated constraints
+   forall(p in PRODUCTS,l in TIMES) do
+    ds:=0 
+    forall(t in 1..l)
+      if(solprod(p,t) < D(p,t,l)*solsetup(p,t) + EPS) then ds += solprod(p,t)
+      else  ds += D(p,t,l)*solsetup(p,t)
+      end-if
+  
+   ! Generate the violated inequality    
+    if(ds < D(p,1,l) - EPS) then
+      cut(ncut):= sum(t in 1..l) 
+       if(solprod(p,t)<(D(p,t,l)*solsetup(p,t))+EPS, produce(p,t), 
+          D(p,t,l)*setup(p,t)) - D(p,1,l)
+      type(ncut):= CT_GEQ
+      ncut+=1
+    end-if   
+  end-do
+   
+ ! Add cuts to the problem
+   if(ncut>0) then 
+    addmanagedcuts(true, type, cut);  
+    if(getparam("XPRS_VERBOSE")=true) then
+     writeln("Cuts added : ", ncut, " (depth ", getparam("XPRS_NODEDEPTH"),
+             ", node ", getparam("XPRS_NODES"), 
+             ", obj. ", getparam("XPRS_LPOBJVAL"), ")")
+    end-if
+   end-if
+  end-if
+ end-function
+
+end-model

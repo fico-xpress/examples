@@ -1,0 +1,79 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file runrtpartree.mos
+   `````````````````````
+   Running several instances of a model from another
+   Mosel model.
+   - Parallel submodels over 3 levels (submodel tree)
+     possibly running in a distributed architecture -
+
+   Before running this model, you need to set up the array
+   NODENAMES with machine names/addresses of your local network.
+   All nodes that are used need to have the same version of
+   Xpress installed and suitably licensed, and the server 
+   "xprmsrv" must have been started on these machines.
+       
+   (c) 2010 Fair Isaac Corporation
+       author: S. Heipcke, May 2010
+*******************************************************!)
+
+model "Recursive model runs"
+ uses "mmjobs", "mmsystem"
+
+ parameters
+  RMT="rmt:[-1]"
+  SUBMODNAME="runrtpartree"
+  LEVEL = 0
+  BRANCH = 0
+  MODCOUNT = 1
+  PARAM1 = 0
+  PARAM2 = 0.5
+  PARAM3 = ''
+  PARAM4 = false
+ end-parameters 
+
+ declarations
+  A = 1..5
+  modPar: array(A) of Model
+  M:Mosel
+  NODENAMES: array(range) of string
+ end-declarations
+
+
+!!! Select the (remote) machines to be used:
+!!! Use names, IP addresses, or empty string for the node running this model
+ NODENAMES:: (1..3)["", "", ""]     
+
+
+ writeln(" "*LEVEL, LEVEL, "/", BRANCH, ": ", SUBMODNAME, "(", MODCOUNT, "), ",
+         "Node: ", getparam("NODENUMBER"))
+
+ 
+ NEWSUBNAME:=if(LEVEL>1, "rtparams2", SUBMODNAME)
+ 
+                                   ! Compile the model file in first run
+ if LEVEL=0 then
+  if compile("runrtpartree.mos")<>0 then exit(1); end-if
+  if compile("rtparams2.mos")<>0 then exit(1); end-if
+ end-if
+ 
+ r:=connect(M,NODENAMES(LEVEL+1))
+ 
+ forall(i in A) do
+  load(M,modPar(i), RMT+NEWSUBNAME+".bim")  ! Load the bim file
+                                   ! Start model execution
+  run(modPar(i), "SUBMODNAME=" + NEWSUBNAME + ",MODCOUNT=" + (10*MODCOUNT+i) + 
+                 ",LEVEL="+ (LEVEL+1) + ",BRANCH="+ i +
+                 ",PARAM1=" + i + ",PARAM2=" + 0.1*i +
+                 ",PARAM3='string " + i + "'" + ",PARAM4=" + isodd(i))
+!  wait(1)
+ end-do
+ 
+ forall(i in A) do
+  wait                             ! Wait for model termination
+  dropnextevent                    ! Ignore termination event message
+ end-do
+
+end-model 

@@ -1,0 +1,82 @@
+(!*********************************************************************
+   Mosel Example Problems
+   ======================
+
+   file buscrew.mos
+   ````````````````
+   BusCrew problem 
+   
+     Example discussed in section 7.8.4 of
+     J. Kallrath: Business Optimization Using Mathematical Programming -
+     An Introduction with Case Studies and Solutions in Various Algebraic 
+     Modeling Languages. 2nd edition, Springer Nature, Cham, 2021 
+
+   author: S. Heipcke, June 2018
+
+   (c) Copyright 2020 Fair Isaac Corporation
+  
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+*********************************************************************!)
+
+model 'buscrew'
+  uses "mmxprs", "mmsystem"
+
+  declarations
+    NT= 19                      ! 19 hour day (0600-0100)
+    NHour= 8                    !  8 hours in shift
+    NShift= 12                  ! 12 possible shift types starting 0600-1700
+                                ! Note: NShift = NT - NHour + 1
+    RT=1..NT
+    Shifts=1..NShift
+    Hours=1..NHour
+    RQ: array(RT) of real       ! Required manning level at time t
+    COST: array(Shifts) of real ! Cost of each shift
+    SHIFT: array(Hours) of real ! Manning duties in each shift
+    x: array(Shifts) of mpvar   ! Number of crews working each shift
+  end-declarations
+
+ !Time 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 00
+  RQ:: [3, 9,10,10, 6, 6, 7, 7, 6, 6, 8,10,10, 8, 3, 3, 3, 2, 2]
+
+  COST::[100, 90, 80, 50, 50, 50, 50, 50, 60, 70, 80, 100]
+  SHIFT::[1, 1, 1, 0, 1, 1, 1, 1]
+
+ ! Objective function: Operating cost
+  OpCost:= sum(s in Shifts) COST(s)*x(s)
+ 
+ ! Manning levels
+  forall(t in RT)
+    DUTY(t):= sum(s in 1..t|s>=t-7 AND s<=NShift) SHIFT(1+t-s)*x(s)>= RQ(t)     
+
+  forall(s in Shifts) do
+    x(s) is_integer; x(s)<= 10
+  end-do
+
+!  exportprob(EP_MPS,'buscrew', OpCost)
+  minimise(OpCost)
+
+  writeln("Solution: Cost=", getobjval)
+  write("Time period ")
+  forall(t in RT) write(strfmt(t+5,3))
+  writeln("\n", "-"*70)
+  write("Working     ")
+  forall(t in RT) write(strfmt(round(DUTY(t).act),3))
+    write("\nRequired    ")
+  forall(t in RT) write(strfmt(RQ(t),3))
+    write("\nExcess staff")
+  forall(t in RT) write(strfmt(round(-DUTY(t).slack),3))
+  writeln("\n", "-"*70)
+  forall(s in Shifts | x(s).sol>0)
+    writeln("Shift ", s+5, "-", s+12, ": ", x(s).sol)
+end-model

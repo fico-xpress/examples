@@ -1,0 +1,76 @@
+(!******************************************************
+   CP Example Problems
+   ===================
+
+   file b5paint_ka.mos
+   ```````````````````
+   Planning of paint production
+   (See "Applications of optimization with Xpress-MP",
+        Section 7.5 Paint production)
+
+   *** This model cannot be run with a Community Licence 
+       for the provided data instance ***
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+       rev. Apr. 2022
+*******************************************************!)
+
+model "B-5 Paint production (CP)"
+ uses "kalis", "mmsystem"
+
+ declarations
+  NJ = 5                             ! Number of paint batches (=jobs)
+  JOBS=1..NJ
+
+  DUR: array(JOBS) of integer        ! Durations of jobs
+  CLEAN: array(JOBS,JOBS) of integer ! Cleaning times between jobs
+  CB: array(JOBS) of integer         ! Cleaning times after a batch
+
+  succ: array(JOBS) of cpvar         ! Successor of a batch
+  clean: array(JOBS) of cpvar        ! Cleaning time after batches
+  y: array(JOBS) of cpvar            ! Variables for excluding subtours
+  cycleTime: cpvar                   ! Objective variable
+ end-declarations
+
+ initializations from 'Data/b5paint.dat'
+  DUR CLEAN 
+ end-initializations
+ 
+ forall(j in JOBS) do
+  1 <= succ(j); succ(j) <= NJ; succ(j) <> j
+  1 <= y(j); y(j) <= NJ
+ end-do
+
+! Cleaning time after every batch
+ forall(j in JOBS) do
+  forall(i in JOBS) CB(i):= CLEAN(j,i)
+  clean(j) = element(CB, succ(j))
+ end-do 
+ 
+! Objective: minimize the duration of a production cycle
+ cycleTime = sum(j in JOBS) (DUR(j)+clean(j))
+
+! One successor and one predecessor per batch
+ all_different(succ)
+
+! Exclude subtours
+ forall(i in JOBS, j in 2..NJ | i<>j) 
+  implies(succ(i) = j, y(j) = y(i) + 1)
+
+! Solve the problem
+ if not cp_minimize(cycleTime) then
+  writeln("Problem is infeasible")
+  exit(1)
+ end-if
+ cp_show_stats
+
+! Solution printing
+ writeln("Minimum cycle time: ", getsol(cycleTime))
+ writeln("Sequence of batches:\nBatch Duration Cleaning")
+ first:=1 
+ repeat
+  writeln(formattext("  %d%8d%9d", first, DUR(first), clean(first).sol))
+  first:=getsol(succ(first))
+ until (first=1)
+
+end-model

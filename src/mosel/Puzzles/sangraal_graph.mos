@@ -1,0 +1,151 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file sangraal_graph.mos
+   ```````````````````````
+   Sangraal problem.
+   - Graphical representation of solutions -
+
+   When the Sangraal (Holy Grail) is almost won the hero arrives
+   at a castle where he finds 8 imprisoned knights. He is facing
+   the task to bring the largest possible number of knights for
+   the arrival of the Sangraal in twenty minutes' time. The time
+   required for freeing a knight depends on his state of binding.
+   A freed knight then needs a given amount of time to wash and
+   recover himself physically.
+
+   Description and original model by M. Chlond:
+   https://doi.org/10.1287/ited.4.3.66
+
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2005, rev. Mar. 2022
+*******************************************************!)
+
+model Sangraal
+ uses "mmxprs", "mmsvg"
+
+ forward procedure print_solution
+
+ declarations
+  KNIGHTS = {"Agravain", "Bors", "Caradoc", "Dagonet", "Ector", "Feirefiz",
+             "Gareth", "Harry"}
+  K = 8
+  POS = 1..K
+  FREE: array(KNIGHTS) of real   ! Time to free each knight
+  PREP: array(KNIGHTS) of real   ! Time to prepare each knight
+  x: array(KNIGHTS,POS) of mpvar ! x(k,j)=1 if knight k in position j,
+                                 ! 0 otherwise
+  ontime: array(POS) of mpvar    ! ontime(j)=1 if position j finished within
+                                 ! 20 minutes, 0 otherwise
+  ready: array(POS) of mpvar     ! Finish time for each position
+
+  pos: array(KNIGHTS) of integer ! Position of knight
+ end-declarations
+
+ FREE("Agravain"):=1;  PREP("Agravain"):=15
+ FREE("Bors")    :=1;  PREP("Bors")    := 5
+ FREE("Caradoc") :=2;  PREP("Caradoc") :=15
+ FREE("Dagonet") :=2;  PREP("Dagonet") := 5
+ FREE("Ector")   :=3;  PREP("Ector")   :=10
+ FREE("Feirefiz"):=4;  PREP("Feirefiz"):=15
+ FREE("Gareth")  :=5;  PREP("Gareth")  :=10
+ FREE("Harry")   :=6;  PREP("Harry")   := 5
+
+ MAXT:= sum(k in KNIGHTS) FREE(k) + max(k in KNIGHTS) PREP(k)
+ MINT:= min(k in KNIGHTS) (PREP(k) + FREE(k))
+
+ forall(k in KNIGHTS, j in POS) x(k,j) is_binary
+ forall(j in POS) ontime(j) is_binary
+
+ ! Maximize number of positions finished within 20 minutes
+ TotalFreed := sum(j in POS) ontime(j)
+
+ ! Each knight in one position
+ forall(k in KNIGHTS) sum(j in POS) x(k,j) = 1
+
+ ! Each position has one knight
+ forall(j in POS) sum(k in KNIGHTS) x(k,j) = 1
+
+ ! Compute finish time for each position
+ forall(j in POS)
+  sum(k in KNIGHTS,l in 1..j-1) FREE(k)*x(k,l) +
+  sum(k in KNIGHTS) (FREE(k)+PREP(k))*x(k,j) = ready(j)
+
+ ! ontime(j) = 1 if knight in position j is freed and prepared within 20 min.
+ forall(j in POS) do
+  ready(j) >= 21-(21-MINT)*ontime(j)
+  ready(j) <= MAXT-(MAXT-20)*ontime(j)
+ end-do
+
+! setparam("XPRS_VERBOSE", true)
+
+ ! Solve the problem, displaying every integer solution that is found
+ setcallback(XPRS_CB_INTSOL,->print_solution)
+ maximize(TotalFreed)
+
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+
+!********************************************************************
+
+ procedure draw_solution
+   svgerase                ! Delete previous display
+
+   ! Object group definitions (colors)
+   svgaddgroup("gontime", "Step 2 on time", SVG_GREEN)
+   svgsetstyle(SVG_STROKE,SVG_GREEN)
+   svgsetstyle(SVG_FILL,SVG_CURRENT)
+   svgsetstyle(SVG_FILLOPACITY,0.8)
+   svgaddgroup("gstep1", "Step 1 on time", SVG_GREEN)
+   svgsetstyle(SVG_STROKE,SVG_GREEN)
+   svgsetstyle(SVG_FILL,SVG_CURRENT)
+   svgsetstyle(SVG_FILLOPACITY,0.4)
+   svgaddgroup("glate", "Step 2 late", SVG_GRAY)
+   svgsetstyle(SVG_STROKE,SVG_GRAY)
+   svgsetstyle(SVG_FILL,SVG_CURRENT)
+   svgsetstyle(SVG_FILLOPACITY,0.8)
+   svgaddgroup("gstep1l", "Step 1 late", SVG_GRAY)
+   svgsetstyle(SVG_STROKE,SVG_GRAY)
+   svgsetstyle(SVG_FILL,SVG_CURRENT)
+   svgsetstyle(SVG_FILLOPACITY,0.4)
+   svgaddgroup("gtarget", "Target time",SVG_RED)
+   svgaddgroup("gax", "Axes", SVG_BLACK)
+
+   ! Draw the tasks
+   prevt:=0.0; SCALE:=5
+   forall(j in POS) do
+     t1:=sum(k in KNIGHTS) FREE(k)*x(k,j).sol
+     t2:=sum(k in KNIGHTS) PREP(k)*x(k,j).sol
+     svgaddrectangle(if(prevt+t1<=21,"gstep1","gstep1l"), prevt, j*SCALE, t1, 0.8*SCALE)
+     prevt+=t1
+     svgaddrectangle(if(ontime(j).sol=1,"gontime","glate"), prevt, j*SCALE, t2, 0.8*SCALE)
+   end-do
+   ! Draw some lines and display of the current objective value
+   svgaddline("gtarget",20,0.5*SCALE,20,(KNIGHTS.size+2)*SCALE)
+   svgaddarrow("gax",0,0.5*SCALE,max(j in POS) ready(j).sol + 5,0.5*SCALE)
+   svgaddarrow("gax",0,0.5*SCALE,0,(KNIGHTS.size+2)*SCALE)
+   svgaddtext("gax", 22, 1*SCALE, "Total on time="+TotalFreed.sol)
+   forall(k in KNIGHTS) svgaddtext("gax", -10, (pos(k)+0.25)*SCALE, k)
+
+   svgshowgraphaxes(false)
+   svgsetgraphviewbox(-12,-1, max(j in POS) ready(j).sol + 20,(KNIGHTS.size+4)*SCALE)
+   svgsetgraphscale(5)
+   svgrefresh               ! Redraw the graph
+
+   ! Uncomment next line to pause at every iteration:
+   svgpause
+ end-procedure
+
+ procedure print_solution
+   obj:=getparam("XPRS_LPOBJVAL")
+   writeln("Number of knights freed on time: ", obj)
+   writeln("Knight   Position  Ready  <=20 min")
+   forall(k in KNIGHTS) do
+     pos(k):=round(getsol(sum(j in POS) j*x(k,j)))
+     writeln(strfmt(k,-12), pos(k), "       ", strfmt(getsol(ready(pos(k))),2),
+           "       ", if(getsol(ontime(pos(k)))=1,"yes","no"))
+   end-do
+   draw_solution
+ end-procedure
+
+end-model

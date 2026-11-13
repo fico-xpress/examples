@@ -1,0 +1,84 @@
+(!*********************************************************************
+   Mosel NL examples
+   =================
+   file emfl.mos
+   `````````````
+   Euclidean facility location problem
+   Convex NLP problem
+
+   Based on AMPL model emfl_eps.mod
+   Source: http://www.orfe.princeton.edu/~rvdb/ampl/nlmodels/facloc/ 
+
+   *** This model cannot be run with a Community Licence 
+       for the provided data instance ***
+
+   (c) 2008 Fair Issac Corporation
+       author: S. Heipcke, Sep. 2008, rev. Jun. 2023
+*********************************************************************!)
+
+model "emfl"
+ uses "mmxnlp"
+
+ parameters
+  EPS = 1.0E-8
+  M = 200                         ! Number of existing facilities
+  N1 = 5
+  N2 = 5
+ end-parameters 
+
+ declarations
+  N = N1*N2                       ! Number of new facilities
+  RM = 1..M                       ! Set of existing facilities
+  R2 = 1..2
+  RN = 1..N                       ! Set of new facilities
+  POS: array(RM,R2) of real       ! Coordinates of existing facility
+  WEIGHTON: array(RM,RN) of real  ! Weights associated with old-new connections
+  WEIGHTNN: array(RN,RN) of real  ! Weights associated with new-new connections
+  IVAL: array(RN,R2) of real      ! Start values for x
+
+  x: array(RN,R2) of mpvar        ! Coordinates of new facilities
+ end-declarations
+
+ forall(i in RN,j in R2) x(i,j) is_free
+
+ setrandseed(3)
+ forall(i in RM, k in 1..2) POS(i,k):= random
+ forall(j in RN, jj in RN | j < jj) WEIGHTNN(j,jj):= 0.2
+
+ forall(j1 in 1..N1, j2 in 1..N2) do
+  IVAL(j1+N1*(j2-1),1):= (j1-0.5)/N1
+  IVAL(j1+N1*(j2-1),2):= (j2-0.5)/N2
+  setinitval(x(j1+N1*(j2-1),1), IVAL(j1+N1*(j2-1),1))
+  setinitval(x(j1+N1*(j2-1),2), IVAL(j1+N1*(j2-1),2))
+ end-do
+
+ forall(i in RM, j in RN)          
+   WEIGHTON(i,j):= if(abs(POS(i,1)-IVAL(j,1)) <= 1/(2*N1) and
+                      abs(POS(i,2)-IVAL(j,2)) <= 1/(2*N2),
+                      0.95, 
+                      if(abs(POS(i,1)-IVAL(j,1)) <= 2/(2*N1) and
+                         abs(POS(i,2)-IVAL(j,2)) <= 2/(2*N2),
+                         0.05, 0) )
+
+! Objective function: distances
+! A small positive constant 'EPS' is added to make sure 'sqrt' is differentiable
+ SumEucl:= sum(i in RM,j in RN) WEIGHTON(i,j)*sqrt(EPS + sum(k in R2) (x(j,k)-POS(i,k))^2) +
+        sum(j,jj in RN | j<jj) WEIGHTNN(j,jj)*sqrt(EPS + sum(k in R2) (x(j,k)-x(jj,k))^2)
+
+ setparam("XNLP_verbose", true)
+! Since this is a convex problem, it is sufficient to call a local solver 
+ setparam("xprs_nlpsolver", 1)    
+ setparam("XNLP_solver", 0)       ! Solver choice: Xpress NonLinear (SLP)
+ minimise(SumEucl)
+ 
+ writeln("Solution: ", SumEucl.sol, " (eps), ",
+   getsol(sum(i in RM,j in RN) WEIGHTON(i,j)*sqrt(sum(k in R2) (x(j,k)-POS(i,k))^2) +
+     sum(j,jj in RN | j<jj) WEIGHTNN(j,jj)*sqrt(sum(k in R2) (x(j,k)-x(jj,k))^2)) )
+ 
+ forall(i in RN) do
+  write(i, ": ")
+  forall(j in R2) write(x(i,j).sol, ", ")
+  writeln
+ end-do
+
+end-model

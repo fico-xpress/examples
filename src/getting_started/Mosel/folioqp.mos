@@ -1,0 +1,88 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file folioqp.mos
+   ````````````````
+   Modeling a small QP problem 
+   to perform portfolio optimization.
+   -- 1. QP: minimize variance
+      2. MIQP: limited number of assets ---
+   
+  (c) 2008 Fair Isaac Corporation
+      author: S.Heipcke, Aug. 2003, rev. Sep. 2017
+*******************************************************!)
+
+model "Portfolio optimization with QP/MIQP"
+ uses "mmxprs", "mmnl"
+
+ parameters
+  MAXVAL = 0.3                      ! Max. investment per share
+  MINAM = 0.5                       ! Min. investment into N.-American values
+  MAXNUM = 4                        ! Max. number of different assets
+  TARGET = 9.0                      ! Minimum target yield
+ end-parameters
+
+ declarations
+  SHARES = 1..10                    ! Set of shares
+  RISK: set of integer              ! Set of high-risk values among shares
+  NA: set of integer                ! Set of shares issued in N.-America
+  RET: array(SHARES) of real        ! Estimated return in investment
+  VAR: array(SHARES,SHARES) of real ! Variance/covariance matrix of
+                                    ! estimated returns
+ end-declarations
+
+ initializations from "folioqp.dat"
+  RISK RET NA VAR
+ end-initializations
+
+ declarations
+  frac: array(SHARES) of mpvar      ! Fraction of capital used per share
+ end-declarations
+
+! **** First problem: unlimited number of assets ****
+
+! Objective: mean variance
+ Variance:= sum(s,t in SHARES) VAR(s,t)*frac(s)*frac(t) 
+
+! Minimum amount of North-American values
+ sum(s in NA) frac(s) >= MINAM
+
+! Spend all the capital
+ sum(s in SHARES) frac(s) = 1
+ 
+! Target yield
+ sum(s in SHARES) RET(s)*frac(s) >=  TARGET
+
+! Upper bounds on the investment per share
+ forall(s in SHARES) frac(s) <= MAXVAL
+
+! Solve the problem
+ minimize(Variance)
+
+! Solution printing
+ writeln("With a target of ", TARGET, " minimum variance is ", getobjval)
+ forall(s in SHARES) writeln(s, ": ", getsol(frac(s))*100, "%")  
+
+! **** Second problem: limit total number of assets ****
+
+ declarations
+  buy: array(SHARES) of mpvar       ! 1 if asset is in portfolio, 0 otherwise
+ end-declarations
+
+! Limit the total number of assets
+ sum(s in SHARES) buy(s) <= MAXNUM
+
+ forall(s in SHARES) do
+  buy(s) is_binary
+  frac(s) <= buy(s)
+ end-do
+
+! Solve the problem
+ minimize(Variance)
+
+ writeln("With a target of ", TARGET," and at most ", MAXNUM,
+          " assets,\n minimum variance is ", getobjval)
+ forall(s in SHARES) writeln(s, ": ", getsol(frac(s))*100, "%") 
+ 
+end-model 

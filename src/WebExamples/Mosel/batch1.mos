@@ -1,0 +1,53 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file batch1.mos
+   ```````````````
+   Looping in the Mosel program over optimization runs 
+   coupled with data in- and output.
+       
+   (c) 2008 Fair Isaac Corporation
+       author: S.Heipcke, 2002, rev. 2017
+*******************************************************!)
+
+model "batch 1"
+ uses "mmxprs"
+
+ declarations
+  LIM=100
+  R=1..10
+  A,B: array(R) of real
+  x: array(R) of mpvar
+  ACtr,AnObj: linctr
+ end-declarations
+
+ forall(r in R) x(r) is_binary
+ 
+ forall(i in 0..2) do
+ ! (Re-)initialize data from file
+  initializations from "batchdata"+i+".dat"
+   A as "a"   B as "b"
+  end-initializations
+
+  if(i>0) then
+   forall(r in R) B(r)+=1  
+  end-if
+  
+ ! (Re-)assign constraints 
+  ACtr:= sum(r in R) B(r)*x(r) <= LIM+i*10
+  AnObj:=sum(r in R) A(r)*x(r)
+
+  maximize(AnObj)
+  writeln("Objective: ", getobjval) 
+
+ ! Write out data to a file to be read at the next round
+  if(i<2) then
+   initializations to "batchdata"+(i+1)+".dat"
+    B as "b"
+   end-initializations
+  end-if
+  
+ end-do  
+    
+end-model 

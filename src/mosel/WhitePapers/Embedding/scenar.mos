@@ -1,0 +1,67 @@
+(!*******************************************************
+  Mosel Example Problems
+  ======================
+
+  file scenar.mos
+  ```````````````
+  Transportation example (multiple scenarios).
+
+  (c) 2008 Fair Isaac Corporation
+      author: S.Heipcke, 2002, rev. June 2018
+*********************************************************!)
+
+model "Scenario"
+ uses "mmxprs"
+
+ parameters
+  DEMFILE="Data/dem1.dat"
+ end-parameters
+ 
+ public declarations
+  Suppliers: set of string                  ! Set of suppliers
+  Customers: set of string                  ! Set of customers
+  COST: dynamic array(Suppliers,Customers) of real  ! Cost per supplier-customer pair
+  CAP: array(Suppliers) of real             ! Production capacity
+  DEM: array(Customers) of real             ! Demand by customers
+
+  x: dynamic array(Suppliers,Customers) of mpvar    ! Transported quantities
+ end-declarations
+ 
+ initializations from "Data/supply.dat"
+  COST CAP
+ end-initializations
+ 
+ initializations from DEMFILE
+  DEM as "DEMAND"
+ end-initializations  
+
+ forall(s in Suppliers, c in Customers | exists(COST(s,c))) create(x(s,c))
+
+! Objective: minimize total cost
+ MinCost:= 
+  sum(s in Suppliers, c in Customers | exists(COST(s,c))) COST(s,c) * x(s,c)
+
+! Limits on production capacities
+ forall(s in Suppliers) sum(c in Customers) x(s,c) <= CAP(s)
+
+! Satisfy customer demands
+ forall(c in Customers) sum(s in Suppliers) x(s,c) >= DEM(c) 
+
+ minimize(MinCost)
+
+ writeln("Demand scenario: ", DEMFILE)
+ 
+(! 
+ forall(s in Suppliers, c in Customers)
+  if(getsol(x(s,c))>0) then
+   writeln(s," (", CAP(s), ") -> ", c, " (", DEM(c), "): ", 
+       getsol(x(s,c)) )
+  end-if
+!)
+
+ if(getprobstat=XPRS_OPT) then
+  writeln("Total cost: ", getobjval)
+  forall(s in Suppliers) writeln(s, ": ", getsol(sum(c in Customers) x(s,c)) )
+ end-if
+ 
+end-model 

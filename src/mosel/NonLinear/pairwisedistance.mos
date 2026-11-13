@@ -1,0 +1,208 @@
+(!*********************************************************************
+   Mosel NL examples
+   =================
+   file pairwisedistance.mos
+   `````````````````````````
+   Determine the positions of N points in D-dimensional space as
+   to minimize the ratio of pairwise distances between points,
+   that is, minimize the ratio of min and max squared distances.
+
+   (c) 2025-2026 Fair Isaac Corporation
+       author: S. Heipcke, June 2025
+*********************************************************************!)
+model "Minimize ratio of pairwise distances"
+  uses "mmxnlp", "mmsvg"
+
+  parameters
+    N = 12       ! Number of points to be placed, eg 12, 14 or 16
+    D = 3        ! Number of dimensions, 3 or 2
+    LIMIT = 5    ! Time limit
+    DEBUG = false
+    DISPLAY="SVG"  ! SVG - generate SVG via mmsvg, TERM - gnuplot terminal, 
+              ! PDF - generate PDF via gnuplot, PNG - generate PNG via gnuplot
+  end-parameters
+
+  public declarations
+    Points = 1..N
+    Dims = 1..D
+    x: array(Points, Dims) of mpvar    ! n points in d-dimensional space
+    t_min, t_max: mpvar          ! Variables for min and max squared distances
+    r: mpvar                     ! Ratio
+    Obj: linctr
+    DistLB,DistUB: dynamic array(Points,Points) of nlctr
+  end-declarations
+
+  ! Variable bounds
+  forall(i in Points, j in Dims) x(i,j) <= 1
+  t_min >= 0.01
+ 
+  ! Constraints on distances
+  forall(i,j in Points | i<j) do !(i in 1..N-1, j in i+1..N) do !
+    DistLB(i,j):= sum(k in Dims) (x(i,k) - x(j,k))^2 >= t_min
+    DistUB(i,j):= sum(k in Dims) (x(i,k) - x(j,k))^2 <= 1
+  end-do
+
+  ! We wish to minimize t_max/t_min, which is invariant for scaling. We can 
+  ! thus narrow the search to configurations where t_max is 1
+  t_max = 1
+  ! Compute ratio
+  r * t_min = 1
+
+  ! Objective: minimize the square root of ratio t_max / t_min
+  ! Instead of minimizing r=1/t_min, we can improve the formulation by
+  ! maximizing t_min (with this reformulation we are turning the problem 
+  ! from a general nonlinear problem into a non-convex quadratic programming 
+  ! problem).
+  Obj:= t_min
+
+  if DEBUG then
+    setparam("XPRS_LOADNAMES", true)
+    setparam("XPRS_OBJSENSE", -1)
+    loadprob(Obj)
+    writeprob("mindist" + N + "d" + D + ".lp","l")
+  end-if
+
+ ! Select the Global solver manually
+ ! setparam("XPRS_NLPSOLVER", 2) 
+
+  setparam("XPRS_MAXTIME", LIMIT)
+  setparam("XNLP_VERBOSE", true)
+  ! Solve
+  maximise(Obj)
+
+  status:= getparam("XPRS_SOLSTATUS")
+  if status in {XPRS_SOLSTATUS_FEASIBLE,XPRS_SOLSTATUS_OPTIMAL} then
+    writeln("Solution value (ratio): ", r.sol)
+    writeln("t_max: ", t_max.sol, ", t_min: ", t_min.sol)
+    forall(i in Points, j in Dims) writeln(x(i,j).name, ": ", x(i,j).sol)    
+  else
+    writeln("No solution found with time limit of ", LIMIT, " sec")
+    exit(1)
+  end-if
+
+  declarations
+    procedure drawsvg
+    procedure drawgnuplot
+  end-declarations
+
+  if DISPLAY="SVG" then
+    drawsvg
+  else
+    drawgnuplot
+  end-if
+
+! **** Display the solution as user graph ****
+  procedure drawsvg 
+    declarations
+      Offset: array(Points) of real
+      Shade: array(Points) of real
+    end-declarations
+    forall(i in Points) do
+      Offset(i):= 0.2 + if(D>2, 0.05*x(i,3).sol,0)
+      Shade(i):= if(D>2, 1-0.75*x(i,3).sol,1)
+    end-do
+
+  ! Scale the size of the displayed graph
+    svgsetgraphscale(500)
+    svgsetgraphpointsize(10)
+    svgsetgraphstyle(SVG_STROKEWIDTH,5)
+
+  ! Graph colours
+    svgaddgroup("L", "Min Distance", SVG_BLUE)
+    svgaddgroup("U", "Max Distance", SVG_RED)
+    svgaddgroup("S", "Solution", SVG_BLACK)
+    svgsetstyle(SVG_FILL, SVG_BLACK)
+    svgsetstyle(SVG_FONTSIZE, "15pt")
+
+  ! Draw the solution points and display solution value
+    forall(i in Points) do
+      svgaddcircle("S", x(i,1).sol+Offset(i), x(i,2).sol+Offset(i), 0.01)
+      svgsetstyle(svggetlastobj, SVG_OPACITY, Shade(i))
+    end-do
+    svgaddtext("S", 0.25, 0.1, "N = " + N + " D = " + D + " Ratio = " + r.sol)
+
+  ! Draw the min and max distances
+    TOL:=getparam("XPRS_FEASTOL")
+    forall(i in 1..N-1, j in i+1..N) do
+      if DistLB(i,j).sol<=TOL then 
+        svgaddline("L", x(i,1).sol+Offset(i), x(i,2).sol+Offset(i), 
+	  x(j,1).sol+Offset(j), x(j,2).sol+Offset(j))
+        svgsetstyle(svggetlastobj, SVG_OPACITY, (Shade(i)+Shade(j))/2)
+      end-if
+      if DistUB(i,j).slack<=TOL then
+        svgaddline("U", x(i,1).sol+Offset(i), x(i,2).sol+Offset(i), 
+	  x(j,1).sol+Offset(j), x(j,2).sol+Offset(j))
+        svgsetstyle(svggetlastobj, SVG_OPACITY, (Shade(i)+Shade(j))/2)
+      end-if
+    end-do
+
+  ! Update the display
+    svgrefresh
+
+    svgwaitclose("Close browser window to terminate model execution.", 1)
+    svgsave("mindist" + N + "d" + D + ".svg")
+  end-procedure
+
+ ! **** Create Gnuplot graphic ****
+  procedure drawgnuplot
+  ! Generate temporary output data file
+    pp:=getparam("tmpdir")+'/points.txt'
+    fopen(pp, F_OUTPUT)
+    forall(i in Points)  
+      forall(d in Dims) write(x(i,d).sol, if(d<D," ","\n"))
+    writeln
+    fclose(F_OUTPUT)
+
+    setparam("ioctrl", true)
+    fopen("mmsystem.pipe:gnuplot -p",F_OUTPUT+F_LINBUF)
+    if getparam("iostatus")<>0 then
+      writeln("'gnuplot' command not found")
+      exit(1)
+    end-if
+    case DISPLAY of
+    "TERM": if getsysinfo(SYS_NAME)="Windows" then
+           writeln("set terminal wxt")
+         else
+           writeln("set terminal x11")
+         end-if 
+     "PNG": do
+          writeln("set terminal png truecolor transparent size 800,600")
+          writeln("set output 'mindist.png'")
+        end-do
+     "PDF": do 
+          writeln("set terminal pdf color size 8,6")    
+          writeln("set output 'mindist.pdf'")
+        end-do
+    end-case
+    writeln('set style fill transparent solid 0.65 noborder')
+    writeln('set pm3d depthorder hidden3d 3')
+    writeln('set hidden3d front')
+    writeln('set xrange [-0.2:1.2]') 
+    writeln('set yrange [-0.2:1.2]') 
+    if D>2: writeln('set zrange [-0:1]') 
+
+    TOL:=getparam("XPRS_FEASTOL")
+    forall(i in 1..N-1, j in i+1..N) do
+      if DistLB(i,j).sol<=TOL then 
+        writeln("set arrow from ", 
+          x(i,1).sol,",", x(i,2).sol,if(D>2,","+x(i,3).sol,""),
+          " to ", x(j,1).sol,",", x(j,2).sol,if(D>2,","+x(j,3).sol,""),
+          ' lc rgb "#1010FF" lw 3 nohead')
+      end-if
+      if DistUB(i,j).slack<=TOL then
+        writeln("set arrow from ", 
+          x(i,1).sol,",", x(i,2).sol,if(D>2,","+x(i,3).sol,""),
+          " to ", x(j,1).sol,",", x(j,2).sol,if(D>2,","+x(j,3).sol,""),
+          ' lc rgb "#FF1010" lw 3 nohead')
+      end-if	
+    end-do 
+    writeln("set style line 1 linecolor rgb '#111111' linetype 1 linewidth 0 pointtype 7 pointsize 1.5 dashtype 3")
+    writeln(if(D>2,"splot '","plot '"), pp,"' title 'Minimum distance ratio ",r.sol,
+      " (N=",N,", Dimensions=",D,")' with linespoints linestyle 1")
+
+    if DISPLAY="TERM" then writeln("pause mouse keypress,close"); end-if 
+    fclose(F_OUTPUT)
+    fdelete(pp)
+  end-procedure
+
+end-model

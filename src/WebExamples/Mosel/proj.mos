@@ -1,0 +1,51 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file proj.mos
+   `````````````
+   Show which indices are enumerated when looping over
+   a sparse array
+       
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2001, rev. 2017
+*******************************************************!)
+
+model "Show indices"
+
+ declarations
+  R1,R2,R3: range
+  D: dynamic array(R1,R2,R3) of integer
+ end-declarations
+ 
+ initializations from 'proj1.dat'
+  D
+ end-initializations
+ 
+ writeln("Standard enumeration of 'D':")
+ forall(i in R1,j in R2,k in R3) 
+  writeln(i, " ", j, " ", k, ": ", D(i,j,k))
+
+ writeln("Enumeration of 'D' using 'exists':")
+ forall(i in R1,j in R2,k in R3 | exists(D(i,j,k))) 
+  writeln(i, " ", j, " ", k, ": ", D(i,j,k))
+
+! Declare and initialize the same set, this time indexed by 'set of integer'
+ declarations
+  S1,S2,S3: set of integer
+  C: dynamic array(S1,S2,S3) of integer
+ end-declarations
+ 
+ initializations from 'proj1.dat'
+  C as 'D'
+ end-initializations
+ 
+ writeln("Standard enumeration of 'C':")
+ forall(i in S1,j in S2,k in S3) 
+  writeln(i, " ", j, " ", k, ": ", C(i,j,k))
+
+ writeln("Enumeration of 'C' using 'exists':")
+ forall(i in S1,j in S2,k in S3 | exists(C(i,j,k))) 
+  writeln(i, " ", j, " ", k, ": ", C(i,j,k))
+  
+end-model

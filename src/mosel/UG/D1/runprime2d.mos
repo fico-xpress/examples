@@ -1,0 +1,61 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file runprime2d.mos 
+   ```````````````````
+   Model handling.
+   - Using the parallel debugger -
+ 
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2005, rev. Jul. 2014
+*******************************************************!)
+
+model "Run model prime"
+ uses "mmjobs"
+
+ parameters
+  LIMIT=20000                  ! Search for prime numbers in 2..LIMIT
+ end-parameters
+
+ declarations
+  modPrime: Model
+  event: Event
+ end-declarations
+                               ! Compile 'prime2d.mos' in debug mode
+ if compile("G","prime2d.mos")<>0 then exit(1); end-if
+
+ load(modPrime, "prime2d.bim") ! Load bim file
+
+ run(modPrime, "LIMIT="+LIMIT) ! Start execution and
+ wait                          ! wait for an event
+
+                               ! An event is available: submodel finished
+ event:=getnextevent
+ writeln("Exit status: ", getvalue(event))
+ writeln("Exit code  : ", getexitcode(modPrime))
+
+ unload(modPrime)              ! Unload the submodel
+end-model 
+
+(!
+
+Debugging
+=========
+Use the following command sequence in the Mosel command line:
+
+mosel debug runprime2d.mos LIMIT=50
+break 29
+cont
+next
+model 2
+break 34
+bcond 2-1 getsize(SNumbers) < 10
+cont
+print n
+display SNumbers
+display SPrime
+cont
+quit
+
+!)

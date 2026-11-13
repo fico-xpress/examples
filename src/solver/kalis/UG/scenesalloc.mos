@@ -1,0 +1,146 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file scenesalloc.mos
+   ````````````````````
+   Scenes allocation problem.
+   A movie producer has to decide when to shoot scenes for a movie.
+   Every scene involves a number of actors. A least 2 scenes and at
+   most 5 scenes a day can be filmed. All actors of a scene must, of
+   course, be present on the day the scene is shot. The actors have
+   fees representing the amount to be paid per day they spend in the 
+   studio. The goal of the application is to minimize the production
+   costs.
+
+   *** This model cannot be run with a Community Licence 
+       for the provided data instance ***
+
+   (c) 2017 Artelys S.A. and Fair Isaac Corporation
+       
+*****************************************************************!)
+
+model "Scenes Allocation (CP)"
+ uses "kalis"                    ! Gain access to the Xpress Kalis solver
+
+! **** Data ****
+ declarations
+   SCENES: range                 ! Set of scene numbers
+   DAYS = 1..5                   ! Day numbers when the scenes can be shot 
+   ACTORS: set of string         ! Set of actors
+   DAILYFEE: array(ACTORS) of integer      ! Daily fees of actors
+   CAST: array(SCENES) of set of string    ! Cast of actors per scene
+   APPEAR: array(ACTORS) of set of integer ! Scenes where an actor appears
+   MINSCENESHOT: array(DAYS) of integer    ! Minimum number of scenes per day
+   MAXSCENESHOT: array(DAYS) of integer    ! Maximum number of scenes per day
+ end-declarations
+
+! Initialize actors DAILYFEE
+ DAILYFEE::(["Georges Clooney","Penelope Cruz","Leonardo DiCaprio",
+  "Nathalie Portman","Ryan Gosling","Monica Bellucci","Javier Bardem",
+  "Keira Knightley","Vincent Cassel","Marion Cotillard","Emma Watson"])[264, 250, 303,
+  40, 75, 93, 87, 57, 74, 33, 95] 
+
+! Initialize minimum and maximum numbers of scenes that have to be shot per day
+ MINSCENESHOT::([1,2,3,4,5])[2,2,2,2,2] 
+ MAXSCENESHOT::([1,2,3,4,5])[5,5,5,5,5]
+
+! Initialize sets of actors per scene
+ CAST(1):= {"Monica Bellucci"}
+ CAST(2):= {"Georges Clooney","Monica Bellucci","Ryan Gosling","Nathalie Portman"}
+ CAST(3):= {"Keira Knightley","Leonardo DiCaprio","Vincent Cassel","Ryan Gosling"}
+ CAST(4):= {"Penelope Cruz","Vincent Cassel"}
+ CAST(5):= {"Vincent Cassel","Javier Bardem","Georges Clooney","Keira Knightley","Marion Cotillard"}
+ CAST(6):= {"Emma Watson","Keira Knightley","Javier Bardem","Leonardo DiCaprio","Marion Cotillard"}
+ CAST(7):= {"Penelope Cruz","Georges Clooney"}
+ CAST(8):= {"Vincent Cassel","Nathalie Portman"}
+ CAST(9):= {"Penelope Cruz","Keira Knightley","Vincent Cassel","Leonardo DiCaprio","Emma Watson"}
+ CAST(10):= {"Penelope Cruz","Keira Knightley","Leonardo DiCaprio","Georges Clooney"}
+ CAST(11):= {"Georges Clooney"}
+ CAST(12):= {"Monica Bellucci","Emma Watson","Keira Knightley","Nathalie Portman","Ryan Gosling"}
+ CAST(13):= {"Monica Bellucci","Nathalie Portman","Penelope Cruz","Georges Clooney"}
+ CAST(14):= {"Javier Bardem","Leonardo DiCaprio"}
+ CAST(15):= {"Emma Watson","Nathalie Portman","Keira Knightley","Georges Clooney"}
+ CAST(16):= {"Leonardo DiCaprio","Keira Knightley","Penelope Cruz","Vincent Cassel"}
+ CAST(17):= {"Leonardo DiCaprio","Georges Clooney","Ryan Gosling"}
+ CAST(18):= {"Leonardo DiCaprio","Keira Knightley","Monica Bellucci","Emma Watson"}
+ CAST(19):= {"Penelope Cruz"}
+
+! Calculate appearance in scenes for each actor
+ forall(a in ACTORS) APPEAR(a):= union(s in SCENES | a in CAST(s)) {s}
+
+! **** Problem statement ****
+ declarations
+   shoot: array(SCENES) of cpvar ! Decision var.s: day when a scene will be shot
+   work: array(ACTORS,DAYS) of cpvar
+                                 ! Decision var.s: presence of actor i on day k 
+   totalCost: cpvar              ! Objective  
+   shootListSb: cpvarlist        ! List of shoot variables for symmetry breaking
+   maxShootSb: array(SCENES) of cpvar   ! Max. value of shoot variables list 
+                                 ! per scene (formulation of symmetry breaking)
+ end-declarations
+
+ setparam("kalis_default_ub", 200000000)    ! Kalis default upper bound
+
+! **** Domain definition ****
+! Each shoot variable takes a value from the set DAYS
+ forall(s in SCENES) do
+   setname(shoot(s),"shoot["+s+"]")
+   setdomain(shoot(s), DAYS)
+ end-do
+ 
+! The total cost has a lower bound of $0 and an upper bound of $200000000
+ setname(totalCost, "totalCost")
+ setdomain(totalCost, 0, 200000000)
+
+! work : binary variables that indicate if actor i is present on day k 
+ forall(a in ACTORS, d in DAYS) do
+   setname(work(a,d), "work["+a+","+d+"]")
+   setdomain(work(a,d), 0, 1)
+ end-do
+
+! **** Constraints ****
+! Global Cardinality Constraint to express lower and upper bounds on the
+! number of scenes that have to be shot each day
+ distribute(shoot,DAYS,MINSCENESHOT,MAXSCENESHOT)
+
+! When an actor works on a day, this day is due
+ forall(a in ACTORS, s in APPEAR(a), d in DAYS)
+   implies(shoot(s)=d, work(a,d)=1)
+
+! Symmetry breaking
+ shoot(1) = 1                            ! All days are interchangeable at this stage
+ forall(s in SCENES | s > 1) do
+   shootListSb += shoot(s-1)             ! For a scene s, we need to consider   
+   maxShootSb(s) = maximum(shootListSb)  ! just the previously used days + 1:
+   shoot(s) <= maxShootSb(s)+1           ! D(s)={1,...,max(shoot(1),...,shoot(s-1))+1}
+ end-do
+
+! Objective function
+ totalCost = sum(a in ACTORS, d in DAYS) DAILYFEE(a)*work(a,d)
+ 
+! Branching strategy
+ cp_set_branching(assign_and_forbid(KALIS_INPUT_ORDER, KALIS_MIN_TO_MAX, shoot))
+
+! **** Problem solving and solution reporting ****
+ if cp_minimize(totalCost) then
+  ! Display total cost
+   writeln("Total cost: ", getsol(totalCost))
+  
+  ! Display scenes scheduled on each day
+   forall(d in DAYS) do
+     write("\nDay ", d, ": scenes ")
+     forall(s in SCENES | getsol(shoot(s))=d) write(s, " ")
+   end-do
+  
+  ! Display days worked by each actor
+   forall(a in ACTORS) do
+     write("\n", strfmt(a,-16), " :")
+     forall(d in DAYS | getsol(work(a,d)) = 1) write("  Day ",d)
+   end-do
+   writeln
+ else
+   writeln("No solution found.")
+ end-if
+
+end-model

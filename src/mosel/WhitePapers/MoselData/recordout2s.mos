@@ -1,0 +1,76 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file recordout2.mos
+   ```````````````````
+   Writing out records to
+   spreadsheets or databases via ODBC.
+   - Using SQL commands -
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Nov. 2007, rev. Aug. 2023
+*******************************************************!)
+
+model "Record output (SQL)"
+ uses "mmodbc"
+ options keepassert
+
+ parameters
+                              ! Use mysql database `recorddata' (not provided)
+!  CNCT = 'DSN=mysql;DB=recorddata'
+                              ! Use SQLite database `recorddata' via ODBC
+!  CNCT = 'DSN=sqlite;DATABASE=recorddata.sqlite'
+                              ! Use SQLite database `recorddata' directly
+  CNCT = 'recorddata.sqlite'
+ end-parameters
+
+ public declarations
+  PRODUCTS: set of string
+  MACH: range
+  ProdRec = public record
+   Cost: real
+   Duration: integer
+  end-record 
+  PDATA: dynamic array(PRODUCTS,MACH) of ProdRec
+
+  R = 1..9
+  AllDataRec = public record
+   Product: string
+   Mach: integer
+   Cost: real
+   Duration: integer
+  end-record 
+  ALLDATA: array(R) of AllDataRec
+ end-declarations
+
+! **** Reading data from a text file
+ initializations from "recorddata.dat"
+  PDATA as "ProdData"
+  ALLDATA as "AllData"
+ end-initializations
+
+! **** Write out complete records
+
+ setparam("SQLverbose",true)
+ setparam("SQLdebug",true)
+
+ SQLconnect(CNCT)
+ assert(getparam("SQLsuccess"))
+ SQLexecute("delete from ProdDataOutH") ! Cleaning up previous results: works
+                                        ! only for databases, cannot be used
+                                        ! with spreadsheets (instead, delete
+                                        ! previous solutions directly in the
+                                        ! spreadsheet file)
+ SQLexecute("insert into ProdDataOutH(IndexP,IndexM,Cost,Duration) values (?,?,?,?)",
+  PDATA)
+ assert(getparam("SQLsuccess"))
+ SQLexecute("delete from AllDataOutH")  ! Cleaning up previous results
+ setparam("SQLndxcol", false)           ! Dense data
+ SQLexecute("insert into AllDataOutH(IndexP,IndexM,Cost,Duration) values (?,?,?,?)",
+  ALLDATA)
+ assert(getparam("SQLsuccess"))
+
+ SQLdisconnect
+
+end-model

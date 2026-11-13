@@ -1,0 +1,343 @@
+(!*******************************************************
+  Mosel Template Preprocessor
+  ===========================
+
+  file template.mos
+  -----------------
+  This program can be used to automatically specialize Mosel code
+  by duplicating code portions, such as generating multiple versions
+  of subroutines for different types.
+
+  -- Preprocessing of Mosel source code --
+
+  Can be run as standard Mosel model:
+    mosel template.mos INPUT=inputfile [OUTPUT=outputfile]
+   or:
+    mosel template.mos -- inputfile [outputfile]
+
+  or the tool can be deployed as executable:
+    mosel comp template.mos -o deploy.exe:template
+   usage:
+    template inputfile [outputfile]
+
+  If no output filename is specified (second argument for executable, 
+  or if run as Mosel program, second argument after '--' or value of
+  the runtime parameter OUTPUT), then the contents of the input file 
+  gets replaced by the generated code.
+ 
+            *************************************
+
+  Template markup in the source (input) file that is processed by the 
+  'template' tool:
+
+  1. The area where to apply the replacement is surrounded by the markers
+    'template':
+
+   !#templcat.template=true
+...textblock where to apply the template replacement...
+   !#templcat.template=false
+
+     where 'templcat' stands for the category name configured via the
+     TEMPLCAT runtime parameter of the template.mos program
+
+  2. The substitution to be performed is indicated via the marker 'substitute'
+     that needs to follow after every template=true setting (any number of
+     replacement texts can be specified, separated by commas and without any 
+     whitespace):
+
+   !#templcat.substitute string_to_replace=newtext1,newtext2,newtext3
+
+     It is possible to specify multiple substitions for a template block,
+     using a blank as the separation character:
+
+   !#templcat.substitute repl1=newtext1,newtext2 repl2=newtext3,newtext4
+
+            *************************************
+
+  (c) Copyright 2015-2023 Fair Isaac Corporation. All rights reserved.
+  
+  Changelog
+  ---------
+  0.0.1 Initial (2015)
+  0.1.0 Template category name as parameter (Mar 2018)
+  0.1.1 Mosel 5 compatibility (May 2018)
+  0.1.2 Employ Mosel 5 routines 'cutelt', 'splittext' (Sep 2020)
+  0.1.3 Handle missing input file name (Jan 2021)
+  0.1.4 Processing of multiple substitutions within a block (Jun 2021)
+  0.1.5 Update to using Mosel6.2 version of deploy (Oct 2022)
+  0.1.6 Minor updates (Aug 2023)
+  0.1.7 Generate output file without replacements if dst name is specified,
+        added preprocessor directives for lines (Dec 2023)
+
+*******************************************************!)
+model template
+  uses "mmsystem", "deploy"
+  version 0.1.7
+
+  parameters
+   !@doc.descr Input (template) file name
+    INPUT="testtemplate_templ.mos"
+   !@doc.descr Output (Mosel source) file name
+    OUTPUT="testtemplate.mos"
+   !@doc.descr Template category name
+    TEMPLCAT="test"
+   !@doc.descr Whether to enable debug mode
+    DEBUG=false
+  end-parameters
+
+ (!@doc.
+  @descr Preprocess Mosel code and duplicate code where the TEMPLCAT.template
+  annotation is present.
+  @param src Input file
+  @param dst Output file (optional)
+  @info If <tt>dst</tt> is an empty string then the resulting code is saved in <tt>src</tt>.
+ !)
+  public procedure templatemosel(src,dst: text)
+    declarations
+      intemplate: boolean
+      rct,cct,nct,sct: integer
+      fromL,mostype,tmptxt: text
+      Subs,Combs: range
+      TypeSubL,tmpLst: dynamic array(Combs) of list of integer
+      SubsLst: dynamic array(Subs) of list of text
+      fname: array(Combs) of string
+      fid: array(Combs) of integer
+      SrcType: set of string
+      i,n: integer
+      s: string
+      a,atemp,btemp,s2,d: text
+      l,tmp: list of text
+      fmain: text
+      fmainid: integer
+      linecnt,startsubst,endsubst: integer
+    end-declarations
+
+    if src="" then
+      writeln("No input file has been specified.")
+      exit(1)
+    else
+      writeln("Processing '", src, "' ...")
+    end-if
+    fopen(src,F_INPUT)
+    fmain:=if(DEBUG,"testmain","mem:main")
+    fopen(fmain,F_OUTPUT)
+    fmainid := getfid(F_OUTPUT)
+    if dst.size>0 : writeln("#1 ",src)
+    n:=0
+    intemplate:=false
+    linecnt:=0
+    while(readtextline(a)>0) do
+      linecnt+=1
+     ! Template start
+      i := findtext(a,"#"+TEMPLCAT+".template=true",1)
+      if i>0 then
+        intemplate:=true
+	startsubst:=linecnt+1
+      end-if
+
+     ! Store substitutions
+      i:= findtext(a,"#"+TEMPLCAT+".substitute ",1) 
+      if i>0 then
+        a := copytext(a,i+16,a.size)
+        trim(a)
+        l := sum(t in splittext(a," ")) [text(t)]
+        forall(s1 in l) do
+          tmp := splittext(s1,"=")
+          fromL:= cutelt(tmp)
+          mostype := cutelt(tmp)
+          SrcType+={string(fromL)}
+          rct:=0; cct:=TypeSubL.size; delcell(tmpLst)
+          forall(rct as counter, t in splittext(mostype,",")) do
+            trim(t)
+            nct:=TypeSubL.size
+            sct:=SubsLst.size+1
+            SubsLst(sct):=[text(fromL),t]
+            if cct=0 then
+              TypeSubL(rct):=[sct]
+            elif rct>1 then
+              forall(k in 1..cct) TypeSubL(nct+k):=tmpLst(k)+[sct]
+              nct+=cct
+            else
+              forall(k in 1..cct) tmpLst(k):= TypeSubL(k)
+              forall(k in 1..cct) TypeSubL(k)+=[sct]
+            end-if
+          end-do
+        end-do
+        a := ""
+        forall(k in 1..TypeSubL.size) do
+          tmptxt:=""
+          forall(j in TypeSubL(k)) tmptxt+=("_"+j)
+          fname(k) := if(DEBUG,"file"+tmptxt,"mem:file_"+tmptxt)
+          fopen(fname(k),F_OUTPUT)
+          fid(k) := getfid(F_OUTPUT)
+          write("!")
+          forall(j in TypeSubL(k)) write(" ",SubsLst(j,1),"=",SubsLst(j,2))
+          writeln
+        end-do
+        if DEBUG then fwriteln(2,SubsLst); end-if
+      end-if
+
+     ! Substitution end
+      i := findtext(a,"#"+TEMPLCAT+".template=false",1)
+      if i>0 then
+        intemplate:=false
+        endsubst:=linecnt+1
+        ! Close all opened files and concatenate
+        forall(k in 1..TypeSubL.size) do
+          fselect(fid(k))
+          fclose(F_OUTPUT)
+          fselect(fmainid)
+          if DEBUG then fwriteln(2,k," ",fname(k)," ",fid(k)); end-if
+          fopen(fname(k),F_INPUT)
+	  writeln("#",startsubst)
+          while(readtextline(a)>0) do
+            write(a)
+          end-do
+          fclose(F_INPUT)
+          fdelete(fname(k))
+        end-do
+	writeln("#",endsubst)
+        delcell(SubsLst);delcell(TypeSubL);SrcType:={}
+        a := ""
+      end-if
+
+     ! Substitute templates
+      if i<=0 then
+        if intemplate then
+         ! Single replacement: simultaneously write all outputs 
+          if SrcType.size=1 then   
+            s:=getelt(SrcType)
+            i := findtext(a,s,1)
+            if i>0 then
+              while(i>0) do
+                forall(j in 1..TypeSubL.size) do
+                  d:=SubsLst(j,2)
+                  n += 1
+                  fselect(fid(j))
+                  write(copytext(a,1,i-1))
+                  write(d)
+                end-do
+                a := copytext(a,i+s.size,a.size)
+                i := findtext(a,s,1)
+              end-do
+              forall(j in 1..TypeSubL.size) do
+                fselect(fid(j))
+                write(a)
+              end-do
+              fselect(fmainid)
+            else
+              forall(j in 1..TypeSubL.size) do
+                fselect(fid(j))
+                write(a)
+              end-do
+              fselect(fmainid)
+            end-if
+
+         ! Multiple replacements: process one file at a time
+          else     
+            forall(k in 1..TypeSubL.size) do
+              n += 1
+              atemp:=copytext(a,1,a.size); btemp:=""              
+              forall(j in TypeSubL(k)) do
+                s2:=SubsLst(j,1)
+                d:=SubsLst(j,2)
+                i := findtext(atemp,s2,1)
+                if i>0 then
+                  while(i>0) do
+                    btemp+=copytext(atemp,1,i-1)
+                    btemp+=text(d)
+                    atemp:= copytext(atemp,i+s2.size,atemp.size)
+                    i:= findtext(atemp,s2,1)
+                  end-do
+                  btemp+=atemp
+                  atemp:=copytext(btemp,1,btemp.size); btemp:=""
+                end-if
+              end-do
+              fselect(fid(k))
+              write(atemp)
+            end-do
+            fselect(fmainid)
+
+          end-if
+        else
+          write(a)
+        end-if
+      end-if
+
+    end-do
+    fclose(F_INPUT)
+    fclose(F_OUTPUT)
+
+    if n>0 then
+      writeln("Preprocessed templates from ", src, " to ", 
+        if(dst.size>0,dst,src))
+      if dst.size>0 then
+        fcopy(fmain,F_BINARY,dst,F_BINARY)
+      else
+        fcopy(fmain,F_BINARY,src,F_BINARY)
+      end-if
+    else
+      writeln("No preprocessing templates found.") 
+      if dst.size>0: fcopy(src,F_BINARY,dst,F_BINARY)
+    end-if
+    fdelete(fmain)
+
+  end-procedure
+
+  !***********************!
+  !* Display Banner
+  !***********************!
+ !@doc.descr Get the basename (filename without path and extension) of a file
+  function basename(f:text):text
+    returned:=pathsplit(SYS_FNAME,f)
+    asproc(pathsplit(SYS_EXTN,returned,returned))
+  end-function
+
+ !@doc.descr Display a banner
+  procedure banner
+    writeln(basename(argv(1)), " v", getparam("model_version"))
+    writeln("(c) Copyright Fair Isaac Corporation 2015-2022. All rights reserved")
+  end-procedure
+
+  !***********************!
+  !* Display some help
+  !***********************!
+ !@doc.descr Display help text for use from command line
+  procedure showhelp
+    declarations
+     fnm: text
+    end-declarations
+    writeln_("\nUsage (executable):  ", argv(1), " infile [outfile]")
+    asproc(pathsplit(SYS_EXTN,argv(1),fnm))
+    writeln_("      (Mosel file):  mosel ", fnm, "[.mos|.bim] -- infile [outfile]")
+    writeln_("      (Mosel file):  mosel ", fnm, "[.mos|.bim] INPUT=infile [OUTPUT=outfile]")
+    writeln_("Configured for preprocessing #",TEMPLCAT,".template and #",TEMPLCAT,".substitute markers.")
+    writeln_("Arguments:")
+    writeln_("      infile    input file")
+    writeln_("      outfile   output file (if not specified the input file will be replaced)")
+  end-procedure
+
+ !************************ Main ************************
+  declarations
+    li: integer
+    input,output: text
+  end-declarations
+
+  if argc=1 and INPUT<>"" then	! Not an executable: use parameters if specified
+    templatemosel(INPUT,OUTPUT)
+  elif argc<2 then              ! Error: no input file has been specified
+    banner
+    showhelp
+    exit(1)
+  else                          ! Use command line arguments 
+    li:=2
+    forall(i in li..argc)
+      case i of
+        2: input:=argv(i)
+        3: output:=argv(i)
+      end-case
+    templatemosel(input,output)
+  end-if
+
+end-model
+

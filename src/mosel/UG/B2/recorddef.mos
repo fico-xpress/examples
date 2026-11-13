@@ -1,0 +1,47 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file recorddef.mos 
+   `````````````````` 
+   Defining and initializing records.
+ 
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Nov. 2006, rev. Sep. 2018
+*******************************************************!)
+
+model "Defining records"
+
+ public declarations 
+  R = 1..10
+  D: public record
+   name: string
+   values: array(R) of real
+  end-record
+ end-declarations
+
+ public declarations 
+  mydata = public record                   ! Define a named record
+   name: string
+   values: array(R) of real
+  end-record
+  M: mydata
+  A: dynamic array(T:range) of mydata
+ end-declarations
+ 
+ D.name:= "D"
+ forall(i in R) D.values(i):= i
+ writeln("Values of ", D.name, ": ", D.values)
+
+ initializations from "recorddef.dat"
+  A
+ end-initializations
+
+ writeln("An entry of A: ", A(1))
+ writeln("'name' of an entry of A: ", A(4).name)
+ writeln("'values' of an entry of A: ", A(3).values)
+ writeln("First entry of 'values' of 'A4': ", A(4).values(1))
+
+ forall(i in T | exists(A(i))) writeln(A(i).name)
+
+end-model 

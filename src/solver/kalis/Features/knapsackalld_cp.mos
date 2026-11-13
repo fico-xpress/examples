@@ -1,0 +1,52 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file knapsackalld_cp.mos
+   ````````````````````````
+   Knapsack problem with additional alldifferent 
+   constraint solved by standard CP search.
+
+   (c) 2009 Artelys S.A. and Fair Isaac Corporation
+       Creation: 2009, rev. Mar. 2013, rev. Jun. 2023        
+*****************************************************************!)
+model "Knapsack with side constraints"
+ uses "kalis"
+
+ declarations
+  x1,x2,x3: cpvar                   ! Decision variables
+  cost: cpvar                       ! The objective to minimize
+ end-declarations
+
+! Enable output printing
+ setparam("kalis_verbose_level", 1)
+
+! Setting name of variables for pretty printing
+ setname(x1,"x1"); setname(x2,"x2"); setname(x3,"x3") 
+ setname(cost,"cost")
+
+! Set initial domains for variables
+ setdomain(x1, {1,3,8,12})
+ setdomain(x2, {1,3,8,12})
+ setdomain(x3, {1,3,8,12})
+
+! Knapsack constraint
+ 3*x1 + 5*x2 + 2*x3 >= 30
+
+! Additional global constraint
+ all_different({x1,x2,x3})
+
+! Objective function
+ cost = 5*x1 + 8*x2 + 4*x3
+
+! Initial propagation
+ if not cp_propagate: exit(1)
+
+! Display bounds on objective after constraint propagation 
+ writeln("Constraint propagation objective ", cost)
+
+! Solve the problem
+ if cp_minimize(cost):  
+   cp_show_sol                    ! Output optimal solution to screen
+
+end-model

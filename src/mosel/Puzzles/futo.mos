@@ -1,0 +1,81 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file futo.mos
+   `````````````
+   Solving the Futoshiki puzzle as a MIP problem.
+   
+   (c) 2008 Fair Isaac Corporation
+       author: Bob Daniel, S. Heipcke, 2006
+*******************************************************!)
+
+model futoshiki
+ uses "mmxprs"
+
+ parameters
+  DATAFILE="futo1.dat"
+ end-parameters
+ 
+ declarations
+  FIVE = 1..5
+  ISKNOWN: dynamic array(FIVE,FIVE) of integer
+  ISGREATER: dynamic array(FIVE,FIVE,FIVE,FIVE) of boolean
+  x: array(FIVE,FIVE,FIVE) of mpvar
+  y: array(FIVE,FIVE) of mpvar
+ end-declarations
+
+ initializations from "Data/"+DATAFILE
+  ISKNOWN ISGREATER
+ end-initializations
+ 
+ forall(i,j,l in FIVE) x(i,j,l) is_binary
+ forall(i,j in FIVE) do
+   y(i,j) <= 5; y(i,j) >=1
+ end-do
+
+! Every row and column contains the numbers 1 to 5 
+ forall(i,l in FIVE) sum(j in FIVE) x(i,j,l)=1
+ forall(j,l in FIVE) sum(i in FIVE) x(i,j,l)=1
+ forall(i,j in FIVE) y(i,j)=sum(l in FIVE) l*x(i,j,l)
+
+! Definition of the particular grid
+ forall(i,j in FIVE | exists(ISKNOWN(i,j)))
+  y(i,j) = ISKNOWN(i,j)
+ forall(i1,j1,i2,j2 in FIVE | exists(ISGREATER(i1,j1,i2,j2)))
+  y(i1,j1) >= y(i2,j2) + 1
+
+! Solve the problem
+ minimize(y(1,1))
+
+! Solution printing
+  writeln("  | 1 2 3 4 5")
+  writeln("--------------")
+  forall(i in FIVE) do
+   write(i, " | ")
+   forall(j in FIVE) do
+    write(round(getsol(y(i,j))))
+    if j<5 then
+     if ISGREATER(i,j,i,j+1) then write (">")
+     elif ISGREATER(i,j+1,i,j) then write("<")
+     else write(" ")
+     end-if
+    else
+     writeln
+    end-if   
+   end-do
+   if i < 5 then
+    write("  | ")
+    forall(j in FIVE)
+     if ISGREATER(i,j,i+1,j) then write ("v ")
+     elif ISGREATER(i+1,j,i,j) then write("^ ")
+     else write("  ")
+     end-if
+   end-if
+   writeln
+  end-do
+   
+end-model
+ 
+
+

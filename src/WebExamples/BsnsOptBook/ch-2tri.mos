@@ -1,0 +1,246 @@
+(!*********************************************************************
+   Mosel Example Problems
+   ======================
+
+   file ch-2tri.mos
+   ````````````````
+   Find the convex hull of two triangles T1 and T2.
+
+     Example discussed in section 10.3 of
+     J. Kallrath: Business Optimization Using Mathematical Programming -
+     An Introduction with Case Studies and Solutions in Various Algebraic 
+     Modeling Languages. 2nd edition, Springer Nature, Cham, 2021 
+
+   Mosel version of CH-twoTriangles.gms (T.Romanova & J.Kallrath):
+   For the following example of two triangles with vertices (A,B,C)
+       T1: A_1=(0,0), B_1=(14,0), C_1=(10,-5)
+       T2: A_2=(0,0), B_2=( 8,0), C_2=( 6, 4)
+   the analytic solution is u*=7, alpha_2=33.6900675, x=1, and the minimal 
+   length of the convex hull perimeter: 33.7079796215289.
+
+   Notations
+   ---------
+   S  is the number of sides of the convex hull
+   A is the set of sides of the first triangle (called triangle A)
+   B is the set of sides of the second triangle (called triangle B)
+   VXA,VYA,VXB,VYB  are sets of the appropriate coordinates (x,y) of the
+                    vertices of  two  triangles
+   aA,bA,cA  are sets of the appropriate coefficients of the side equations
+             of triangle A
+   xB,yB,fB are variable placement parameters of triangle B
+   xS,yS,fS,lS are sets of variable parameters of sides of the convex hull
+   lPCH is the perimeter of the convex hull
+
+
+   author: S. Heipcke, June 2020, rev. Sep. 2022
+
+   (c) Copyright 2020 Fair Isaac Corporation
+  
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+*********************************************************************!)
+
+model "ch_2tri"
+  uses "math", "mmxnlp"
+  uses "mmsvg"
+
+!**** Input data ****
+ declarations
+   S: range                         ! Sides of the convex hull S1,...,S4
+   A = 1..3                         ! Vertices of triangle A   A1,...,A3
+   B = 1..3                         ! Vertices of triangle B   B1,...,B3
+   VXA, VYA: array(A) of real       ! x/y-coordinates of vertices of triangle A
+   VXB, VYB: array(B) of real       ! x/y-coordinates of vertices of triangle B
+   AlphaA, BetaA, GammaA: array(A) of real ! Coeff.s of the side equations of A
+   SideLengthsA: array(A) of real   ! Side lengths of A
+   SideLengthsB: array(B) of real   ! Side lengths of B
+   AnglesA, CosA: array(A) of real  ! Angles at vertices of A
+   CosNA, SinNA: array(A) of real   ! Normal vector angles onto sides A
+   AnglesNA,NX,NY: array(A) of real ! Normal vector angles onto sides A
+ end-declarations
+ 
+ ! Input data: shape and position of triangles
+ VXA::(1..3)[0,10,14]
+ VYA::(1..3)[0,-5, 0]
+ VXB::(1..3)[0, 8, 6]
+ VYB::(1..3)[0, 0, 4]
+ AlphaA::(1..3)[-0.447214,  0.780869,0]
+ BetaA:: (1..3)[-0.894427, -0.624695,1]
+ GammaA::(1..3)[ 0       ,-10.932163,0]
+ S:= 0..3
+ sz:= S.size
+
+ ! Compute side lengths 
+ forall(i in A) SideLengthsA(i):= 
+   sqrt( (VXA(if(i<3,i+1,1))-VXA(i))^2 + (VYA(if(i<3,i+1,1))-VYA(i))^2 )
+ forall(i in B) SideLengthsB(i):= 
+   sqrt( (VXB(if(i<3,i+1,1))-VXB(i))^2 + (VYB(if(i<3,i+1,1))-VYB(i))^2 )
+
+ ! Compute angles
+ forall(i in A) do
+   CosA(i):= ( (VXA(if(i<3,i+1,1))-VXA(i))*(VXA(if(i>1,i-1,3))-VXA(i)) +
+               (VYA(if(i<3,i+1,1))-VYA(i))*(VYA(if(i>1,i-1,3))-VYA(i)) ) / 
+             SideLengthsA(i) / SideLengthsA(if(i>1,i-1,3)) 
+   AnglesA(i) := arccos(CosA(i)) 
+   AnglesNA(i):= 3/2*M_PI - AnglesA(i) 
+   AnglesNA(i):= 3/2*M_PI - AnglesA(i) 
+   CosNA(i):= cos(AnglesNA(i))
+   SinNA(i):= sin(AnglesNA(i))
+ end-do
+
+! Construct the normal vector onto sides of A
+ forall(i in A) do
+   NX(i):= ( VYA(if(i<3,i+1,1))-VYA(i) ) / SideLengthsA(i) 
+   NY(i):= - ( VXA(if(i<3,i+1,1))-VXA(i) ) / SideLengthsA(i)
+
+   AlphaA(i):= NX(i) 
+   BetaA(i) := NY(i) 
+   GammaA(i):= - ( NX(i) * VXA(i) + NY(i) * VYA(i) )
+ end-do
+
+ ! writeln("Normal vector,d:", NX,NY,array(i in A)(NX(i)*VXA(i)+NY(i)*VYA(i)))
+
+! **** Optimization problem ****
+ declarations
+   xB: mpvar             ! x-position of triangle B point belonging to convex hull
+   yB: mpvar             ! y-position of triangle B point belonging to convex hull
+   xS: array(S) of mpvar ! Vertex S of the convex hull (x-coordinate)
+   yS: array(S) of mpvar ! Vertex S of the convex hull (y-coordinate)
+   lPCH: mpvar           ! Length of the convex hull perimeter (objective function)
+   lS: array(S) of mpvar ! Side length of convex hull edge S
+   fS: array(S) of mpvar ! Orientation angle of convex hull edge S
+   fB: mpvar             ! Angle of triangle B (=convex hull vertex) with x-axis
+   cfB,sfB: mpvar
+   cfS,sfS: array(S) of mpvar 
+   wx,wy: array(B) of mpvar ! Translated and rotated vertex B of triangle B (x/y-coordinate)
+ end-declarations
+
+ xB is_free; yB is_free; lPCH is_free
+ forall(s in S) xS(s) is_free
+ forall(s in S) yS(s) is_free
+ cfB is_free; sfB is_free
+ forall(s in S) cfS(s) is_free
+ forall(s in S) sfS(s) is_free
+ forall(i in B) wy(i) is_free
+
+ cfB = cos(fB); sfB = sin(fB)
+ forall(s in S) cfS(s) = cos(fS(s))
+ forall(s in S) sfS(s) = sin(fS(s))
+
+! Pythagorean theorem for cos(fB) and sin(fB)
+ TrigIDfB:= sfB^2 + cfB^2 = 1
+
+! Pythagorean theorem for cos(fS(S)) and sin(fS(S))
+ forall(s in S) TrigIDfS(s):= cfS(s)^2 + sfS(s)^2 = 1
+
+ forall(s in S) GlueX(s):= xS((s+1) MOD sz) = xS(s) + lS(s) * cfS(s) 
+ forall(s in S) GlueY(s):= yS((s+1) MOD sz) = yS(s) + lS(s) * sfS(s) 
+
+ forall(i in A, s in S) 
+   BelongingA(i,s):= - (VXA(i)-xS(s)) * sfS(s) + (VYA(i)-yS(s)) * cfS(s) >= 0 
+
+ forall(i in B, s in S) BelongingB(i,s):= - (wx(i)-xS(s)) * sfS(s) +
+                     (wy(i)-yS(s)) * cfS(s) >= 0 
+
+! Defining vertex coordinates wx and wy for new position of triangle B
+ forall(i in B) DefwxB(i):= wx(i) = xB + VXB(i)*cfB - VYB(i)*sfB 
+ forall(i in B) DefwyB(i):= wy(i) = yB + VXB(i)*sfB + VYB(i)*cfB 
+
+! Objective function
+ Obj:= lPCH = sum(s in S) lS(s)
+
+! Ensure that triangle T1=A and triangle T2=B do not overlap
+ forall(i in B) 
+   Nonoverlaping(i):=  AlphaA(3)*wx(i) + BetaA(3)*wy(i) + GammaA(3) >= 0
+
+ SmallEps:= 0.00125 
+
+! Equation Convexity
+ forall(s in S)
+   Convexity(s):= -(xS((s+2) MOD sz)-xS(s))*sfS(s)+(yS((s+2) MOD sz)-yS(s))*cfS(s) >= SmallEps
+
+! Bounds on the rotated vertices of triangle B
+ forall(i in B) do
+   -20 <= wx(i); wx(i) <= 20
+   -20 <= wy(i); wy(i) <= 20
+ end-do
+
+! Bounds on the vertices of the convex hull
+ forall(s in S) do
+   0 <= xS(s); xS(s) <= 14 
+   -5 <= yS(s); yS(s) <= 8 
+ end-do
+
+! Upper bound on the rotation angle of the convex hull vertices
+ forall(s in S) fS(s) <= 2*M_PI
+
+! Bounds on cos and sin
+ forall(s in S) do
+   -1 <= cfS(s); cfS(s) <= 1 
+   -1 <= sfS(s); sfS(s) <= 1
+ end-do
+ -1 <= cfB; cfB <=1 
+ -1 <= sfB; sfB <=1 
+
+! Bounds on the vertex C of triangle B
+ xB >= 0 ; xB <= 14
+ yB >= 0 ; yB <=  8 
+
+! Break symmetry by fixing one convex hull vertex 
+ xS(0) = 10 
+ yS(0) = -5 
+
+ setparam("XNLP_verbose",true)
+ setparam("XPRS_TIMELIMIT", 3600)
+! Use multi-start heuristic 
+ addmultistart("random points", XNLP_MSSET_INITIALVALUES, 50)
+
+ minimize(lPCH)
+ writeln("Solution (convex hull perimeter): ", getobjval)
+ writeln("B: convex hull point: x:",xB.sol, " y:", yB.sol, "   f:", fB.sol)
+ forall(i in B)
+    writeln("   vertex ", i, " x:",wx(i).sol, " y:", wy(i).sol)
+ forall(s in S)
+   writeln("Hull vertex ", s,":  x:",xS(s).sol, " y:", yS(s).sol, "   f:", fS(s).sol,
+           " l:", lS(s).sol)
+
+ ! **** Draw result as SVG graphic ****
+ svgaddgroup("A", "Triangle A")
+ svgsetstyle(SVG_FILL, SVG_CURRENT)
+ svgsetstyle(SVG_FILLOPACITY, 0.25)
+ svgsetstyle(SVG_STROKEWIDTH,0.1)
+ svgaddpolygon(sum(i in A) [VXA(i),VYA(i)])
+ svgaddgroup("B", "Original triangle B", SVG_YELLOW)
+ svgsetstyle(SVG_STROKEWIDTH,0.1)
+ svgsetstyle(SVG_FILL, SVG_CURRENT)
+ svgsetstyle(SVG_FILLOPACITY, 0.25)
+ svgaddpolygon(sum(i in B) [VXB(i),VYB(i)])
+ svgaddgroup("B2", "Shifted triangle B", SVG_ORANGE)
+ svgsetstyle(SVG_STROKEWIDTH,0.1)
+ svgsetstyle(SVG_FILL, SVG_CURRENT)
+ svgsetstyle(SVG_FILLOPACITY, 0.25)
+ svgaddpolygon(sum(i in B) [wx(i).sol,wy(i).sol])
+ svgaddgroup("S", "Convex Hull", SVG_GREEN)
+ svgsetstyle(SVG_STROKEWIDTH,0.1)
+ svgaddpolygon(sum(s in S) [xS(s).sol,yS(s).sol])
+
+ svgsetgraphviewbox(-10,-10,25,25)
+ svgshowgraphaxes(true)
+
+! Display the graph 
+ svgrefresh
+ svgsave("ch2tri.svg")
+! Wait for display window to close 
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+
+end-model

@@ -1,0 +1,36 @@
+(!******************************************
+   Mosel Example Problems
+   ======================
+
+   File versionedpkg_v1.mos
+   ````````````````````````
+   Example package with versioning annotations.
+   -- Initial version --
+
+   Compile into versionpkg.bim via:
+     mosel comp versionedpkg_v1.mos -o versionedpkg.bim
+
+   Then compile versionpkg_test.mos:
+     mosel comp versionpkg_test.mos
+
+   Display minimum required package version stored in the model BIM file:
+     mosel exam -h versionpkg_test.bim 
+   (Optionally, generate the versionedpkg.bim from another 
+   package source version and re-display the output of the 'exam' command.)
+
+   Run the model with the current package version on the BIM search path
+   (this may be different from the package version used for compilation):
+      mosel run versionpkg_test.bim
+
+   (c) 2023 Fair Isaac Corporation
+       author: S. Heipcke, Jun. 2023
+*******************************************!)
+package versionedpkg
+ version 1.0
+
+!@mc.version.since 1.0.0
+ public procedure showpkgver
+   writeln("Using version ", getparam("model_version"), " of package 'versionedpkg'.")
+ end-procedure
+ 
+end-package

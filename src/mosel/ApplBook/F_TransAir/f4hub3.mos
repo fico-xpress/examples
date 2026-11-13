@@ -1,0 +1,115 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file f4hub3.mos
+   ```````````````
+   Choosing hubs for transatlantic freight
+   (number of hubs specified as a model parameter)
+   
+   An airline specializes in freight transportation linking 
+   major cities in France with American cities. The average 
+   freight quantities transported between each city is known.
+   Assume the transportation cost is proportional to the
+   distance between the cities. The airline is planning to 
+   use a defined number of cities as hubs to reduce costs. 
+   The traffic between cities assigned to one hub and the 
+   cities assigned to another hub is all routed through 
+   the single connection from the first hub to the second. 
+   The transport cost between any two hubs decreases
+   by 20%. Determine the cities to be assigned as hubs in 
+   order to minimize the total transportation costs.
+   
+   Here we define the number of hubs with a model parameter.
+   This problem uses quadruple indices to represent the cost
+   of traveling from city i to j via hubs k and l. The formulation
+   of the mathematical model uses a large number of variables 
+   for a relatively small problem. Due to the location of the 6 
+   cities, we can reasonably assume that one hub will be located 
+   in the U.S. and one in France. The revised formulation defines 
+   the decision variables 'flow' as a dynamic array so that only 
+   required entries are created.
+
+   (c) 2008-2022 Fair Isaac Corporation
+       author: S. Heipcke, Dec. 2008, rev. Mar. 2022
+*******************************************************!)
+
+model "F-4 Hubs (3)"
+ uses "mmxprs"
+
+ parameters
+  NHUBS = 2                              ! Number of hubs
+ end-parameters 
+
+ forward function calccost(i,j,k,l:integer):real
+
+ declarations
+  US = 1..3; EU = 4..6
+  CITIES = US + EU                       ! Cities
+  
+  QUANT: array(CITIES,CITIES) of integer ! Quantity to transport
+  DIST: array(CITIES,CITIES) of integer  ! Distance between cities
+  FACTOR: real                           ! Reduction of costs between hubs
+  
+  flow: dynamic array(CITIES,CITIES,CITIES,CITIES) of mpvar
+                                         ! flow(i,j,k,l)=1 if freight
+                                         ! from i to j goes via k and l 
+  hub: array(CITIES) of mpvar            ! 1 if city is a hub, 0 otherwise
+ end-declarations
+
+ initializations from 'f4hub.dat'
+  QUANT DIST FACTOR
+ end-initializations
+
+ forall(i,j in CITIES | i<j) QUANT(i,j):=QUANT(i,j)+QUANT(j,i)
+
+ forall(i,j,k,l in US | i<j) create(flow(i,j,k,l))
+ forall(i,j,k,l in EU | i<j) create(flow(i,j,k,l))
+ forall(i,k in US, j,l in EU) create(flow(i,j,k,l))
+
+! Objective: total transport cost
+ Cost:= sum(i,j,k,l in CITIES | exists(flow(i,j,k,l))) 
+                   QUANT(i,j)*calccost(i,j,k,l)*flow(i,j,k,l)
+
+! Number of hubs
+ sum(i in CITIES) hub(i) = NHUBS
+ 
+! One hub-to-hub connection per freight transport 
+ forall(i,j in CITIES | i<j) sum(k,l in CITIES) flow(i,j,k,l) = 1
+ forall(i,j in US | i<j) sum(k,l in US) flow(i,j,k,l) = 1
+ forall(i,j in EU | i<j) sum(k,l in EU) flow(i,j,k,l) = 1
+ 
+! Relation between flows and hubs
+ forall(i,j,k,l in CITIES | exists(flow(i,j,k,l))) do
+  flow(i,j,k,l) <= hub(k)
+  flow(i,j,k,l) <= hub(l)
+ end-do 
+
+ forall(i in CITIES) hub(i) is_binary
+ forall(i,j,k,l in CITIES | exists(flow(i,j,k,l))) flow(i,j,k,l) is_binary
+
+! Solve the problem
+ minimize(Cost)
+ 
+! Solution printing
+ declarations
+  NAMES: array(CITIES) of string         ! Names of cities
+ end-declarations 
+
+ initializations from 'f4hub.dat'
+  NAMES
+ end-initializations
+
+ writeln("Total transport cost: ", strfmt(getobjval,10,2))
+ write("Hubs:")
+ forall(i in CITIES) write( if(getsol(hub(i))>0," " + NAMES(i), ""))
+ writeln
+
+!-----------------------------------------------------------------
+
+! Transport cost from i to j via hubs k and l
+ function calccost(i,j,k,l:integer):real
+  returned:=DIST(i,k)+FACTOR*DIST(k,l)+DIST(l,j)
+ end-function
+   
+end-model

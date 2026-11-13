@@ -1,0 +1,182 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file runfoliopardistr.mos
+   `````````````````````````
+   Main model running several instances of the
+   portfolio optimization model in parallel using
+   several Mosel instances (distribute architecture).
+
+   Runs model foliomemio.mos.
+
+   *** ATTENTION: This model will return an error if ***
+   *** no more than one Xpress licence is available. ***
+   *** With a single license, use setting NUMPAR=1   ***
+      
+  (c) 2010 Fair Isaac Corporation
+      author: S.Heipcke, July 2010, rev. Dec. 2017
+*******************************************************!)
+
+model "Run portfolio optimization model (distributed parallel)"
+ uses "mmjobs"                       ! Use multiple model handling
+ uses "mmsystem", "mmxprs"
+
+ parameters
+  MODELFILE = "foliomemio"           ! Optimization model
+  INPUTFILE = "folio10.dat"          ! File with problem data
+ 
+  MAXRISK = 1/3                      ! Max. investment into high-risk values
+  MINREG = 0.2                       ! Min. investment per geogr. region
+  MAXREG = 0.5                       ! Max. investment per geogr. region
+  MAXSEC = 0.25                      ! Max. investment per ind. sector
+  MAXVAL = 0.2                       ! Max. investment per share
+  MINVAL = 0.1                       ! Min. investment per share
+  MAXNUM = 9                         ! Max. number of different assets
+
+  NUMPAR = 5                         ! Number of model instances to run
+ end-parameters
+ 
+ forward procedure write_html_header
+ forward procedure write_html_line(i:integer)
+ forward procedure write_html_line(i:integer,msg:string)
+ forward procedure write_html_footer
+
+ declarations
+  SHARES: set of string              ! Set of shares
+  returnsol,totalreturn: real        ! Solution values
+  numsharessol,status,totalnum,totalopt: integer
+  fracsol: dynamic array(SHARES) of real  ! Fraction of capital used per share
+  buysol: dynamic array(SHARES) of real   ! 1 if asset is in portfolio, 0 otherwise
+
+  foliomod: dynamic array(Instances:range) of Model  ! Mosel models
+  moselinst: dynamic array(Instances) of Mosel       ! Mosel instances
+ end-declarations
+
+! Compile the optimization model
+ if compile(MODELFILE+".mos") <> 0 then
+  writeln("Error during model compilation")
+  exit(1)
+ end-if
+
+! Start remote Mosel instances: 
+! "" stands for the node running this model; try IP addresses or host names
+ forall(i in 1..NUMPAR) do
+  create(moselinst(i))
+  if connect(moselinst(i), "")<>0 then exit(2); end-if
+ end-do
+
+! Load several instances of the optimization model
+ forall(i in 1..NUMPAR) do
+  create(foliomod(i))
+  load(moselinst(i), foliomod(i), "rmt:[-1]"+MODELFILE+".bim")
+ end-do
+ fdelete(MODELFILE+".bim")
+
+! Start all instances in parallel, using unique file names for output
+ forall(i in Instances)
+  run(foliomod(i), "MAXRISK=" + MAXRISK + ",MINREG=" + MINREG + 
+  ",MAXREG=" + MAXREG + ",MAXSEC=" + MAXSEC +
+  ",MAXVAL=" + MAXVAL + ",MINVAL=" + MINVAL + 
+  ",MAXNUM=" + (MAXNUM-i) + ",DATAFILE='rmt:[-1]" + INPUTFILE +
+  "',OUTPUTFILE='rmt:[-1]solout" + i + ".dat"+ "',FRACSOL='FRAC" + i +
+  "',BUYSOL='BUY" + i + "',NUMSHARES='NUMSHARES" + i + 
+  "',RETSOL='RETSOL" + i + "',SOLSTATUS='SOLSTATUS" + i + "'" ) 
+
+! Wait until all models have finished 
+! (alternatively: could retrieve results as soon as a run finishes)
+ forall(i in Instances) do
+  wait                              ! Wait for model terminations
+  dropnextevent                     ! Ignore termination event message
+ end-do
+
+! Output: generate an HTML page with all solutions
+ write_html_header
+
+ forall(i in Instances) do
+  forall(s in SHARES) do
+   fracsol(s):=0; buysol(s):=0
+  end-do 
+
+  OFile:="solout"+i+".dat"
+
+  initializations from OFile
+   returnsol as 'RETSOL'+i
+   numsharessol as 'NUMSHARES'+i
+   fracsol as 'FRAC'+i
+   buysol as 'BUY'+i
+   status as 'SOLSTATUS'+i
+  end-initializations
+
+  fdelete(OFile)
+
+  case status of
+   XPRS_OPT: do
+              write_html_line(i)
+              totalreturn+=returnsol
+              totalnum+=numsharessol
+              totalopt+=1
+             end-do 
+   XPRS_UNF: write_html_line(i,"Problem solving unfinished")
+   XPRS_INF: write_html_line(i,"Problem is infeasible")
+   XPRS_UNB,XPRS_OTH: write_html_line(i,"No solution available")
+  end-case 
+
+ end-do
+ 
+ write_html_footer
+
+! *********** Writing an HTML result file ***********
+ procedure write_html_header
+  setparam("datetimefmt", "%0d-%N-%y, %0H:%0M:%0S")
+
+  HTMLFILE:= INPUTFILE + "_sol.html"
+  fopen(HTMLFILE, F_OUTPUT)
+  writeln("<html>")
+  writeln("<head>")
+  writeln("<style type='text/css'>")
+  writeln("body {font-family: Verdana, Geneva, Helvetica, Arial, sans-serif; color: 000055 }")
+  writeln("table td {background-color: ffffaa; text-align: left }")
+  writeln("table th {background-color: 053055; color: ffcc88}")
+ writeln("</style>")
+  writeln("</head>")
+
+  writeln("<body>")
+  writeln("<center><h2>Portfolio Optimization Summary Results</h2></center>")
+  writeln("<table width='100%' cellpadding='5' cellspacing='0' border=0>")
+  writeln("<tr><td width='55%'><font color='#000055'><b> </b></font></td><td><font color='#885533'><b>Problem data: ",
+          INPUTFILE,"</b></font></td></tr>")
+  writeln("<tr><td><font color='#000055'><b> </b></font></td><td><font color='#885533'><b>Date: ", datetime(SYS_NOW),"</b></font></td></tr>")
+  writeln("<tr><td colspan='2'>&nbsp;</td></tr>")
+  writeln("</table>")
+
+  writeln("<table cellpadding='2' cellspacing='1' width='100%'>")
+  writeln("<tr><th>Instance</th><th>Return</th><th>No. shares</th><th>Value: Percentage</th></tr>")
+ end-procedure
+
+ procedure write_html_line(i:integer)
+  write("<tr><td><center>", i, "</center></td><td>", returnsol, "</td><td><center>", numsharessol, "</center></td><td>")
+  writeln("<table cellpadding='2' cellspacing='0' width='100%'>")
+  ct:=0
+  forall(s in SHARES | fracsol(s)>0) do
+   ct+=1   
+   writeln(if(ct mod 4=1, "<tr>", ""),
+           "<td><font size='-1'>", s, ": ", strfmt(fracsol(s)*100,4,2), "%,</font></td>", 
+           if(ct mod 4=0, "</tr>", ""))
+  end-do  
+  writeln(if(ct mod 4<>0, "</tr>", ""), "</table></td></tr>") 
+ end-procedure
+
+ procedure write_html_line(i:integer,msg:string)
+  writeln("<tr><td><center>", i, "</center></td><td align='left' colspan='3'>", msg, "</td></tr>")
+ end-procedure
+
+ procedure write_html_footer
+  writeln("<tr><th>Average</th><th>", totalreturn/totalopt, "</th><th>", totalnum/totalopt, "</th><th></th></tr>")
+  writeln("</table>")
+  writeln("</body>")
+  writeln("</html>")
+  fclose(F_OUTPUT)
+ end-procedure
+
+end-model

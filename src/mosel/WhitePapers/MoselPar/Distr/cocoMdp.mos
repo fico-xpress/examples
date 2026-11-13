@@ -1,0 +1,450 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file cocoMdp.mos
+   ````````````````
+   Coco Problem, Apr. 2021 model.
+   -- Distributed computing version --
+   -- Using shared memory and mempipe I/O driver remotely --
+
+   Before running this model, you need to set up the list
+   NODES with machine names/addresses of your local network.
+   All nodes that are used need to have the same version of
+   Xpress installed and suitably licensed, and the server 
+   "xprmsrv" must have been started on these machines.
+   
+   All files are local to the root node, no write access is
+   required at remote nodes.
+
+   (c) 2020 Fair Isaac Corporation
+       author: S. Heipcke, Dec. 2020, rev. Jun. 2023
+*******************************************************!)
+
+model "Coco3 Main"
+ uses "mmxprs","mmjobs","mmsystem"
+
+ parameters
+  DATAFILE = "coco2.dat"
+  ALG = 1                             ! 0: stop phase with 1st failed subpb.
+                                      ! 1: stop when all subprob.s fail
+ end-parameters
+
+ forward procedure process_sub_result
+ forward procedure solve_main(phase: integer)
+ forward procedure process_main_result
+ forward function true_solution:real
+ forward function calc_solution:real
+ forward procedure print_solution
+
+ declarations                         
+  NODES: list of string                     ! Set of available nodes           
+ end-declarations
+
+ NODES:= [""]
+         !!! This list must have at least 1 element.
+         !!! Use machine names within your local network, IP addresses, or 
+         !!! empty string for the current node running this model.
+! Optionally, associate other connections than default with node names:
+! sethostalias("localnode","rcmd:mosel -r")
+ 
+ declarations                         
+  PHASE_0=2                           ! Event codes sent to submodels
+  PHASE_1=3
+  PHASE_2=4
+  PHASE_3=5
+  EVENT_SOLVED=6                      ! Event codes sent by submodels
+  EVENT_FAILED=7
+  EVENT_READY=8
+  NPROD, NFACT, NRAW, NT: integer
+ end-declarations                      
+
+ initializations from DATAFILE
+  NPROD NFACT NRAW NT
+ end-initializations
+
+ declarations
+  PRODS = 1..NPROD                    ! Range of products (p)
+  FACT = 1..NFACT                     !          factories (f)
+  RAW = 1..NRAW                       !          raw materials (r)
+  PERIODS = 1..NT                     !          time periods (t)
+
+  REV: array(PRODS,PERIODS) of real   ! Unit selling price of products
+  CMAKE: array(PRODS,FACT) of real    ! Unit cost to make product p 
+                                      ! at factory f
+  CBUY: array(RAW,PERIODS) of real    ! Unit cost to buy raw materials
+  MXSELL: array(PRODS,PERIODS) of real  ! Max. amount of p that can be sold
+  CPSTOCK: real                       ! Unit cost to store any product p
+  CRSTOCK: real                       ! Unit cost to store any raw mat. r
+
+  submod: array(FACT) of Model        ! One subproblem per factory
+  nIter: integer                      ! Iteration counter
+  nPROP: array(FACT) of integer       ! Counters of proposals from subprob.s 
+  
+  Prop_make: array(PRODS,FACT,PERIODS,range) of real ! Amount of products made
+  Prop_sell: array(PRODS,FACT,PERIODS,range) of real ! Amount of product sold
+  Prop_buy: array(RAW,FACT,PERIODS,range) of real    ! Amount of raw mat. bought
+  Prop_pstock: array(PRODS,FACT,1..NT+1,range) of real ! Product stock levels 
+  Prop_rstock: array(RAW,FACT,1..NT+1,range) of real   ! Raw mat. stock levels  
+  Prop_cost: array(FACT,range) of real  ! Cost/profit of each proposal
+  Price_convex: array(FACT) of real     ! Dual price on convexity constraints
+  Price_sell: array(PRODS,PERIODS) of real ! Dual price on sales limits
+  Sol_make: array(PRODS,FACT,PERIODS) of real ! Solution value (products made)
+  Sol_sell: array(PRODS,FACT,PERIODS) of real ! Solution value (product sold)
+  Sol_buy: array(RAW,FACT,PERIODS) of real    ! Solution value (raw mat. bought)
+  Sol_pstock: array(PRODS,FACT,1..NT+1) of real ! Sol. value (prod. stock) 
+  Sol_rstock: array(RAW,FACT,1..NT+1) of real   ! Sol. value (raw mat. stock)
+
+  moselInst: dynamic array(set of string) of Mosel  ! Mosel instances on remote nodes
+  nct: integer
+ end-declarations
+
+ initializations from DATAFILE
+  CMAKE REV CBUY MXSELL CPSTOCK CRSTOCK
+ end-initializations
+
+ initializations to "bin:shmem:pricedata"   ! Initial price data for submodels
+  Price_sell
+ end-initializations
+
+
+!**** Setting up remote Mosel instances ****
+ forall(n in NODES, nct as counter) do
+  create(moselInst(n))
+  if connect(moselInst(n), n)<>0 then exit(1); end-if
+  if nct>= NFACT then break; end-if        ! Stop when started enough 
+ end-do 
+
+!**** Main problem ****
+ declarations
+  excessS: mpvar                      ! Violation of sales/buying limits
+  weight: dynamic array(FACT,range) of mpvar  ! Weights for proposals
+
+  MxSell: array(PRODS,PERIODS) of linctr ! Sales limit constraints
+  Convex: array(FACT) of linctr       ! Convexity constraints
+ end-declarations 
+
+
+!**** Submodels ****
+ declarations
+  Stopped: set of integer
+ end-declarations 
+
+ res:= compile("g","cocoSubFdp.mos")  ! Compile the submodel file locally
+ ct:=0
+ forall(f in FACT) do                 ! Load & run one submodel per product 
+  Price_convex(f):= 1
+
+  ct:= if(ct<NODES.size, ct+1, 1)     ! Get next node in list or restart
+  n:= getlast(gethead(NODES,ct))      ! from beginning when end is reached
+  load(moselInst(n), submod(f), "rmt:[-1]cocoSubFdp.bim")
+                                      ! Load model on remote node
+  submod(f).uid:= f
+  run(submod(f), "Factory=" + f + ",DATAFILE=" + DATAFILE + ",RMT='rmt:[-1]'")
+  wait                                ! Wait for child model to be ready
+  ev:=getnextevent
+  if ev.class=EVENT_END then
+   writeln("*** Cannot start all necessary models - aborting ***")
+   exit(1)
+  end-if
+ end-do
+
+!**** Phase 0: Crash ****
+ nIter:=1; finished:=false
+ writeln("\nPHASE 0 -- Iteration ", nIter); fflush
+
+ forall(f in FACT)                    ! Start solving all submodels (Phase 1)
+  send(submod(f), PHASE_0, 0)
+
+ forall(f in FACT) do
+  wait                                ! Wait for child (termination) events
+  ev:= getnextevent
+  if getclass(ev)=EVENT_SOLVED then
+   process_sub_result                 ! Add new proposal to main problem
+  elif getclass(ev)=EVENT_FAILED then
+   finished:= true
+  else
+   writeln("*** Unexpected event '", ev, "' received from of submodel ***")
+   fflush
+   exit(1)
+  end-if
+ end-do
+
+ if finished then
+  writeln("Problem is infeasible")
+  exit(1)
+ end-if
+
+ solve_main(1)                        ! Solve the updated Ph. 1 main problem
+ process_main_result                  ! Store initial pricing data for submodels
+ 
+ 
+!**** Phase 1: proposal generation (feasibility) ****
+ repeat
+  noimprove:= 0
+  nIter+=1
+  writeln("\nPHASE 1 -- Iteration ", nIter); fflush
+
+  forall(f in FACT)                   ! Start solving all submodels (Phase 1)
+   send(submod(f), PHASE_1, Price_convex(f))
+
+  forall(f in FACT) do
+   wait                               ! Wait for child (termination) events
+   ev:= getnextevent
+   if getclass(ev)=EVENT_SOLVED then
+    process_sub_result                ! Add new proposal to main problem
+   elif getclass(ev)=EVENT_FAILED then
+    noimprove += 1
+   end-if
+  end-do
+
+  if noimprove = NFACT then 
+   writeln("Problem is infeasible")
+   exit(2)
+  end-if
+  if ALG=0 and noimprove > 0 then 
+   writeln("No improvement by some subproblem(s)")
+   break
+  end-if
+
+  solve_main(1)                       ! Solve the updated Ph. 1 main problem
+  if getobjval>0.00001 then
+   process_main_result                ! Store new pricing data for submodels
+  end-if
+ until getobjval <= 0.00001
+ 
+
+!**** Phase 2: proposal generation (optimization) ****
+ writeln("\n**** PHASE 2 ****")
+ finished:=false
+ repeat
+  solve_main(2)                       ! Solve Phase 2 main problem
+  process_main_result                 ! Store new pricing data for submodels
+
+  nIter+=1
+  writeln("\nPHASE 2 -- Iteration ", nIter); fflush
+
+  forall(f in FACT)                   ! Start solving all submodels (Phase 2)
+   send(submod(f), PHASE_2, Price_convex(f))
+
+  forall(f in FACT) do
+   wait                               ! Wait for child (termination) events
+   ev:= getnextevent
+   if getclass(ev)=EVENT_SOLVED then
+    process_sub_result                ! Add new proposal to main problem
+   elif getclass(ev)=EVENT_FAILED then        
+    if ALG=0 then
+     finished:=true                   ! 1st submodel w/o prop. stops phase 2
+    else
+     Stopped += {ev.fromuid}          ! Stop phase 2 only when no submodel
+                                      ! generates a new proposal 
+    end-if 
+   end-if
+  end-do
+
+  if getsize(Stopped) = NFACT then finished:= true; end-if
+  
+ until finished
+
+
+!**** Phase 3: solution to the original problem ****
+ writeln("\n**** PHASE 3 ****")
+ forall(f in FACT) do
+  send(submod(f), PHASE_3, 0)         ! Stop all submodels
+  wait
+  dropnextevent
+ end-do
+
+! writeln("Total Profit=", calc_solution)
+ writeln("Total Profit=", true_solution)
+ print_solution
+ 
+
+!**** Cleaning up temporary files
+ fdelete("mempipe:sol") 
+ fdelete("cocoSubFdp.bim")
+ fdelete("shmem:pricedata")
+ 
+!-----------------------------------------------------------
+! Process the proposal generated by a subproblem
+ procedure process_sub_result
+  declarations
+   f: integer                         ! Factory index
+                                      ! Solution values of the proposal:
+   sol_make: array(PRODS,PERIODS) of real      ! Amount of products made
+   sol_sell: array(PRODS,PERIODS) of real      ! Amount of product sold
+   sol_buy: array(RAW,PERIODS) of real         ! Amount of raw mat. bought
+   sol_pstock: array(PRODS,1..NT+1) of real ! Product stock levels 
+   sol_rstock: array(RAW,1..NT+1) of real   ! Raw mat. stock levels  
+   pc: real                           ! Cost of the proposal
+  end-declarations
+
+ ! Read proposal data from memory
+  initializations from "mempipe:sol"
+   f as "Factory"
+   sol_make sol_sell sol_buy sol_pstock sol_rstock
+   pc as "Prop_cost"
+  end-initializations
+
+ ! Add the new proposal to the main problem
+  nPROP(f)+=1
+  create(weight(f,nPROP(f)))
+  forall(p in PRODS,t in PERIODS) do
+   Prop_make(p,f,t,nPROP(f)):= sol_make(p,t)
+   Prop_sell(p,f,t,nPROP(f)):= sol_sell(p,t)  
+  end-do   
+  forall(r in RAW,t in PERIODS) Prop_buy(r,f,t,nPROP(f)):= sol_buy(r,t)
+  forall(p in PRODS,t in 1..NT+1) Prop_pstock(p,f,t,nPROP(f)):= sol_pstock(p,t)
+  forall(r in RAW,t in 1..NT+1) Prop_rstock(r,f,t,nPROP(f)):= sol_rstock(r,t)
+  Prop_cost(f,nPROP(f)):= pc
+  writeln("Sol. for factory ", f, ":\n  make:   ", sol_make, "\n  sell:   ",
+           sol_sell, "\n  buy:    ", sol_buy, "\n  pstock: ", sol_pstock, 
+	   "\n  rstock: ", sol_rstock)
+ end-procedure
+
+!-----------------------------------------------------------
+! (Re)solve the main problem
+ procedure solve_main(phase: integer)
+  forall(f in FACT)
+   Convex(f):= sum (k in 1..nPROP(f)) weight(f,k) = 1
+
+  if phase=1 then
+   forall(p in PRODS,t in PERIODS)
+    MxSell(p,t):=
+     sum(f in FACT,k in 1..nPROP(f)) Prop_sell(p,f,t,k)*weight(f,k) -
+      excessS <= MXSELL(p,t)
+   minimize(excessS)
+  else
+   forall(p in PRODS,t in PERIODS)
+    MxSell(p,t):=
+     sum(f in FACT,k in 1..nPROP(f)) Prop_sell(p,f,t,k)*weight(f,k) <=
+      MXSELL(p,t)
+   maximize(sum(f in FACT, k in 1..nPROP(f)) Prop_cost(f,k) * weight(f,k))
+  end-if
+
+  writeln("Main problem objective: ", getobjval)
+  write("  Weights:")
+  forall(f in FACT,k in 1..nPROP(f)) write(" ", getsol(weight(f,k)))
+  writeln
+ end-procedure
+
+!-----------------------------------------------------------
+! Update pricing data for subproblems
+ procedure process_main_result
+  forall(p in PRODS,t in PERIODS) Price_sell(p,t):=getdual(MxSell(p,t))
+  forall(f in FACT) Price_convex(f):=getdual(Convex(f))
+
+  initializations to "bin:shmem:pricedata"
+   Price_sell
+  end-initializations
+ end-procedure
+
+!-----------------------------------------------------------
+! Calculate solution to the original problem
+ function true_solution: real 
+  forall(p in PRODS,f in FACT,t in PERIODS) do
+   Sol_sell(p,f,t):= 
+    sum(k in 1..nPROP(f)) Prop_sell(p,f,t,k) * getsol(weight(f,k))
+   Sol_make(p,f,t):= 
+    sum(k in 1..nPROP(f)) Prop_make(p,f,t,k) * getsol(weight(f,k))
+  end-do
+  forall(r in RAW,f in FACT,t in PERIODS) Sol_buy(r,f,t):= 
+    sum(k in 1..nPROP(f)) Prop_buy(r,f,t,k) * getsol(weight(f,k))
+  forall(p in PRODS,f in FACT,t in 1..NT+1) Sol_pstock(p,f,t):=
+   sum(k in 1..nPROP(f)) Prop_pstock(p,f,t,k) * getsol(weight(f,k)) 
+  forall(r in RAW,f in FACT,t in 1..NT+1) Sol_rstock(r,f,t):=
+   sum(k in 1..nPROP(f)) Prop_rstock(r,f,t,k) * getsol(weight(f,k)) 
+
+  returned:=
+   sum(p in PRODS,f in FACT,t in PERIODS) REV(p,t) * Sol_sell(p,f,t) -
+   sum(p in PRODS,f in FACT,t in PERIODS) CMAKE(p,f) * Sol_make(p,f,t) -
+   sum(r in RAW,f in FACT,t in PERIODS) CBUY(r,t) * Sol_buy(r,f,t) - 
+   sum(p in PRODS,f in FACT,t in 2..NT+1) CPSTOCK * Sol_pstock(p,f,t) - 
+   sum(r in RAW,f in FACT,t in 2..NT+1) CRSTOCK * Sol_rstock(r,f,t) 
+ end-function
+
+! Solve the original problem
+ function calc_solution: real 
+  declarations
+   make: array(PRODS,FACT,PERIODS) of mpvar ! Amount of products made
+   sell: array(PRODS,FACT,PERIODS) of mpvar ! Amount of product sold
+   buy: array(RAW,FACT,PERIODS) of mpvar    ! Amount of raw material bought
+   pstock: array(PRODS,FACT,1..NT+1) of mpvar ! Product stock levels at start 
+                                              ! of period t
+   rstock: array(RAW,FACT,1..NT+1) of mpvar   ! Raw material stock levels  
+                                              ! at start of period t 
+  end-declarations
+ 
+  forall(p in PRODS,f in FACT,t in PERIODS) do
+   sell(p,f,t) = sum(k in 1..nPROP(f)) Prop_sell(p,f,t,k) * weight(f,k)
+   make(p,f,t) = sum(k in 1..nPROP(f)) Prop_make(p,f,t,k) * weight(f,k)
+  end-do
+  forall(r in RAW,f in FACT,t in PERIODS) 
+   buy(r,f,t) = sum(k in 1..nPROP(f)) Prop_buy(r,f,t,k) * weight(f,k)
+  forall(p in PRODS,f in FACT,t in 1..NT+1) 
+   pstock(p,f,t) = sum(k in 1..nPROP(f)) Prop_pstock(p,f,t,k) * weight(f,k)
+  forall(r in RAW,f in FACT,t in 1..NT+1) 
+   rstock(r,f,t) = sum(k in 1..nPROP(f)) Prop_rstock(r,f,t,k) * weight(f,k)
+
+  MaxProfit:= 
+  sum(p in PRODS,f in FACT,t in PERIODS) REV(p,t) * sell(p,f,t) -     ! revenue
+  sum(p in PRODS,f in FACT,t in PERIODS) CMAKE(p,f) * make(p,f,t) -   ! prod. cost
+  sum(r in RAW,f in FACT,t in PERIODS) CBUY(r,t) * buy(r,f,t) -       ! raw mat. 
+  sum(p in PRODS,f in FACT,t in 2..NT+1) CPSTOCK * pstock(p,f,t) - ! p storage 
+  sum(r in RAW,f in FACT,t in 2..NT+1) CRSTOCK * rstock(r,f,t)     ! r storage 
+  
+  maximize(MaxProfit)
+  
+  returned:= getobjval
+
+  forall(p in PRODS,f in FACT,t in PERIODS) do
+   Sol_sell(p,f,t):= getsol(sell(p,f,t))
+   Sol_make(p,f,t):= getsol(make(p,f,t))
+  end-do
+  forall(r in RAW,f in FACT,t in PERIODS) Sol_buy(r,f,t):= getsol(buy(r,f,t))
+  forall(p in PRODS,f in FACT,t in 1..NT+1) 
+   Sol_pstock(p,f,t):= getsol(pstock(p,f,t)) 
+  forall(r in RAW,f in FACT,t in 1..NT+1) 
+   Sol_rstock(r,f,t):= getsol(rstock(r,f,t)) 
+ end-function
+ 
+!----------------------------------------------------------- 
+ procedure print_solution
+ 
+  writeln("Finished products:")
+  forall(f in FACT) do
+   writeln("Factory ", f, ":") 
+   forall(p in PRODS) do
+    write("  ", p, ":    ")
+    forall(t in PERIODS) write(strfmt(Sol_make(p,f,t),6,1), "(", 
+                            strfmt(Sol_pstock(p,f,t+1),5,1), ")")
+    writeln
+   end-do 
+  end-do 
+
+  writeln("Raw material:")
+  forall(f in FACT) do
+   writeln("Factory ", f, ":") 
+   forall(r in RAW) do
+    write("  ", r, ": ")
+    forall(t in PERIODS) write(strfmt(Sol_buy(r,f,t),6,1), "(", 
+                            strfmt(Sol_rstock(r,f,t+1),5,1), ")")
+    writeln
+   end-do 
+  end-do 
+
+  writeln("Sales:")
+  forall(f in FACT) do
+   writeln("Factory ", f, ":") 
+   forall(p in PRODS) do
+    write("  ", p, ": ")
+    forall(t in PERIODS) write(strfmt(Sol_sell(p,f,t),4))
+    writeln
+   end-do 
+  end-do 
+
+  writeln("\nComputation time: ", gettime)
+ end-procedure
+
+
+end-model

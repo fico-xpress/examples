@@ -1,0 +1,111 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file sched_subp.mos
+   ```````````````````
+   Scheduling with resource dependent durations and cost, subject 
+   to given release dates and due dates.
+    -- Parallel solving of CP subproblems --
+   
+   Combined MIP-CP problem solving: cut generation for MIP model
+   by solving CP subproblems at nodes in the MIP branching tree.
+
+   *** Not intended to be run standalone - run from sched_mainp.mos ***
+
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Apr. 2005
+*****************************************************************!)
+model "Schedule (MIP + CP) CP subproblem"
+ uses "kalis", "mmjobs" , "mmsystem"
+ 
+ parameters 
+  VERBOSE = 1
+  M = 1                                   ! Number of the machine
+  NP = 12                                 ! Number of products
+  MODE = 1                                ! 1 - decide feasibility
+                                          ! 2 - return complete solution
+ end-parameters 
+
+ startsolve:= gettime
+
+ declarations
+  PRODS = 1..NP                           ! Set of products
+  ProdMach: set of integer 
+ end-declarations  
+
+ initializations from "raw:"
+  ProdMach as "shmem:ProdMach"+M 
+ end-initializations
+
+ finalize(ProdMach)  	
+
+ declarations
+  REL: array(PRODS) of integer            ! Release dates of orders
+  DUE: array(PRODS) of integer            ! Due dates of orders
+  DURm: array(ProdMach) of integer        ! Processing times on machine m
+  solstart: array(ProdMach) of integer    ! Solution values for start times
+                                          
+  start: array(ProdMach) of cpvar         ! Start times of tasks
+  Disj: array(range) of cpctr             ! Disjunctive constraints
+  Strategy: array(range) of cpbranching   ! Enumeration strategy
+  EVENT_SOLVED=2                          ! Event codes sent by submodels
+  EVENT_FAILED=3
+  solvetime: real
+ end-declarations  
+ 
+ initializations from "raw:"
+  DURm as "shmem:DUR"+M REL as "shmem:REL" DUE as "shmem:DUE"
+ end-initializations
+  
+! Bounds on start times
+ forall(p in ProdMach) do
+  REL(p) <= start(p); start(p) <= DUE(p)-DURm(p)
+ end-do
+
+! Disjunctive constraint
+ ct:= 1
+ forall(p,q in ProdMach| p<q) do
+  Disj(ct):= start(p) + DURm(p) <= start(q) or start(q) + DURm(q) <= start(p)
+  ct+= 1
+ end-do
+
+! Post disjunctions to the solver  
+ nDisj:= ct; j:=1; res:= true
+ while (res and j<nDisj) do
+  res:= cp_post(Disj(j))
+  j+=1
+ end-do
+
+! Solve the problem
+ if res then
+   Strategy(1):= settle_disjunction(Disj)
+  Strategy(2):= assign_and_forbid(KALIS_SMALLEST_DOMAIN, KALIS_MIN_TO_MAX,
+                                 start)
+  cp_set_branching(Strategy) 
+  res:= cp_find_next_sol
+ end-if
+
+! Pass solution to main problem
+ if res then 
+  forall(p in ProdMach) solstart(p):= getsol(start(p))
+  if MODE=2 then 
+   initializations to "raw:"
+    solstart as "shmem:solstart"+M
+   end-initializations
+  end-if
+  send(EVENT_SOLVED,0)
+ else
+  send(EVENT_FAILED,0)
+ end-if 
+
+! Update total running time measurement
+ initializations from "raw:"
+  solvetime as "shmem:solvetime"+M
+ end-initializations
+ solvetime+= gettime-startsolve
+ initializations to "raw:"
+  solvetime as "shmem:solvetime"+M
+ end-initializations
+
+end-model

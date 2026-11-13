@@ -1,0 +1,46 @@
+(!*******************************************************
+  * Mosel Example Problems                              *
+  * ======================                              *
+  *                                                     *
+  * file setops.mos                                     *
+  * ```````````````                                     *
+  * Example for the use of the Mosel language           *
+  * (Performing set operations with Mosel)              *
+  *                                                     *
+  * (c) 2008 Fair Isaac Corporation                     *
+  *     author: S. Heipcke, 2001                        *
+  *******************************************************!)
+
+model Setops
+
+declarations
+                                    ! Constant set definition: unchangeable set 
+ Cities={"rome", "bristol", "london", "paris", "liverpool"}
+ Capitals, Ports: set of string     ! Dynamic set definition: elements
+                                    ! added (or deleted) later; the set 
+                                    ! declaration is optional        
+end-declarations
+
+                                    ! Assign elements to the (dynamic) sets
+ Ports:={"plymouth", "bristol", "glasgow", "london", "calais", 
+              "liverpool"}
+ Capitals:={"rome", "london", "paris", "madrid", "berlin"}
+ writeln(" Ports: ", Ports, "\n Capitals: ", Capitals,"\n Cities: ", Cities)
+
+ Places:= Cities+Ports+Capitals     ! Create the union of all 3 sets 
+ writeln("\n Union of all places: ", Places)
+
+ All_three:= Cities*Ports*Capitals  ! Create the intersection of all 3 sets 
+ writeln(" Intersection of all three: ", All_three)
+
+ Cities_not_cap:= Cities-Capitals   ! Create the set of all cities that are
+                                    ! not capitals
+ writeln(" Cities that are not capitals: ", Cities_not_cap)
+                                    
+                                    ! Create the set of all ports with names
+                                    ! that do not start with "l"
+ forall (i in Ports | substr(i,1,1)<>"l" ) Ports_no_l += {i}
+ writeln(" Ports that do not start with 'l': ", Ports_no_l,
+          " (", Ports_no_l.size ," out of ", Ports.size, ")")
+
+end-model

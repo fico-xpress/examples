@@ -1,0 +1,26 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file setcomp.mos
+   ````````````````
+   Comparison operators for sets.
+ 
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2001
+*******************************************************!)
+
+model "Set comparisons"
+
+ declarations
+  RAINBOW = {"red", "orange", "yellow", "green", "blue", "purple"}
+  BRIGHT = {"yellow", "orange"}
+  DARK = {"blue", "brown", "black"}
+ end-declarations
+
+ writeln("BRIGHT is included in RAINBOW: ", BRIGHT <= RAINBOW) 
+ writeln("RAINBOW is a superset of DARK: ", RAINBOW >= DARK)
+ writeln("BRIGHT is different from DARK: ", BRIGHT <> DARK)
+ writeln("BRIGHT is the same as RAINBOW: ", BRIGHT = RAINBOW)
+
+end-model

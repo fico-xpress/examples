@@ -1,0 +1,63 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file odbcselfunc.mos
+   ````````````````````
+   ODBC with selection statements and functions.
+       
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2002, rev. Aug. 2023
+*******************************************************!)
+
+model "ODBC selection and functions"
+ uses "mmodbc"
+ options keepassert
+
+ declarations
+  Item: set of string
+  COST1,COST2,COST3: dynamic array(Item) of real
+ end-declarations
+
+ setparam("SQLdebug",true)
+
+! SQLconnect('DSN=Excel Files;DBQ=C:/xpress/examples/mosel/WhitePapers/MoselData/odbcsel.xls')
+! SQLconnect('odbcsel.xls')
+! SQLconnect('DSN=MS Access Database;DBQ=C:/xpress/examples/mosel/WhitePapers/MoselData/odbcsel.mdb')
+
+ SQLconnect('odbcsel.mdb')
+
+! SQLconnect('DSN=sqlite;DATABASE=odbcsel.sqlite')
+! SQLconnect('odbcsel.sqlite')
+
+ assert(getparam("SQLsuccess"))
+
+! Select data depending on the value of a second field, the limit for which 
+! is given in a second table USER_OPTIONS
+ SQLexecute("select ITEM,COST from MYDATA where DIST > (select MINDIST from USER_OPTIONS)", COST1)
+
+! Select data depending on the values of ITEM
+ SQLexecute("select ITEM,COST from MYDATA where ITEM in ('A', 'C', 'D', 'G')",
+            COST2)
+
+! Select data depending on the values of the ratio COST/DIST
+ SQLexecute("select ITEM,COST from MYDATA where COST/DIST between 0.01 and 0.1",
+            COST3)
+
+ writeln("COST1: ", COST1, ", COST2: ", COST2, ", COST3: ", COST3)
+	    
+! Print the DIST value of ITEM 'B'
+ writeln("Distance of 'B': ", 
+         SQLreadreal("select DIST from MYDATA where ITEM='B'"))
+
+! Number of entries with COST>30
+ writeln("Count COST>30: ", 
+         SQLreadinteger("select count(*) from MYDATA where COST>30"))
+
+! Total and average distances
+ writeln("Total distance: ", SQLreadreal("select sum(DIST) from MYDATA"), 
+         ", average distance: ", SQLreadreal("select avg(DIST) from MYDATA"))
+
+ SQLdisconnect
+ 
+end-model

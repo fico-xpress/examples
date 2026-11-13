@@ -1,0 +1,4 @@
+! Data file for 'unioninit.mos'
+L: [10 "abc" true 7.5]
+S: [10 "abc" true 7.5]
+B: [(1) "abc" (3) 5 (4) 5.6 ]

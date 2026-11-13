@@ -1,0 +1,83 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file duosheet_out.mos 
+   ````````````````````` 
+   Writing data to spreadsheets using the 
+   generic spreadsheet drivers.
+ 
+   (c) 2012 Fair Isaac Corporation
+       author: S. Heipcke, Dec. 2012
+*******************************************************!)
+
+model "Duo output (generic spreadsheet)"
+ uses "mmsheet"
+
+ parameters
+  CNCTIO1 = "data.xls"           ! Use Excel spreadsheet `data.xls'
+  CNCTIO2 = "data.xlsx"          ! Use Excel spreadsheet `data.xlsx'
+  CNCTIO3 = "data.csv"           ! Use spreadsheet `data.csv'
+ end-parameters
+
+ declarations
+  A: array(-1..1,5..7) of real
+ end-declarations
+
+ A :: [ 2,  4,  6,
+       12, 14, 16,
+       22, 24, 26]
+
+! Use the xlsx driver:
+! Data writing always starts at the same point, that is, results from 
+! previous runs will be overwritten
+! Options: skiph - skip the header line (first line of specified range)
+!          grow  - start line of output range is selected, grow on demand
+ initializations to "mmsheet.xls:"+CNCTIO1
+  A as 'skiph;grow;MyOutTable1'
+ end-initializations
+
+(!
+! Alternatively:
+ initializations to "mmsheet.xls:"+CNCTIO1
+  A as 'grow;MyOutTable3'
+ end-initializations 
+! Or: 
+ initializations to "mmsheet.xls:"+CNCTIO1
+  A as '[Sheet1$F3:H11]'
+ end-initializations
+!)
+
+
+! Use the xlsx driver:
+ initializations to "mmsheet.xlsx:"+CNCTIO2
+  A as 'skiph;grow;MyOutTable1'
+ end-initializations
+
+
+! Use the csv driver:
+ initializations to "mmsheet.csv:"+CNCTIO3
+  A as 'grow;[F3:H3]'
+ end-initializations
+
+
+! **** Creating a new file ****
+
+! Use the xls driver:
+ initializations to "mmsheet.xls:anewfile.xls"
+  A as 'skiph+;grow;[1$F:H](Index1,Index2,Value_of_A)'
+ end-initializations
+
+
+! Use the xlsx driver:
+ initializations to "mmsheet.xlsx:anewfile.xlsx"
+  A as 'skiph+;grow;[1$F:H](Index1,Index2,Value_of_A)'
+ end-initializations
+
+! Use the csv driver:
+ initializations to "mmsheet.csv:anewfile.csv"
+  A as 'skiph+;grow;[F:H](Index1,Index2,Value_of_A)'
+ end-initializations
+
+
+end-model

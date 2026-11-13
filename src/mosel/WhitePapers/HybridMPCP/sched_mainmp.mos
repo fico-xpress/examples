@@ -1,0 +1,344 @@
+(!****************************************************************
+   Mosel example problems
+   ======================
+   
+   file sched_mainmp.mos
+   `````````````````````
+   Scheduling with resource dependent durations and cost, subject 
+   to given release dates and due dates.
+   -- Parallel solving of subproblems --
+   
+   Combined MIP-MIP problem solving: cut generation for MIP model
+   by solving MIP subproblems at nodes in the MIP branching tree.
+
+   *** ATTENTION: This model will not run properly if no  ***
+   *** sufficient number of Xpress licences is available. ***
+
+   *** This model cannot be run with a Community Licence 
+       for the provided data instance ***
+
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Aug. 2005, rev. July 2023
+*****************************************************************!)
+model "Schedule (MIP + MIP) main problem"
+ uses "mmsystem", "mmxprs", "mmjobs" 
+ 
+ parameters 
+  DATAFILE = "Data/sched_3_12.dat" 
+  VERBOSE = 1
+ end-parameters 
+ 
+ forward procedure define_MIP_model
+ forward procedure setup_cutmanager
+ forward public function generate_cuts: boolean 
+ forward public procedure print_solution 
+
+ declarations
+  NP: integer                             ! Number of operations (products) 
+  NM: integer                             ! Number of machines
+ end-declarations
+
+ initializations from DATAFILE
+  NP NM
+ end-initializations
+
+ declarations
+  PRODS = 1..NP                           ! Set of products
+  MACH = 1..NM                            ! Set of machines
+	
+  REL: array(PRODS) of integer            ! Release dates of orders
+  DUE: array(PRODS) of integer            ! Due dates of orders
+  MAX_LOAD: integer                       ! max_p DUE(p) - min_p REL(p)
+  COST: array(PRODS,MACH) of integer      ! Processing cost of products
+  DUR: array(PRODS,MACH) of integer       ! Processing times of products
+  starttime: real                         ! Measure program execution time
+  ctcut: integer                          ! Counter for cuts 
+  solstart: array(PRODS) of integer
+  OpMach: array(MACH,PRODS) of integer    ! Tasks assigned to machines
+  NumOp: array(MACH) of integer           ! Number of tasks assigned to mach.s 
+                                          ! **** MIP model:
+  use: array(PRODS,MACH) of mpvar         ! 1 if p uses machine m, otherwise 0
+  Cost: linctr                            ! Objective function
+
+  totsolve,totSeq,solveM: real            ! Time measurement
+  ctrun: integer                          ! Iteration counter (subproblems)
+  Seqmodel: array(MACH) of Model          ! References to the sequencing models
+  ev: Event                               ! Event
+  EVENT_SOLVED=2                          ! Event codes sent by submodels
+  EVENT_FAILED=3
+ end-declarations 
+ 
+ ! Read data from file 
+ initializations from DATAFILE 
+  REL DUE COST DUR 
+ end-initializations
+
+! **** Problem definition ****
+ define_MIP_model                         ! Definition of the MIP model
+ res:=compile("sched_submp.mos")          ! Compile the sequencing model
+ forall(m in MACH) do
+  load(Seqmodel(m), "sched_submp.bim")    ! Load the sequencing models
+  Seqmodel(m).uid:= m                     ! Store the model indices as UID
+ end-do
+
+! **** Solution algorithm ****
+ starttime:= gettime
+ setup_cutmanager                         ! Settings for the MIP search
+
+ totsolve:= 0.0
+ forall (m in MACH)
+  initializations to "raw:"
+   totsolve as "shmem:solvetime"+m
+  end-initializations
+ initializations to "raw:"
+  REL as "shmem:REL" DUE as "shmem:DUE"
+ end-initializations
+
+ minimize(Cost)                           ! Solve the problem
+
+ writeln("Number of cuts generated: ", ctcut) 
+ writeln("(", gettime-starttime, "sec) Best solution value: ", getobjval)
+ forall (m in MACH) do
+  initializations from "raw:"
+   solveM as "shmem:solvetime"+m
+  end-initializations
+  totsolve += solveM
+ end-do
+ writeln("Total submodel solve time: ", totsolve) 
+ writeln("Total submodel time: ", totSeq) 
+ writeln("Submodel runs: ", ctrun)
+ 
+!----------------------------------------------------------------- 
+! Define the MIP model
+ procedure define_MIP_model
+
+ ! Objective: total processing cost
+  Cost:= sum(p in PRODS, m in MACH) COST(p,m) * use(p,m) 
+
+ ! Each order needs exactly one machine for processing 
+  forall(p in PRODS) sum(m in MACH) use(p,m) = 1 
+
+ ! Valid inequalities for strengthening the LP relaxation 
+  MAX_LOAD:= max(p in PRODS) DUE(p) - min(p in PRODS) REL(p) 
+  forall(m in MACH) sum(p in PRODS) DUR(p,m) * use(p,m) <= MAX_LOAD
+
+  forall(p in PRODS, m in MACH) use(p,m) is_binary 
+!  forall(p in PRODS) sum(m in MACH) m*use(p,m) is_sos1 
+! SOS: more nodes, more subproblems to solve
+  
+ end-procedure
+ 
+!----------------------------------------------------------------- 
+! Xpress Optimizer settings for using the cut manager
+ procedure setup_cutmanager
+  setparam("XPRS_CUTSTRATEGY", 0)           ! Disable automatic cuts
+  feastol:= getparam("XPRS_FEASTOL")        ! Get Optimizer zero tolerance
+  setparam("zerotol", feastol * 10)         ! Set comparison tolerance of Mosel
+  setparam("XPRS_MIPDUALREDUCTIONS", 0)     ! Prevent dual reductions cutting off
+                                            ! the optimal solution (cuts are only
+                                            ! generated on the fly, so the solver
+                                            ! does not see the whole model)
+  setparam("XPRS_SBBEST", 0)                ! Turn strong branching off
+  setparam("XPRS_HEUREMPHASIS", 0)          ! Disable MIP heuristics
+  setcallback(XPRS_CB_OPTNODE, "generate_cuts") ! Define the optnode callback 
+  setcallback(XPRS_CB_INTSOL, "print_solution") ! Define the integer sol. cb.
+! setparam("XPRS_LOADNAMES", true)
+  setparam("XPRS_COLORDER", 2)
+  case VERBOSE of
+  1: do
+      setparam("XPRS_VERBOSE", true)
+      setparam("XPRS_MIPLOG", -200)    
+     end-do
+  2: do
+      setparam("XPRS_VERBOSE", true)
+      setparam("XPRS_MIPLOG", -100)    
+     end-do
+  3: do                                     ! Detailed MIP output
+      setparam("XPRS_VERBOSE", true)
+      setparam("XPRS_MIPLOG", 3)
+     end-do
+  end-case
+  
+ end-procedure
+
+!----------------------------------------------------------------- 
+! Define and solve the sequencing problem for one machine
+ procedure start_seq_problem(m: integer, mode: integer)
+  declarations
+   ProdMach: set of integer
+   DURm: dynamic array(range) of integer
+  end-declarations 
+
+ ! Data for sequencing model
+  forall(p in 1..NumOp(m)) ProdMach+={OpMach(m,p)}
+  forall(p in ProdMach) DURm(p):= DUR(p,m)
+  initializations to "raw:"
+   ProdMach as "shmem:ProdMach"+m 
+   DURm as "shmem:DUR"+m
+  end-initializations
+
+ ! Solve the problem and retrieve the solution if it is feasible
+  returned:= false
+  if(getstatus(Seqmodel(m))=RT_RUNNING) then
+    fflush
+    writeln("Seqmodel is running")
+    fflush
+    exit(1)
+  end-if
+  ctrun+=1
+  run(Seqmodel(m), "NP=" + NP + ",VERBOSE=" + VERBOSE + ",MODE=" + mode + 
+                  ",M=" + m)
+
+ end-procedure
+
+!-----------------------------------------------------------------
+! Collect the operations assigned to machine m
+ procedure products_on_machine(m: integer) 
+
+  NumOp(m):=0
+  forall(p in PRODS) do
+   val:=getsol(use(p,m))
+   if (! not isintegral(use(p,m)) !) (val > 0 and val < 1) then
+    NumOp(m):=0 
+    break 
+   elif val>0.5 then 
+    NumOp(m)+=1
+    OpMach(m,NumOp(m)):= p 
+   end-if 
+  end-do
+  
+ end-procedure
+ 
+!-----------------------------------------------------------------
+! Add a cut for machine m
+ procedure add_cut_machine(m: integer) 
+
+  Cut:= sum(p in 1..NumOp(m)) use(OpMach(m,p),m) - (NumOp(m)-1) 
+  if VERBOSE > 2 then
+   write(m,": ") 
+   forall(p in 1..NumOp(m)) write(OpMach(m,p), " ")
+   writeln(" <= ", NumOp(m)-1)
+  end-if
+  addcut(1, CT_LEQ, Cut) 
+  
+ end-procedure
+
+!----------------------------------------------------------------- 
+! Cut generation callback function 
+ public function generate_cuts: boolean 
+  declarations
+   ToSolve: set of integer
+  end-declarations
+  
+  returned:=false; ctcutold:=ctcut
+
+ ! Collect the operations assigned to machines
+  forall(m in MACH) do
+   products_on_machine(m)
+   if NumOp(m) > 0 then ToSolve += {m}; end-if
+  end-do
+
+ ! Start solving the sequencing models 
+  startsolve:= gettime
+  forall(m in ToSolve) start_seq_problem(m, 1)
+ 
+ ! Retrieve all results/termination messages
+  if getsize(ToSolve) > 0 then
+   repeat
+    wait                                 ! Wait for the next event
+    ev:= getnextevent                    ! Get the event
+    case getclass(ev) of                 ! Get the event class
+     EVENT_END:    ctend+=1              ! Submodel run terminated
+     EVENT_SOLVED: solved:=true          ! Nothing to do
+     EVENT_FAILED: do
+                    M:=ev.fromuid        ! UID of model sending the event
+                    add_cut_machine(M) 
+                    ctcut+=1  
+  	           end-do 
+     else          writeln("Problem with a subproblem")
+                   exit(2)
+    end-case
+   until ctend=getsize(ToSolve)          ! All models have finished
+  end-if
+
+  totSeq+= (gettime-startsolve) 
+
+  if ctcut-ctcutold>0 and VERBOSE>1 then
+   writeln("Node ", getparam("XPRS_NODES"), ": ", ctcut-ctcutold, 
+           " cut(s) added")
+  end-if
+
+ end-function
+
+!-----------------------------------------------------------------
+! Solution callback function
+ public procedure print_solution 
+  declarations 
+   sol: dynamic array(range) of integer
+  end-declarations 
+  
+  writeln("(",gettime-starttime, "sec) Solution ", 
+          getparam("XPRS_MIPSOLS"), ": Cost: ", getsol(Cost)) 
+
+  if VERBOSE > 1 then
+   forall(p in PRODS) do
+    forall(m in MACH) write(getsol(use(p,m))," ")
+    writeln
+   end-do
+  end-if
+
+  if VERBOSE > 0 then
+ ! Collect the operations assigned to machines
+   forall(m in MACH) do
+    products_on_machine(m)
+    if NumOp(m) > 1 then 
+     ToSolve += {m}
+    elif NumOp(m) = 1 then 
+     solstart(OpMach(m,1)):= REL(OpMach(m,1))
+    end-if
+   end-do
+
+ ! Start solving the CP sequencing models 
+   startsolve:= gettime
+   forall(m in ToSolve) start_seq_problem(m, 2)
+
+ ! Retrieve all results/termination messages
+   ctend:= 0
+   repeat
+    wait                                 ! Wait for the next event
+    ev:= getnextevent                    ! Get the event
+    case getclass(ev) of                 ! Get the event class
+     EVENT_END:    ctend+=1              ! Submodel run terminated 
+     EVENT_SOLVED: do
+                    M:= ev.fromuid       ! UID of model sending the event
+                    initializations from "raw:"
+                     sol as "shmem:solstart"+M
+                    end-initializations
+                    forall(p in 1..NumOp(M))
+                    solstart(OpMach(M,p)):=sol(OpMach(M,p))
+                   end-do
+     EVENT_FAILED: do
+                    M:= ev.fromuid       ! UID of model sending the event
+                    writeln("Something wrong here: ", M, OpMach, NumOp)
+ 	           end-do 
+     else          writeln("Problem with subproblem solving")
+                   exit(2)
+    end-case
+   until ctend=getsize(ToSolve)          ! All models have finished
+
+ ! Print out the result
+   forall(p in PRODS) do
+    msol:=sum(m in MACH) m*getsol(use(p,m))
+    writeln(p, " -> ", msol,": ", strfmt(solstart(p),2), " - ", 
+            strfmt(DUR(p,round(msol))+solstart(p),2), "  [", 
+            REL(p), ", ", DUE(p), "]")
+   end-do
+   writeln("Time: ", gettime - starttime, "sec")
+   writeln 
+   fflush  
+  end-if    
+ end-procedure
+
+end-model
+
+

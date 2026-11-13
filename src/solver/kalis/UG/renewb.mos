@@ -1,0 +1,69 @@
+(!******************************************************
+   CP Example Problems
+   ===================
+
+   file renewb.mos
+   ```````````````
+   Production/consumption of a non-renewable resource.
+   
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+   
+*******************************************************!)
+
+model "Non-renewable resource"
+ uses "kalis"
+
+ declarations   
+  FIRST = {'P1','P2'}
+  ENDFIRST = {'EndP1', 'EndP2'}
+  FINAL = {'P3','P4','P5'}
+  JOBS = FIRST+ENDFIRST+FINAL
+
+  MIND,MAXD: array(JOBS) of integer  ! Limits on job durations
+  RESAMT: array(JOBS) of integer  ! Resource use/production
+  HORIZON: integer                ! Time horizon
+  PROFIT: array(FINAL) of real    ! Profit from production
+  COST: array(JOBS) of real       ! Cost of production
+  CAP: integer                    ! Available resource quantity
+
+  totalProfit: cpfloatvar
+  task: array(JOBS) of cptask     ! Task objects for jobs
+  intermProd: cpresource          ! Non-renewable resource (intermediate prod.)
+ end-declarations
+ 
+ initializations from 'Data/renewb.dat'
+  [MIND,MAXD] as 'DUR' RESAMT HORIZON PROFIT COST CAP
+ end-initializations
+
+! Setting up resources
+ set_resource_attributes(intermProd, KALIS_DISCRETE_RESOURCE, CAP)
+ setname(intermProd, "IntP") 
+
+! Setting up the tasks
+ forall(j in JOBS) do
+  setname(task(j), j)
+  setduration(task(j), MIND(j), MAXD(j)) 
+  setdomain(getend(task(j)), 0, HORIZON) 
+ end-do 
+
+! Production tasks
+ forall(j in ENDFIRST) produces(task(j), RESAMT(j), intermProd)
+ forall(j in FIRST) getend(task(j)) = getend(task("End"+j))
+
+! Consumer tasks
+ forall(j in FINAL) consumes(task(j), RESAMT(j), intermProd)
+
+! Objective function: total profit  
+ totalProfit = sum(j in FINAL) PROFIT(j)*getduration(task(j)) -
+               sum(j in JOBS) COST(j)*getduration(task(j))                                
+ if cp_schedule(totalProfit,true)=0 then
+  exit(1)
+ end-if
+
+ writeln("Total profit: ", getsol(totalProfit))
+ writeln("Job\tStart\tEnd\tDuration")
+ forall(j in JOBS) 
+  writeln(j, "\t ", getsol(getstart(task(j))), "\t ", getsol(getend(task(j))),
+          "\t ", getsol(getduration(task(j))))
+ 
+end-model

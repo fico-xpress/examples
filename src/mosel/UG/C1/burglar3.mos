@@ -1,0 +1,42 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file burglar3.mos
+   `````````````````
+   Same as burglar2.mos but no output printing.
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2001, rev. June 2018
+*******************************************************!)
+
+model Burglar3
+ uses "mmxprs"
+ 
+ public declarations
+  WTMAX = 102                    ! Maximum weight allowed
+  ITEMS = {"camera", "necklace", "vase", "picture", "tv", "video", 
+           "chest", "brick"}     ! Index set for items
+  
+  VALUE: array(ITEMS) of real    ! Value of items
+  WEIGHT: array(ITEMS) of real   ! Weight of items
+  
+  take: array(ITEMS) of mpvar    ! 1 if we take item i; 0 otherwise
+ end-declarations
+
+ initializations from 'burglar.dat'
+  VALUE  WEIGHT
+ end-initializations
+
+! Objective: maximize total value
+ MaxVal:= sum(i in ITEMS) VALUE(i)*take(i) 
+
+! Weight restriction
+ sum(i in ITEMS) WEIGHT(i)*take(i) <= WTMAX
+
+! All variables are 0/1
+ forall(i in ITEMS) take(i) is_binary  
+
+ maximize(MaxVal)                  ! Solve the MIP-problem
+
+end-model

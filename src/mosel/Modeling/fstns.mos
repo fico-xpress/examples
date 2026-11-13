@@ -1,0 +1,69 @@
+(!*******************************************************
+  * Mosel Example Problems                              *
+  * ======================                              *
+  *                                                     *
+  * file fstns.mos                                      *
+  * ``````````````                                      *
+  * Example for the use of the Mosel language           *
+  * (Firestation siting problem)                        *
+  *                                                     *
+  * (c) 2008 Fair Isaac Corporation                     *
+  *     author: S. Heipcke, 2001, rev. Feb. 2010        *
+  *******************************************************!)
+
+model Firestns                    ! Start a new model
+
+uses "mmxprs"                     ! Load the optimizer library
+
+declarations
+ RTown=1..6                       ! Range of towns
+ TIMELIMIT=20                     ! Max. time allowed to reach any town
+
+ TIME: array(RTown,RTown) of integer  ! Time taken between each pair of towns
+ SERVE: array(RTown,RTown) of boolean ! true if time within limit, false 
+                                      ! otherwise (default)
+
+ openst: array(RTown) of mpvar    ! 1 if ambulance at town; 0 if not
+end-declarations
+
+ TIME:: [ 0,15,25,35,35,25,
+         15, 0,30,40,25,15,
+         25,30, 0,20,30,25,
+         35,40,20, 0,20,30,
+         35,25,35,20, 0,19,
+         25,15,25,30,19, 0]
+
+(! This sets SERVE(t,s) to true if the time between the two towns is 
+   within the time limit. We can then use SERVE to define a set of 
+   constraints (see below). It is as well possible not to use the array
+   SERVE and move the test directly into the definition of the constraints. 
+!)
+ forall(t,s in RTown) 
+   SERVE(t,s) := TIME(t,s) <= TIMELIMIT
+   
+                                  ! Objective: minimize number fire stations
+ MinSta:= sum(s in RTown) openst(s)
+
+                                  ! Serve each town t by an open station s
+ forall(t in RTown) 
+  Serve(t):= sum(s in RTown|SERVE(t,s)) openst(s) >= 1
+
+                                  ! Variables are 0/1
+ forall(s in RTown) openst(s) is_binary
+   
+ minimize(MinSta)                 ! Solve the MIP-problem
+
+                                  ! Print out the solution
+ writeln("Solution:\n Minimum number of firestations: ", getobjval)
+ forall(s in RTown) write(" open(", s ,"): ", openst(s).sol)
+ write("\n    ")
+ forall(s in RTown) write(s, " ")
+ writeln
+ forall(t in RTown | openst(t).sol=1) do
+   write(" ", t, ": ")
+   forall(s in RTown) write(if(SERVE(t,s), "Y ", ". "))  
+   writeln
+ end-do
+ 
+
+end-model

@@ -1,0 +1,114 @@
+! XNLP example demonstrating the role of setting the value of penalty multipliers
+!          and demonstrating the effect of the penalty terms in the solution process 
+!          and also the role of nonlinear infeasiblity
+!
+! This is an SLP specific example.
+! In this example a hihgly combinatorial and hihgly nonlienar problem is solved.
+! The high constraint nonlinear gives rise to very large violations that needs 
+! attention otherwise SLP overcompensates.
+! The example also demonstrates how feasibility and integrality might interact in 
+! an MINLP search.
+!
+! This example demonstrates a particular non-linear optimization concept as related
+! to Xpress NonLinear.
+! The version of the example is for Xpress 7.5.
+!
+!  (c) 2013-2026 Fair Isaac Corporation
+!       author: Zsolt Csizmadia
+!
+! Based on AMPL model seven11.mod by M.J.Chlond
+! Source: alt.math.recreational
+! Mosel version by S.Heipcke
+
+model "seven11"
+ uses "mmxnlp", "mmsystem"
+
+! A function to translate the status of the solver ot text
+public function nlpstatustext(val: integer): text
+case val of
+  XNLP_STATUS_UNSTARTED: returned:= "NLP solving not started."
+  XNLP_STATUS_LOCALLY_OPTIMAL: returned:= "Local optimum found."
+  XNLP_STATUS_OPTIMAL: returned:= "Optimal solution found."
+  XNLP_STATUS_LOCALLY_INFEASIBLE: returned:= "NLP locally infeasible."
+  XNLP_STATUS_INFEASIBLE: returned:= "Problem is infeasible."   
+  XNLP_STATUS_UNBOUNDED: returned:= "Problem is unbounded."  
+  XNLP_STATUS_UNFINISHED: returned:= "NLP solving unfinished."
+  XNLP_STATUS_UNSOLVED: returned:= "NLP unsolved due to numerical issues."
+end-case
+end-function
+
+ declarations
+  m = 4	         ! Number of variables
+  M = 1..m
+  x: array(M) of mpvar
+  start : real;
+ end-declarations
+
+ !setparam("xnlp_verbose",true)
+
+ forall(i in M) x(i) is_integer
+ forall(i in M) x(i) >= 1        
+ forall(i in M) x(i) <= 708 
+ 
+ 711 = sum(i in M) x(i)
+ 711000000 = x(1)*x(2)*x(3)*x(4)
+
+! Solve the problem using SLP  
+ writeln("Solving seven11 using defaults:")
+ setparam("XPRS_NLPSOLVER",1)
+ setparam("xnlp_solver",XNLP_SOLVER_XSLP) 
+ start := gettime
+ minimize(0)
+ writeln("  solver returned status = ",nlpstatustext(getparam("XNLP_STATUS")),
+         " in ", gettime-start,"s")
+ writeln
+ writeln
+ 
+! The solution out of the box with SLP will fail due to unresonable error costs
+! and automatic row enforcement
+! This is due to the very large deviation from the nonlienar surface, and the
+! consequent very large error cost
+
+setcallback(XSLP_CB_INTSOL, "IntegerSolutionCallback")
+
+! Set the initial errorcost small. This can be done freely, as there is no
+! net objective in the model to consider
+! Observe the unexpected objetcive values in the MIP search
+! As the very last iteration shows, those are in fact the errorcosts!
+setparam("xslp_errormaxcost",1)
+writeln("Solving seven11 using reduced errormaxcost:")
+start := gettime
+minimize(0)
+writeln("  solver returned status = ",nlpstatustext(getparam("XNLP_STATUS")),
+        " in ", gettime-start,"s")
+writeln
+writeln
+
+! The solution is to address the accuracy in terms of the feasibility of the 
+! nonlienar constraints
+setparam("xslp_ecftol_a",1e-6)
+setparam("xslp_ecftol_r",1e-6)
+writeln("Solving seven11 using reduced errormaxcost and stricter feasibility ",
+	    "requirements:")
+start := gettime
+minimize(0)
+writeln("  solver returned status = ",nlpstatustext(getparam("XNLP_STATUS")),
+        " in ", gettime-start,"s")
+writeln
+writeln
+
+! final solution printing 
+forall(i in M) writeln(i, ": ", getsol(x(i)))
+  
+
+! Printing a solution while performing the MIP search
+function IntegerSolutionCallback:integer
+  writeln("+Integer solution:")
+  write("   ")
+  forall(i in M) write("x(",i,")=", getsol(x(i))," ")	
+  writeln
+  writeln("   Sum  = ", sum(i in M) getsol(x(i)))
+  writeln("   Prod = ", floor(x(1).sol*x(2).sol*x(3).sol*x(4).sol))
+end-function
+ 
+end-model

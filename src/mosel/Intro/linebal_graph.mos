@@ -1,0 +1,86 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file linebal.mos
+   ````````````````
+   TYPE:         Line balancing problem
+   DIFFICULTY:   2
+   FEATURES:     MIP problem, encoding of arcs, `range', formulation of 
+                 sequencing constraints
+   DESCRIPTION:  A product is produced on an assembly lines with four 
+                 workstations. It is assembled in twelve operations between 
+                 which there are certain precedence constraints. The duration 
+                 of every task is given. We would like to distribute the 
+                 tasks among the workstations in order to balance the line to 
+                 obtain the shortest possible cycle time, that is, the total
+                 time required for assembling the product. Every task needs 
+                 to be assigned to a single workstation that has to process 
+                 it without interruption. Every workstation deals with a 
+                 single operation at a time.    
+   FURTHER INFO: `Applications of optimization with Xpress-MP', 
+                 Section 7.6 `Assembly line balancing'
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2002, rev. Sep. 2017
+*******************************************************!)
+
+model "Assembly line balancing"
+ uses "mmxprs", "mmsvg"
+
+ declarations   
+  MACH=1..4                             ! Set of workstations
+  TASKS=1..12                           ! Set of tasks
+
+  DUR: array(TASKS) of integer          ! Durations of tasks
+  ARC: array(RA:range, 1..2) of integer ! Precedence relations between tasks
+
+  process: array(TASKS,MACH) of mpvar   ! 1 if task on machine, 0 otherwise
+  cycle: mpvar                          ! Duration of a production cycle
+ end-declarations
+
+ initializations from 'linebal.dat'
+  DUR ARC 
+ end-initializations
+
+! One workstation per task 
+ forall(i in TASKS) OneMachTask(i):= sum(m in MACH) process(i,m) = 1
+
+! Sequence of tasks
+ forall(a in RA) Prec(a):= sum(m in MACH) m*process(ARC(a,1),m) <=
+                           sum(m in MACH) m*process(ARC(a,2),m)
+
+! Cycle time
+ forall(m in MACH) Cycle(m):= sum(i in TASKS) DUR(i)*process(i,m) <= cycle
+
+ forall(i in TASKS, m in MACH) process(i,m) is_binary
+
+! Minimize the duration of a production cycle
+ minimize(cycle)
+ 
+! Solution printing
+ writeln("Minimum cycle time: ", getobjval)
+ forall(m in MACH) do
+  write("Workstation ", m, ":")
+  forall(i in TASKS)
+   write(if(getsol(sum(k in MACH) k*process(i,k)) = m, " "+i, "")) 
+  writeln(" (duration: ", getsol(sum(i in TASKS) DUR(i)*process(i,m)),")")
+ end-do  
+ 
+! Solution drawing
+ YFAC:=2
+ svgsetgraphviewbox(0,0,round(getobjval)+5, MACH.size*YFAC+2)
+ svgsetgraphlabels("Time","Workstations")
+ forall(m in MACH) do
+  cum:=0.0
+  forall(i in TASKS | getsol(sum(k in MACH) k*process(i,k)) = m ) do
+    svgaddgroup("T"+i, "Task "+i)
+    svgaddrectangle(cum,m*YFAC,DUR(i),0.5)
+    cum+=DUR(i)
+  end-do
+ end-do
+ 
+ svgsave("linebal.svg")
+ svgrefresh
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+end-model

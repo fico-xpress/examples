@@ -1,0 +1,64 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file fin_nl.mos 
+   ```````````````
+   Financial application solved by SLP.
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, June 2003, rev. Jul. 2023
+*******************************************************!)
+
+model "Recursion (NLP)"
+ uses "mmxnlp"                       ! Use Xpress NonLinear
+
+ declarations
+  NT=6                               ! Time horizon
+  QUARTERS=1..NT                     ! Range of time periods
+  M,P,V: array(QUARTERS) of real     ! Payments
+
+  interest: array(QUARTERS) of mpvar ! Interest
+  net: array(QUARTERS) of mpvar      ! Net
+  balance: array(QUARTERS) of mpvar  ! Balance
+  rate: mpvar                        ! Interest rate
+ end-declarations
+
+ M:: [-1000, 0, 0, 0, 0, 0]
+ P:: [206.6, 206.6, 206.6, 206.6, 206.6, 0]
+ V:: [-2.95, 0, 0, 0, 0, 0]
+                                     
+ setinitval(rate, 0)                 ! Set initial values for variables
+ forall(t in QUARTERS) setinitval(balance(t), 1)
+
+                                     ! net = payments - interest
+ forall(t in QUARTERS) net(t) = (M(t)+P(t)+V(t)) - interest(t)	
+
+                                     ! Money balance across periods
+ forall(t in QUARTERS) balance(t) = if(t>1, balance(t-1), 0) - net(t)	
+                                     
+                                     ! Interest rate                          
+ forall(t in 2..NT) -(365/92)*interest(t) + balance(t-1) * rate = 0
+                          
+ interest(1) = 0                     ! Initial interest is zero
+ forall (t in QUARTERS) net(t) is_free
+ forall (t in 1..NT-1) balance(t) is_free
+ balance(NT) = 0                     ! Final balance is zero
+
+! setparam("XNLP_VERBOSE",true)     ! Uncomment to see detailed output
+ setparam("XPRS_NLPSOLVER", 1)       ! Use a local NLP solver
+ setparam("XNLP_SOLVER", 0)          ! Select the SLP solver
+
+ minimize(0)                         ! Solve the problem (get feasible)
+ 
+                                     ! Print the solution
+ writeln("\nThe interest rate is ", getsol(rate))
+ write(strfmt("t",5), strfmt(" ",4))
+ forall(t in QUARTERS) write(strfmt(t,5), strfmt(" ",3))
+ write("\nBalances ")
+ forall(t in QUARTERS) write(strfmt(getsol(balance(t)),8,2))
+ write("\nInterest ")
+ forall(t in QUARTERS) write(strfmt(getsol(interest(t)),8,2))
+ writeln
+
+end-model

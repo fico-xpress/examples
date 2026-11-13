@@ -1,0 +1,108 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file j1water_graph.mos
+   ````````````````
+   Water conveyance/water supply management
+
+   A water transport network is provided. Nodes correspond
+   to cities, reservoirs, and pumping stations. Arcs
+   correspond to pipes. Capacities for each reservoir,
+   demand for each city, and capacities for the pipe
+   connections are given. How much water should flow through
+   each pipe to maximize the flow in the network?
+
+   A network transformation is presented to introduce fictitious
+   source and sink nodes. A LP model based on the transport
+   network representation is presented.
+
+   (c) 2008-2023 Fair Isaac Corporation
+       author: S. Heipcke, Mar. 2002, rev. Jun. 2023
+*******************************************************!)
+
+model "J-1 Water supply"
+ uses "mmxprs", "mmsvg"
+
+ declarations
+  ARCS: range                       ! Set of arcs
+  NODES=1..12
+
+  PIPE: array(ARCS,1..2) of integer ! Definition of arcs (= pipes)
+  CAP: array(ARCS) of integer       ! Capacity of arcs
+  SOURCE,SINK: integer              ! Number of source and sink nodes
+ end-declarations
+
+ initializations from 'j1water.dat'
+  PIPE CAP SOURCE SINK
+ end-initializations
+
+ declarations
+  flow: array(ARCS) of mpvar       ! Flow on arcs
+ end-declarations
+
+! Objective: total flow
+ TotalFlow:= sum(a in ARCS | PIPE(a,2)=SINK) flow(a)
+
+! Flow balances in nodes
+ forall(n in NODES | n<>SOURCE and n<>SINK)
+  sum(a in ARCS | PIPE(a,1)=n) flow(a) = sum(a in ARCS | PIPE(a,2)=n) flow(a)
+
+! Capacity limits
+ forall(a in ARCS) flow(a) <= CAP(a)
+
+! Solve the problem
+ maximize(TotalFlow)
+
+! Solution printing
+ writeln("Total flow: ", getobjval)
+ forall(a in ARCS) writeln(PIPE(a,1), " -> ", PIPE(a,2), ": ", getsol(flow(a)))
+
+! Solution drawing
+ declarations
+  XN,YN: array(NODES) of real        ! x-y-coordinates of all nodes
+ end-declarations
+
+ initializations from 'j1water.dat'
+  [XN,YN] as 'POS'
+ end-initializations
+
+! Define settings of global picture
+ svgsetgraphviewbox(0,0,125,100) ! set dimensions of generated image (start x, start y, dim x, dim y)
+ svgsetgraphscale(3) ! scale of points/arrows and text
+
+ ! Add arrows for flow values
+ svgaddgroup("ActArcs", "Active pipes and optimal flow values", SVG_GREEN)
+ svgaddgroup("InactArcs", "Inactive pipes", SVG_BLACK)
+ forall(a in ARCS) do
+  if(getsol(flow(a)) > 0) then
+   svgaddarrow("ActArcs", XN(PIPE(a,1)), YN(PIPE(a,1)), XN(PIPE(a,1)) + (XN(PIPE(a,2))-XN(PIPE(a,1)))*0.93, YN(PIPE(a,1)) + (YN(PIPE(a,2)) - YN(PIPE(a,1)))*0.93)
+   svgsetstyle(svggetlastobj, SVG_STROKEWIDTH, 1.5)
+   ! Add flow value in the center of the arrow
+   svgaddtext("ActArcs", (XN(PIPE(a,1))+XN(PIPE(a,2)))/2-1.5, (YN(PIPE(a,1))+YN(PIPE(a,2)))/2-3, text(getsol(flow(a))))
+   svgsetstyle(svggetlastobj, SVG_FONTSTYLE, 'italic')
+   svgsetstyle(svggetlastobj, SVG_FONTSIZE, 'xx-small')
+   svgsetstyle(svggetlastobj, SVG_FONTWEIGHT, 'bold')
+  else
+   svgaddarrow("InactArcs", XN(PIPE(a,1)), YN(PIPE(a,1)), XN(PIPE(a,1)) + (XN(PIPE(a,2))-XN(PIPE(a,1)))*0.93, YN(PIPE(a,1)) + (YN(PIPE(a,2)) - YN(PIPE(a,1)))*0.93)
+   svgsetstyle(svggetlastobj, SVG_STROKEDASH, 1.5)
+   svgsetstyle(svggetlastobj, SVG_STROKEWIDTH, 1.5)
+   svgsetstyle(svggetlastobj, SVG_STROKEOPACITY, 0.5)
+  end-if
+ end-do
+ 
+ ! Add reservoir nodes
+ svgaddgroup("Nodes", "Nodes", SVG_GRAY) ! declare groups to add color
+ forall(n in NODES) do
+   svgaddcircle("Nodes", XN(n), YN(n), 1.25)
+   svgsetstyle(svggetlastobj, SVG_FILL, SVG_GRAY)
+   svgaddtext("Nodes", XN(n)+1, YN(n)+1, text(n))
+   svgsetstyle(svggetlastobj, SVG_FONTSIZE, 'x-small')
+   svgsetstyle(svggetlastobj, SVG_FONTWEIGHT, 'bold')
+   svgsetstyle(svggetlastobj, SVG_TEXTANCHOR, 'start')
+ end-do
+
+ svgsave("j1water.svg")
+ svgrefresh
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+end-model

@@ -1,0 +1,51 @@
+(!******************************************************
+   Mosel NI Examples
+   =================
+
+   file complex_test.mos
+   `````````````````````
+   Testing the complex module
+
+   (c) 2021 Fair Isaac Corporation
+       author: Yves Colombani, 2002
+ *******************************************************!)
+
+model "Test complex"
+
+ uses "complex"
+
+ declarations
+  c,sr:complex
+  t:array(1..10) of complex
+  itr:realonly
+ end-declarations
+
+! Initialize some complex numbers
+ forall(j in 1..5) t(j):=complex(j,10-j)
+ forall(j in 6..10) t(j):=complex(j)
+ t(5):=complex("5+5i")
+
+! Aggregate PROD operator
+ c:=prod(i in 1..5) t(i)
+ if c<>0 then
+  writeln("test prod: ",c)
+ end-if
+
+! Aggregate SUM operator
+ writeln("test sum: ",sum(i in 1..10) t(i))
+
+! Sum cells of the array without imaginary part
+ initenum(itr,t)
+ while(nextreal(itr)) sr+=t(itr)
+ writeln("test realonly: ",sr)
+
+! Using arithmetic operators
+ c:=t(1)*t(3)/t(4)+if(t(2)=0,t(10),t(8))+t(5)-t(9)
+ writeln("test op: ",c)
+
+! File output 
+ initializations to "complex_test.dat"
+  c t
+ end-initializations
+
+end-model

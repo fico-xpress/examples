@@ -1,0 +1,160 @@
+(!*********************************************************************
+   Mosel Example Problems
+   ======================
+
+   file lim1.mos
+   `````````````
+   Production planning problem 
+   
+     Example solution for exercise 5.1 in section 5.7 of
+     J. Kallrath: Business Optimization Using Mathematical Programming -
+     An Introduction with Case Studies and Solutions in Various Algebraic 
+     Modeling Languages. 2nd edition, Springer Nature, Cham, 2021 
+
+   See https://examples.xpress.fico.com/example.pl?id=cocom
+   for additional versions.
+
+   author: S. Heipcke, June 2018
+
+   (c) Copyright 2020 Fair Isaac Corporation
+  
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+*********************************************************************!)
+
+model 'lim1'
+  uses "mmxprs", "mmsystem"
+
+  declarations
+    NP=2                    
+    NR=2                    
+    NI=2                    
+    NT=4                    
+    RP=1..NP                    ! Products
+    RR=1..NR                    ! Raw materials
+    RI=1..NI                    ! Intermediate products
+    RT=1..NT                    ! Time periods
+
+    RPR: array(RP,RR) of real   ! Requirement by p for r
+    RPI: array(RP,RI) of real   ! Requirement by p for i
+    RIR: array(RI,RR) of real   ! Requirement by i for r
+    PRC: array(RP,RT) of real   ! Selling price of p in t
+    CP: array(RP,RT) of real    ! Manufacturing cost of p in t
+    CI: array(RP,RT) of real    ! Manufacturing cost of i in t
+    A: array(RR,RT) of real     ! Availablities of r in t
+    SP0: array(RP) of real      ! Initial stock levels of p
+    SI0: array(RI) of real      ! Initial stock levels of i
+  end-declarations
+
+  RPR::[8, 10,
+        6, 12]
+  RPI::[4, 2,
+        3, 3]
+  RIR::[1.0, 0.7,
+        0.6, 1.2]
+  PRC::[100, 105, 107, 90,
+         90, 100, 110, 115]
+  CP::[40, 42, 55, 35,
+       38, 35, 44, 40]
+  CI::[6.0, 6.2, 5.3, 4.8,
+       5.1, 5.2, 5.0, 5.1]
+  A::[200, 300, 100, 200,
+      250, 400, 50, 240]
+  SP0::[40, 38]
+  SI0::[60, 50]
+
+  declarations
+    mP: array(RP,RT) of mpvar       ! Number of p made in period t
+    mI: array(RI,RT) of mpvar       ! Number of i made in period t
+    sell: array(RP,RT) of mpvar     ! Number of p sold in period t
+    uI: array(RI,RT) of mpvar       ! i's used in month t
+    sP: array(RP,RT) of mpvar       ! Stock of p at end of month t
+    sI: array(RI,RT) of mpvar       ! Stock of i at end of month t
+  end-declarations
+
+ ! Objective: maximise total profit
+  Profit:= sum(p in RP,t in RT) PRC(p,t)*sell(p,t) -  ! revenue
+         sum(p in RP,t in RT) CP(p,t)*mP(p,t) -       ! making p
+         sum(i in RI,t in RT) CI(i,t)*mI(i,t) -       ! making i
+         sum(p in RP,t in RT) 3 *sP(p,t) -            ! storing p
+         sum(i in RI,t in RT) 0.5 *sI(i,t)            ! storing i
+      
+  ! Stock balance for p in period t
+  forall(p in RP,t in 2..NT)
+    Sbp(p,t):= sP(p,t) = sP(p,t-1) + mP(p,t) - sell(p,t)
+  forall(p in RP)
+    Sbp0(p):= sP(p,1) = SP0(p) + mP(p,1) - sell(p,1)
+
+  ! Stock balance for i in period t
+  forall(i in RI,t in 2..NT)
+    Sbi(i,t):= sI(i,t) = sI(i,t-1) + mI(i,t) - uI(i,t)
+  forall(i in RI)
+    Sbi0(i):= sI(i,1) = SI0(i) + mI(i,1) - uI(i,1)
+
+  ! Usage of i related to p made
+  forall(i in RI,t in RT)
+    Usei(i,t):= uI(i,t) = sum(p in RP) RPI(p,i)*mP(p,t)
+
+  ! Availability of resources
+  forall(r in RR,t in RT)
+    Ravail(r,t):= sum(p in RP) RPR(p,r)*mP(p,t) +
+                  sum(i in RI) RIR(i,r)*mI(i,t)<= A(r,t)
+
+  ! Final stock balances
+  forall(p in RP,t=NT) sP(p,t) = SP0(p)
+  forall(i in RI,t=NT) sI(i,t) = SI0(i)
+
+  ! Max sales in any period
+  forall(p in RP,t in RT) sell(p,t)<= 30
+
+  ! Solve the problem
+  maximise(Profit)
+  writeln("Solution:")
+
+  hline:=60*"-"
+  writeln("Total profit: ", getobjval)
+  writeln(hline)
+  write(8*" ", "Period")
+  forall(t in 0..NT) write(strfmt(t,8)) 
+  writeln("\n", hline)
+  writeln("Finished products\n", 
+          "=================")
+  forall(p in RP) do
+   write(3*" ", "P", p, ":  Prod", 10*" ")
+   forall(t in RT) write(strfmt(mP(p,t).sol,8,1))
+   writeln
+   write(8*" ", "Sell", 10*" ")
+   forall(t in RT) write(strfmt(sell(p,t).sol,8,1))
+   writeln
+   write(8*" ", "(Stock)    (", SP0(p), ")")
+   forall(t in 1..NT) write("  (", strfmt(sP(p,t).sol,4,1), ")")
+   writeln
+  end-do 
+
+  writeln(hline)
+  writeln("Intermediates\n", 
+          "=============")
+  forall(i in RI) do
+   write(3*" ", "I", i, "   Prod", 10*" ")
+   forall(t in RT) write(strfmt(getsol(mI(i,t)),8,1))
+   writeln
+   write(8*" ", "Use ", 10*" ")
+   forall(t in RT) write(strfmt(getsol(uI(i,t)),8,1))
+   writeln
+   write(8*" ", "(Stock)    (", SI0(i), ")")
+   forall(t in 1..NT) write("  (", strfmt(sI(i,t).sol,4,1), ")")
+   writeln
+  end-do 
+  writeln(hline)
+
+end-model

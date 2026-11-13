@@ -1,0 +1,216 @@
+(!****************************************************************
+    CP example problems
+    ===================
+   
+    file runfapp.mos
+    ````````````````
+    Solution algorithm for solving the
+    Frequency Assignment Problem with Polarity
+    - Main model executing the submodel fappmod.mos -
+   
+    This problem, taken from the ROADEF'2001 challenge, is a Frequency 
+    Assignment Problem with Polarization constraints. It originates 
+    from the CALMA European project (Combinatorial Algorithms 
+    for Military Applications), from 1993 to 1995. The formulation 
+    has been extended to take into account the polarisation 
+    constraints and the undercontrolled relaxation of 
+    electromagnetic compatibility constraints. 
+    
+    You can find more information about the challenge on 
+    the following URL:    
+    http://challenge.roadef.org/2001/en/
+    
+    A complete description of the problem can be dowloaded here:
+    http://challenge.roadef.org/2001/en/sujet.php    
+    
+    The algorithm implemented is a two phase algorithm:
+    
+    - First find a good lower bound on the relaxation level 'k' of 
+      the CEM (ElectroMagnetic Compatibility constraints). This is 
+      done by successively propagation CEM constraints by decreasing
+      relaxation level. When the problem becomes infeasible we obtain
+      a lower bound on 'k'    
+       
+    - We then apply a simple solution algorithm to find (on some instances) 
+      an optimal solution relative to the relaxation level 'k'.
+      
+    The lower bound algorithm enables the finding of an exact lower bound 
+    just using constraint propagation for 37 of the 44 instances published 
+    by the challenge.
+
+   *** This model cannot be run with a Community Licence 
+       for the provided data instances ***
+
+  (c) 2008 Artelys S.A. and Fair Isaac Corporation
+      Creation: 2005, rev. Sep. 2018
+*****************************************************************!)
+
+model "Run FAPP"
+ uses "mmsystem", "mmjobs" 
+ 
+ parameters 
+  FILENAME = "Data/fapp_instance_01.in"
+  ! You can alternatively choose another source data set with the expected results below.
+  !FILENAME = "Data/fapp_instance_02.in" 
+  !FILENAME = "Data/fapp_instance_03.in" 
+  !FILENAME = "Data/fapp_instance_04.in"  
+ end-parameters 
+
+(!
+===========================
+Instance  Kopt Bound
+===========================
+fapp_instance_01     4    4
+fapp_instance_02     8    8
+fapp_instance_03    10   10
+fapp_instance_04     4    4
+===========================
+!)
+ 
+! Declaration of procedures
+ forward procedure read_data
+ forward procedure clean_data
+
+! Data model declaration
+ declarations
+  nbTravel: integer                       ! Number of travels
+  nbFreqDom: integer                      ! Number of frequency domains
+  nbCI: integer                           ! Number of hard constraints
+  nbCEME: integer                         ! Number of CEME soft constraints
+  nbCEMD: integer                         ! Number of CEMD soft constraints
+  FREQDOMS: dynamic array(range,range) of integer ! Frequency domains
+  SIZEDOMS: dynamic array(range) of integer       ! Frequency domain sizes
+  VKEV: dynamic array(range,range) of integer     ! Soft constraint indices 
+  VKE : dynamic array(range,range) of integer     ! CEME coefficients
+  VKD : dynamic array(range,range) of integer     ! CEMD coefficients
+  TR: dynamic array(range, {"F","P"}) of integer  ! Travel data
+  CI: dynamic array(set of integer, set of integer, {"F","P"}, {"E","I"}) of integer
+                                          ! Hard constraints data
+  fappmodel: Model                        ! Reference to the CP model
+  lb: integer                             ! Lower bound value from Phase 1
+ end-declarations 
+ 
+
+! **** Compile and load the CP model ****
+ res:=compile("fappmod.mos")              ! Compile the CP model
+ load(fappmodel, "fappmod.bim")           ! Load the CP model
+ 
+ read_data                                ! Read problem data from file
+
+! **** Solution algorithm ****
+ starttime:= gettime
+
+ run(fappmodel, "PHASE=1")                ! Solving Phase 1: lower bound 
+ wait                                     ! Wait for model to finish
+ dropnextevent                            ! Ignore termination event
+ 
+ initializations from "shmem:lb"          ! Retrieve lower bound value
+  lb 
+ end-initializations
+
+ writeln("Lower bound = " + lb);
+ run(fappmodel, "PHASE=2,BOUND=" + lb)    ! Solving Phase 2: solve the prob.
+ wait                                     ! Wait for model to finish
+ dropnextevent                            ! Ignore termination event   
+
+ writeln("Total time: ", gettime-starttime, "sec")
+
+ clean_data                               ! Delete data from shared memory
+ 
+!************************************************************************* 
+! Read data from file and pass them to the CP model (via shared memory)
+!*************************************************************************
+ procedure read_data
+  declarations
+   SC: string                             ! Marker of data table names
+   val,freq,v0,v1,v2:integer
+   s0,s1:string
+  end-declarations
+  
+  writeln("***************************************************************")
+
+  fopen(FILENAME, F_INPUT)                ! Open the data file for reading
+  writeln("Reading file `", FILENAME, "'...")
+ 
+  nbFreqDom := 0    ! number of frequency domains
+  nbCI      := 0    ! number of imperative constraints
+  nbCEME    := 0    ! number of CEM constraints 
+  nbCEMD    := 0
+  nbTravel  := 0    ! number of travels involved
+ 
+  while (not iseof) do
+   read(SC)                               ! Read the name of the table on a line 
+   case SC of
+    "DM": do                              ! Reading a domain for a travel
+           readln(val,freq)               ! reading the domain number and the frequency to add to this domain
+           FREQDOMS(val,SIZEDOMS(val)) := freq    
+           SIZEDOMS(val) := SIZEDOMS(val) + 1
+           if (val+1 > nbFreqDom) then  
+            nbFreqDom := val+1            ! increase the counter of frequency domains
+           end-if           
+          end-do
+    "TR": do                              ! Reading a travel definition
+           readln(v0,v1,v2)                   
+           TR(nbTravel, "F"):= v1         ! Travel number 'nbTravel' takes values in the frequency domain number 'v1'
+           TR(nbTravel, "P"):= v2         ! Travel number 'nbTravel' takes values in the polarity domain number 'v2' 
+           nbTravel := nbTravel + 1       ! Increase the counter of travels
+          end-do
+    "CI": do                              ! Reading an imperative constraint
+           readln(v0,v1,s0,s1,v2)         !         
+              CI(v0,v1,s0,s1):= v2        !
+           nbCI := nbCI + 1
+          end-do
+    "CE": do                              ! Reading the relaxation table for CEM constraints when polarities are equal
+           read(VKEV(nbCEME,0),VKEV(nbCEME,1))      ! get the frequency involved in the CEM constraint
+           forall (kk in 0..9) read(VKE(nbCEME,kk)) ! read the relaxation table
+           readln(VKE(nbCEME,10)) 
+           nbCEME := nbCEME + 1           ! increase the counter of CEM constraints
+          end-do
+    "CD": do                              ! Reading the relaxation table for CEM constraints when polarities are different
+           read(v0,v1)                    ! get the frequency involved in the CEM constraint
+           forall (kk in 0..9) read(VKD(nbCEMD,kk)) ! read the relaxation table
+           readln(VKD(nbCEMD,10)) 
+           nbCEMD := nbCEMD + 1           ! increase the counter of CEM constraints
+          end-do
+   end-case
+  end-do
+  fclose(F_INPUT)   
+ 
+ ! Write some problem statistics
+  writeln("Problem Stats :")
+  writeln(nbTravel ," Travels")
+  writeln(nbFreqDom," Frequency domains")
+  writeln(nbCI     ," Hard Constraints")
+  writeln(nbCEME   ," CEME Soft Constraints")
+  writeln(nbCEMD   ," CEMD Soft Constraints")
+
+ ! Write data to memory
+  initializations to "bin:shmem:fappdata"
+   nbTravel   
+   nbFreqDom 
+   nbCI      
+   nbCEME    
+   nbCEMD   
+   FREQDOMS 
+   SIZEDOMS  
+   TR       
+   CI     
+   VKEV   
+   VKE 
+   VKD    
+  end-initializations
+
+  writeln("***************************************************************")
+ end-procedure
+
+!************************************************************************* 
+! Delete data stored in shared memory
+!*************************************************************************
+ procedure clean_data
+  fdelete("shmem:fappdata") 
+  fdelete("shmem:lb")
+ end-procedure
+
+end-model
+
+

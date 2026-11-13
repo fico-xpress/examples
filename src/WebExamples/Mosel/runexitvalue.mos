@@ -1,0 +1,36 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file runexitvalue.mos
+   `````````````````````
+   Example of the use of `exit' for error handling in
+   Mosel applications.
+       
+   (c) 2017 Fair Isaac Corporation
+       author: S. Heipcke, June 2017
+*******************************************************!)
+
+model "Run exitvalue"
+ uses "mmjobs"
+
+ parameters
+  FILENAME = "exitvalue"
+ end-parameters
+
+ declarations
+  submod: Model
+ end-declarations
+                                   
+ if compile(FILENAME+".mos")<>0 then exit(1); end-if  ! Compile the model file
+ load(submod, FILENAME+".bim")                        ! Load the bim file
+ run(submod)                                          ! Run the model
+ wait
+
+ case getexitcode(submod) of
+  0: writeln("Integer solution found")
+  1: writeln("LP infeasible")
+  2: writeln("No integer solution")
+ end-case
+
+end-model 

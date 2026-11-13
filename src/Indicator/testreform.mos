@@ -1,0 +1,41 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file testreform.mos
+   ```````````````````
+   Reformulation example from mipformref whitepaper 
+
+   (c) 2024 Fair Isaac Corporation
+       author: S. Heipcke, Sep. 2024
+*******************************************************!)
+model "test reformulation example"
+ uses "advmod", "mmsystem"
+
+ public declarations
+  x: array(1..2) of mpvar
+ end-declarations
+
+ implies(x(1)>=10, x(1)+x(2)>=12 and not x(2)<=5 )
+
+ setparam("XPRS_loadnames",true)
+ loadprob(0)
+ writeprob("tmp:mat", "l")          ! Display in LP-format
+ fcopy("tmp:mat",0,"",F_APPEND)
+
+end-model
+
+Output:
+
+Subject To
+_R1: _C8=0 ->  x(2) >= 5.002004
+_R2: _C7 + _C8 = 1
+_R3: _C5=1 ->  _C7 >= 1
+_R4: _C5=1 ->  _C6 >= 1
+_R5: _C4=0 ->  x(1) <= 9.997996
+_R6: _C3=1 ->  _C4 - _C5 <= 0
+_R7: _C3 = 1
+_R8: _C6=1 ->  x(1) + x(2) >= 12
+
+Binaries
+_C3 _C4 _C5 _C6 _C7 _C8

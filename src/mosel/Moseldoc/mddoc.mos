@@ -1,0 +1,390 @@
+(!*******************************************************
+  * Mosel Example Programs 
+  * ======================  
+  *          
+  * file mddoc.mos  
+  * ``````````````   
+  * Example for the use of the Mosel language 
+  * (Use of annotations for documentation) 
+  *                                   
+  * (c) 2015 Fair Isaac Corporation  
+  *     author: Y. Colombani, rev. Jan. 2024
+  *******************************************************!)
+
+package mddoc
+version 0.0.8
+namespace myns
+!The following optional header is required only when building the PDF
+(!@doc.
+ @xmlheader
+<!DOCTYPE manual SYSTEM "../moseldocpdf.dtd">
+<manual
+ id="mddoc"
+ date="January 2024"
+ title="An example of model documentation"
+ author="Y. Colombani"
+ author2="http://www.fico.com/xpress"
+ firsttitle="none"
+ type="doc"
+ mantype="ug"
+ creation="2015"
+ product="moseldoc"
+ release="1.10.1">
+ </manual>
+ @xmlroot manual
+!)
+
+(!@doc.
+ @title An example of model documentation
+ @date January 2024
+ @chapter Annotations for documentation
+ @section Running <tt>moseldoc</tt>
+ @p [XML]
+ The <tt>moseldoc</tt> program takes as input a bim file produced from
+ a Mosel model compiled with the <tt>-D</tt> compiler option.
+ Generation of the documentation for this model is therefore obtained by
+ executing the following commands:
+ @p [SRC]
+>mosel comp -D mddoc
+>moseldoc mddoc
+ @p
+ The result of this process is an XML file (<tt>"mddoc_doc.xml"</tt>)
+ and a directory containing an HTML version of the documentation
+ (<tt>"mddoc_html"</tt>). The program will produce only the XML file
+ (from a bim file) if option <tt>-xml</tt> is used and only the HTML data
+ (from an XML file) if <tt>-html</tt>
+ is selected. The option <tt>-f</tt> will be required to force the 
+ replacement of existing files.
+ @p
+ As a Mosel program available in source form, <tt>moseldoc</tt> 
+ can be adapted to fit specific user requirements. To re-generate the
+ moseldoc executable use this compilation command (requires a C compiler):
+ @p [SRC]
+>mosel comp moseldoc.mos -o deploy.exe:moseldoc
+ @p
+ <b>Note for Xpress Workbench users:</b> 
+ To enable the -D compiler option in Workbench open the <i>Run</i>
+ menu and select the entry <i>Compiler Options</i>, enable the 
+ <i>Generate Doc Annotations</i> option, then confirm with <i>Save</i>. 
+ Click on the <i>Compile</i> button in the Workbench toolbar to generate 
+ a BIM file that contains the documentation annotations.
+
+ @section Automatic addition of annotations
+ @p
+ The documentation generation relies on annotations that are recorded 
+ into the bim
+ file. Some of these annotations are automatically produced by the Mosel
+ compiler when it is run with the option <tt>-D</tt> (it is also possible
+ to overwrite annotations set by the compiler).<br/>
+ These are the automatically generated annotations:
+  <dl>
+  <dt class="DLItem">@doc.name</dt><dd class="DLText">model/package name</dd>
+  <dt class="DLItem">@doc.version</dt><dd class="DLText">model/package version</dd>
+  <dt class="DLItem">@doc.date</dt><dd class="DLText">generation date</dd>
+  <dt class="DLItem">@doc.syntax</dt><dd class="DLText">subroutine prototype</dd>
+  <dt class="DLItem">@doc.type</dt><dd class="DLText">entity type</dd>
+  <dt class="DLItem">@doc.recfldtype</dt><dd class="DLText">record field type</dd>
+  <dt class="DLItem">@doc.default</dt><dd class="DLText">parameter default value</dd>
+  <dt class="DLItem">@doc.const</dt><dd class="DLText">constant value</dd>
+  </dl>
+ @p
+ The special annotation <tt>@doc.autogen</tt> can be used to disable
+ locally this automatic generation procedure (when it is set to 'false', the
+ generation is disabled).
+ @p
+ Thanks to the automatic generation feature it is possible to produce a documentation for model source files that do not contain any annotations.
+
+ @section Document structure
+ @p
+ The document is organised in chapters (<tt>@doc.chapter title</tt>),
+ sections (<tt>@doc.section title</tt>) and subsections (<tt>@doc.subsection title</tt>).
+ In each of these components, paragraphs are added using the marker <tt>@doc.p</tt>.
+ By default, the paragraph content is expected to be valid XML but plain
+ text can also be used by starting the paragraph with the <tt>[TXT]</tt> marker
+ (in this case special characters like '&lt;' are not interpreted) and to insert
+ code examples you need to start with the marker <tt>[SRC]</tt> (special 
+ characters are not interpreted and spacing is preserved).
+ @p
+ Simple text formatting is available via the XML tags <tt>i</tt> (<i>italics</i>), <tt>b</tt> (<b>bold</b>), <tt>em</tt> (<em>emphasized</em>), and <tt>tt</tt>  (<tt>typewriter</tt>). 
+ @p
+ Math formulae can be typeset using Latex syntax, either inline: <mathj>\sum _{i=1}^{N} C_{i} \cdot  x_{i} \leq  10</mathj> or in display mode (it is possible to link to an equation <eqref id="eqrefexpl"/> on the same page): <dispmathj id="eqrefexpl">\prod _{i=1}^{N} C_{i} \cdot  x_{i}  \lt  10</dispmathj>
+ or also:
+ <dispmathj>\begin{eqnarray*}  x + y + z \tamp = \tamp  3 \\ 
+ x \tamp \leq \tamp 2 \cdot y  \end{eqnarray*}</dispmathj>
+
+ @subsection Relocating documentation contents
+ @p
+ Documentation contents (entities, function definitions and paragraphs) are
+ automatically associated with the current subsection, section or chapter
+ (depending on the last definition). It is also possible to specify
+ a different location using the <tt>@doc.relocate</tt> annotation that
+ must designate a target location in the document that has been defined 
+ with <tt>@doc.location</tt>.
+
+ @subsection References
+ @p
+ Entities and subroutine definitions within the same document can be referenced respectively via <tt>entRef</tt> and <tt>fctRef</tt> XML tags that can be employed within annotations <tt>@doc.p</tt>, <tt>@doc.[cparam.]info</tt>, and <tt>@doc.related</tt>. It is also possible to generate lists of entities or subroutines within annotations <tt>@doc.p</tt>:
+
+ @p <fctList>
+      <fctListItem name="myfunct"/>
+      <fctListItem name="myns~aproc"/>
+    </fctList>
+
+ @p <entList>
+      <entListItem name="p3"/>
+      <entListItem name="R"/>
+      <entListItem name="A"/>
+      <entListItem name="basictype"/>
+      <entListItem name="recvar"/>
+      <entListItem name="myns~val"/>
+    </entList>
+!)
+
+(!@doc.
+ @chapter The example
+ @p
+This entire document is generated from the source file
+<tt>mddoc.mos</tt>. Please look at the model source to see which annotations
+were defined to produce the output under this chapter.
+!)
+
+!@doc.section Runtime parameters
+parameters
+ !@doc.descr short parameter description
+ !@doc.value v1 possible value
+ !@doc.value v2 another possible value
+ !@doc.info some more explanation (longer text)
+ P1="some text"
+
+ ! Define the insertion point for the documentation of control parameters
+ !@doc.cparamloc sec_cparam
+
+(!@doc.cparam.
+  @descr p2 short parameter description
+  @value p2 v1 possible value
+  @value p2 v2 another possible value
+  @default p2 0
+  @info p2 some more explanation (longer text)
+  @info p2 Can reference other control parameters <entRef>p3</entRef>
+!)
+ "p2":integer
+ !@doc.cparam.descr p3 short parameter description
+ !@doc.cparam.default p3 true
+ "p3":boolean
+ 
+end-parameters
+
+!@doc.section Requirements
+!@doc.location reqdefs
+requirements
+!@doc.descr this set must be defined by some other package/model
+!@doc.info some more detailed information 
+!@doc.related <entRef>S</entRef>
+ R: range
+!@doc.ignore 
+!@doc.descr another set for testing requirements
+ S2: range
+!@doc.descr procedure defined by some other package/model 
+!@doc.info some additional information 
+!@doc.related <fctRef>aproc</fctRef>
+ procedure myextproc
+ procedure myextproc(val:integer)
+end-requirements
+
+!@doc.section Constants, variables, and type definitions
+!@doc.location vardefs
+public declarations
+ (!@doc.
+   @descr short description of the constant set
+   @info additional information
+ !)
+ S=1..10
+
+ !@doc.descr an error code constant
+ MYERR=11
+
+ !@doc.descr namespaced entity
+ myns~val: integer
+
+ !@doc.descr an array
+ !@doc.deprecated This array should no longer be used.
+ A: array(S) of real
+
+ !@doc.descr definition of a union type for Mosel's basic types
+ basictype = string or integer or real or boolean
+
+ !@doc.descr a list of basic types
+ !@doc.info see also the definition of the type <entRef>basictype</entRef>
+ LB: list of basictype 
+
+ !@doc.descr a union of scalar numerical type
+ nu: real or integer
+
+ !@doc.descr a subroutine reference
+ myfct: function(r:real): real 
+
+ (!@doc.
+   @descr a record type
+   @recflddescr fld1 field description
+   @recflddescr fld2 another field description
+   @recfldval fld2 val1 meaning of a specific value
+   @recfldval fld2 v2 another value for this <i>field</i> with a subroutine reference <fctRef>aproc</fctRef>
+   @info further information
+ !)
+ rectype=public record
+  fld1:integer
+  fld2:string
+ end-record
+
+ (!@doc.
+   @descr a record variable
+   @recflddescr fldA field description
+   @recflddescr fldB another field description
+   @setby <fctRef>aproc</fctRef>
+   @info @doc.value may also be used with a variable
+   @info several @doc.info tags can be used for a given entity
+   @info entities can be referenced: <entRef>rectype</entRef> and <entRef>myns~val</entRef>
+ !)
+ recvar:public record
+  fldA:integer
+  fldB:string
+ end-record
+
+end-declarations
+
+! **** Documenting annotations ****
+
+! Select annotation categories to be included in documentation
+!@doc.annotcat my
+
+! Relocate insertion point for annotations documentation to a location 
+! defined via '@doc.location'
+!@doc.annotloc sec_ann
+
+!@mc.def my.annotname multi,global,values=avalue value2 value3
+!@mc.def my.anotherannotname integer,specific,range=1 10
+
+(!@doc.annot.
+   @descr my.annotname Short description of the annotation.
+   @default my.annotname avalue
+   @type my.annotname text
+   @value my.annotname avalue Explanation of this value
+   @value my.annotname value2 Another possible value
+   @value my.annotname value3 Yet another possible value
+   @info my.annotname Some more detailed explanations.
+   @info my.annotname <entRef>my.anotherannotname</entRef>
+ !)
+ !@doc.annot.descr my.anotherannotname Short description of the annotation.
+
+! **** Documenting subroutines ****
+
+(!@doc.
+ @section Subroutines
+ @p [TXT]
+ The list of subroutines below is automatically generated from the declarations
+ appearing within the scope of this section
+!)
+
+(!@doc.
+  @descr some short description
+  @param i first parameter
+  @param r second parameter
+  @param flags some flags. Possible values:
+  @paramval flags 1 first option
+  @paramval flags 2 second option
+  @err 33 error condition that can be set
+  @err MYERR reference to an error code constant
+  @return the truth
+  @example Some descriptive text for the example
+  @example [SRC]
+  the example code is here
+  @info useful information for <fctRef>myfunct</fctRef>
+!)
+public function myfunct(i:integer,r:real,flags:integer):boolean
+ returned:=i>r
+end-function
+
+!@doc.group myfunct
+!@doc.info <fctRef>myotherfunc</fctRef> is an alternative to <fctRef>myfunct</fctRef>
+!@doc.info Up to 3 different subroutine names can be grouped
+public function myotherfunc(i:integer):boolean
+ returned:=true
+end-function
+
+(!@doc.
+  @descr Yet another routine
+  @deprecated Use <fctRef>myotherfunc</fctRef> in place of this routine.
+  @param s the only parameter
+  @info should modify <tt>recvar</tt>
+  @related <entRef>recvar</entRef>, <fctRef>myns~aproc</fctRef>
+!)
+public procedure aproc(s:string)
+ writeln(s)
+end-procedure
+
+(!@doc.
+  @descr Namespaced subroutine
+  @param s the only parameter
+  @related <fctRef>aproc</fctRef>
+!)
+public procedure myns~aproc(s:string)
+ writeln(s)
+end-procedure
+
+
+! **** Deactivating temporarily the generation of documentation ****
+
+! The following procedure will not be included into the doc
+(!@doc.
+  @descr Ignored by the documentation
+  @ignore
+!)
+public procedure hiddenproc
+ a:=1
+end-procedure
+
+! Don't document these generic routines for handling package control parameters
+!@doc.autogen=false
+public function mddoc~getbparam(name:string):boolean
+ returned:=true
+end-function
+
+public function mddoc~getiparam(name:string):integer
+ returned:=0
+end-function
+
+public procedure mddoc~setparam(name:string, val:boolean)
+ writeln("setparam")
+end-procedure
+
+public procedure mddoc~setparam(name:string, val:integer)
+ writeln("setparam")
+end-procedure
+!@doc.autogen
+! Re-enable generation of documentation annotations
+
+
+! **** Relocating portions of the documentation **** 
+
+! The documentation of this scalar will be relocated to the section 'Constants and variables'
+!@doc.relocate vardefs
+public declarations
+  advar:string  !@doc.descr an additional variable
+end-declarations
+
+! The documentation of this subroutine will be relocated to the section 'Requirements'
+!@doc.relocate reqdefs
+requirements
+!@doc.descr function defined by some other package/model 
+ function myextfunc:real
+end-requirements
+
+! The documentation of the control parameters will be inserted here
+!@doc.section Control parameters
+!@doc.location sec_cparam
+
+! The documentation of the annotations will be inserted here
+!@doc.section Annotations
+!@doc.location sec_ann
+
+end-package

@@ -1,0 +1,132 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file coco3.mos
+   ``````````````
+   Coco Problem, mid-term model.
+
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, r2001, rev. Jun. 2023
+*******************************************************!)
+
+model "Coco3"
+ uses "mmxprs"
+
+ parameters
+  DATAFILE = "coco2.dat"
+ end-parameters
+ 
+ declarations                         
+  NPROD, NFACT, NRAW, NT: integer
+ end-declarations                      
+
+ initializations from DATAFILE
+  NPROD NFACT NRAW NT
+ end-initializations
+
+ declarations
+  PRODS = 1..NPROD                      ! Range of products (p)
+  FACT = 1..NFACT                       !          factories (f)
+  RAW = 1..NRAW                         !          raw materials (r)
+  PERIODS = 1..NT                       !          time periods (t)
+
+  REV: array(PRODS,PERIODS) of real     ! Unit selling price of products
+  CMAKE: array(PRODS,FACT) of real      ! Unit cost to make product p 
+                                        ! at factory f
+  CBUY: array(RAW,PERIODS) of real      ! Unit cost to buy raw materials
+  REQ: array(PRODS,RAW) of real         ! Requirement by unit of product p 
+                                        ! for raw material r
+  MXSELL: array(PRODS,PERIODS) of real  ! Max. amount of p that can be sold
+  MXMAKE: array(FACT) of real           ! Max. amount factory f can make 
+                                        ! over all products
+  IPSTOCK: array(PRODS,FACT) of real    ! Initial product stock levels 
+  IRSTOCK: array(RAW,FACT) of real      ! Initial raw material stock levels
+  CPSTOCK: real                         ! Unit cost to store any product p
+  CRSTOCK: real                         ! Unit cost to store any raw mat. r
+  MXRSTOCK: real                        ! Raw material storage capacity
+
+  make: array(PRODS,FACT,PERIODS) of mpvar ! Amount of products made at factories
+  sell: array(PRODS,FACT,PERIODS) of mpvar ! Amount of product sold from factories
+  buy: array(RAW,FACT,PERIODS) of mpvar    ! Amount of raw material bought
+  pstock: array(PRODS,FACT,1..NT+1) of mpvar ! Product stock levels at start 
+                                             ! of period t
+  rstock: array(RAW,FACT,1..NT+1) of mpvar   ! Raw material stock levels  
+                                             ! at start of period t 
+ end-declarations
+
+ initializations from DATAFILE
+  REV CMAKE CBUY REQ MXSELL MXMAKE
+  IPSTOCK IRSTOCK MXRSTOCK CPSTOCK CRSTOCK
+ end-initializations
+ 
+! Product stock balance
+ forall(p in PRODS,f in FACT,t in PERIODS)
+  PBal(p,f,t):= pstock(p,f,t+1) = pstock(p,f,t) + make(p,f,t) - sell(p,f,t)
+
+! Raw material stock balance
+ forall(r in RAW,f in FACT,t in PERIODS) 
+  RBal(r,f,t):= rstock(r,f,t+1) = 
+   rstock(r,f,t) + buy(r,f,t) - sum(p in PRODS) REQ(p,r)*make(p,f,t)
+
+! Capacity limit at factories
+ forall(f in FACT,t in PERIODS) 
+  MxMake(f,t):= sum(p in PRODS) make(p,f,t) <= MXMAKE(f)
+
+! Limit on the amount of prod. p to be sold
+ forall(p in PRODS,t in PERIODS) sum(f in FACT) sell(p,f,t) <= MXSELL(p,t)
+
+! Raw material stock limit
+ forall(f in FACT,t in 2..NT+1) 
+  MxRStock(f,t):= sum(r in RAW) rstock(r,f,t) <= MXRSTOCK
+
+! Initial product and raw material stock levels
+ forall(p in PRODS,f in FACT) pstock(p,f,1) = IPSTOCK(p,f)
+ forall(r in RAW,f in FACT) rstock(r,f,1) = IRSTOCK(r,f)
+
+! Objective: maximize total profit
+ Profit:= 
+  sum(p in PRODS,f in FACT,t in PERIODS) REV(p,t) * sell(p,f,t) -   ! revenue
+  sum(p in PRODS,f in FACT,t in PERIODS) CMAKE(p,f) * make(p,f,t) - ! prod. cost
+  sum(r in RAW,f in FACT,t in PERIODS) CBUY(r,t) * buy(r,f,t) -     ! raw mat. 
+  sum(p in PRODS,f in FACT,t in 2..NT+1) CPSTOCK * pstock(p,f,t) -  ! p storage 
+  sum(r in RAW,f in FACT,t in 2..NT+1) CRSTOCK * rstock(r,f,t)      ! r storage
+   
+! Solve the problem
+ maximize(Profit)
+
+! Solution printing
+ writeln("Total profit: ", getobjval)
+ writeln("Finished products:")
+ forall(f in FACT) do
+  writeln("Factory ", f, ":") 
+  forall(p in PRODS) do
+   write("  ", p, ": ")
+   forall(t in PERIODS) write(strfmt(getsol(make(p,f,t)),6,1), "(", 
+                           strfmt(getsol(pstock(p,f,t+1)),5,1), ")")
+   writeln
+  end-do 
+ end-do 
+
+ writeln("Raw material:")
+ forall(f in FACT) do
+  writeln("Factory ", f, ":") 
+  forall(r in RAW) do
+   write("  ", r, ": ")
+   forall(t in PERIODS) write(strfmt(getsol(buy(r,f,t)),6,1), "(", 
+                           strfmt(getsol(rstock(r,f,t+1)),5,1), ")")
+   writeln
+  end-do 
+ end-do 
+
+ writeln("Sales:")
+ forall(f in FACT) do
+  writeln("Factory ", f, ":") 
+  forall(p in PRODS) do
+   write("  ", p, ": ")
+   forall(t in PERIODS) write(strfmt(getsol(sell(p,f,t)),4))
+   writeln
+  end-do 
+ end-do 
+
+end-model

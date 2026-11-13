@@ -1,0 +1,82 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file b1stadium_sub.mos
+   ``````````````````````
+   Construction of a stadium
+   (See "Applications of optimization with Xpress-MP",
+        Section 7.1 Construction of a stadium)
+
+   *** Not intended to be run standalone - run from b1stadium_main.mos ***
+
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, March 2005, rev. Dec. 2010
+*****************************************************************!)
+model "B-1 Stadium construction (CP submodel)"
+ uses "kalis", "mmjobs"
+
+ parameters
+  MODE = 1                            ! Model version: 1 - fixed durations
+                                      !                2 - variable dur.
+  HORIZON = 100                       ! Time horizon
+ end-parameters
+ 
+ declarations
+  N = 19                              ! Number of tasks in the project 
+                                      ! (last = fictitious end task)
+  TASKS = 1..N
+  ARC: dynamic array(range,range) of integer  ! Matrix of the adjacency graph 
+  DUR: array(TASKS) of integer        ! Duration of tasks
+  MAXW: array(TASKS) of integer       ! Max. reduction of tasks (in weeks)
+
+  start: array(TASKS) of cpvar        ! Start dates of tasks
+  duration: array(TASKS) of cpvar     ! Durations of tasks
+
+  lbstart,ubstart: array(TASKS) of integer  ! Bounds on start dates of tasks 
+  EVENT_FAILED=2                      ! Event code sent by submodel
+ end-declarations
+
+ initializations from 'Data/b1stadium.dat'
+  DUR ARC
+ end-initializations
+
+ forall(j in TASKS) setdomain(start(j), 0, HORIZON)
+
+ if MODE = 1 then                     ! **** Fixed durations
+  ! Precedence relations between tasks
+  forall(i, j in TASKS | exists(ARC(i, j))) do
+   Prec(i,j):= start(i) + DUR(i) <= start(j)
+   if not cp_post(Prec(i,j)) then
+    send(EVENT_FAILED,0)
+   end-if 
+  end-do
+
+  ! Earliest poss. completion time = earliest start of the fictitiuous task N
+  start(N) <= getlb(start(N))
+ else                                 ! **** Durations are variables
+  initializations from 'Data/b1stadium.dat'
+   MAXW
+  end-initializations 
+
+  forall(j in TASKS) setdomain(duration(j), DUR(j)-MAXW(j), DUR(j))
+
+  ! Precedence relations between tasks
+  forall(i, j in TASKS | exists(ARC(i, j))) do
+   Prec(i,j):= start(i) + duration(i) <= start(j)
+   if not cp_post(Prec(i,j)) then
+    send(EVENT_FAILED,0)
+   end-if 
+  end-do  
+ end-if
+
+! Pass solution data to the calling (main) model
+ forall(i in TASKS) do
+  lbstart(i):= getlb(start(i)); ubstart(i):= getub(start(i))
+ end-do
+
+ initializations to "raw:"
+  lbstart as "shmem:lbstart" ubstart as "shmem:ubstart"
+ end-initializations
+
+end-model

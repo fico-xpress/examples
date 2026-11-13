@@ -1,0 +1,441 @@
+<html xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xpress="http://www.fico.com/xpress">
+   <head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   
+      <title>FICO Xpress Optimization</title><style type="text/css">
+.bodytext { font-weight: normal; font-size: 14px; line-height: normal;
+    color: #212121;
+    font-style: normal; font-family: 'Roboto', Geneva, Helvetica, Arial, sans-serif
+}
+.bodybold {
+    font-weight: bold; font-size: 14px; line-height: normal;
+    font-style: normal; font-family: 'Roboto', Geneva, Helvetica, Arial, sans-serif;
+    color: #000000;
+}
+.bodybolditalic {
+    font-weight: 500; font-size: 14px; line-height: normal;
+    font-style: italic; font-family: 'Roboto', Geneva, Helvetica, Arial, sans-serif;
+}
+.bodyboldui {
+    font-weight: bold; font-size: 14px; line-height: normal;
+    font-style: italic; font-family: 'Roboto', Geneva, Helvetica, Arial, sans-serif;
+    text-decoration: underline;
+}
+a { font-weight: 500; color: #0a6de6; text-decoration: none;}
+a:hover { font-weight: 500; color: #304552; text-decoration: underline;}
+.asectionbar { color: #304552; }
+.asectionbar:hover { text-decoration: underline; }
+body { background-color: #FFFFFF; color: #000000; margin: 0; padding: 0;
+    font-family: 'Roboto', Geneva, Helvetica, Arial, sans-serif;
+}
+table, ul, ol { color: #000000;
+    font-family: 'Roboto', Geneva, Helvetica, Arial, sans-serif;
+    font-size: 12px }
+.chevrondown:before { content: "\23f7"; } 
+.chevronright:before { content: "\23f5"; }
+.Code { font-family: 'Roboto Mono', Courier; }
+.table2 { margin-left: 15px; margin-top: 15px; min-width: 2cm;}
+.headerbar { font-weight: normal; font-size: 24px; padding: 15px 15px;
+    color: #FFFFFF; background-color: #0a6de6; line-height: normal;  
+    font-style: normal; font-family: 'Roboto', Geneva, sans-serif; 
+    border-top-left-radius: 6px; border-top-right-radius: 6px;
+}
+.sectionbar {
+    font-weight: 500; font-size: 14px; padding: 5px 5px 5px 8px; border-radius: 4px;
+    background-color: #d0d6da; color: #304552; line-height: normal;
+    font-style: normal; font-family: 'Roboto', Geneva, sans-serif;
+}
+.docentry {
+    font-weight: 500; font-size: 12px; color: #212121;
+    line-height: normal; font-style: italic; font-family: 'Roboto', sans-serif;
+}
+.titletext {
+    font-weight: 300; font-size: 22px; color: #6e6d6a; line-height: normal;
+    font-style: normal; font-family: 'Roboto', Geneva, sans-serif;  
+    margin: 10px 0px 10px 0px;
+}
+.font7 { font-family: 'Roboto', sans-serif; font-size: 11px; line-height: 2.5;
+    font-weight: 400; color: #6e6d6a; text-decoration: none; 
+    margin: 5px 0px 5px 16px; }
+th,td { 
+    font-weight: normal; font-size: 14px; line-height: normal;
+    color: #1F323F;
+    font-style: normal; font-family: 'Roboto', Geneva, sans-serif;
+}
+.FctItem {
+    color: #304552;  font-size: 14px; font-style: normal; 
+    font-weight: bold; margin-bottom: 0pt; margin-left: 2pt; 
+    margin-right: 0pt; margin-top: 12pt; text-align: left; 
+    text-decoration: none; text-indent: 0pt; text-transform: none; 
+    vertical-align: baseline }
+.hr1 {
+    height: 1px;
+    background-color: #d0d6da;
+    width: 100%;
+    border:none;
+    margin:1.5em auto;
+}
+.hr2 {
+    height: 1px;
+    background-color: #d0d6da;
+    width: 100%;
+    border:none;
+    margin:1px 0px 5px 0px;
+}
+.wrapper {
+    height: 99%;
+    width: 99%;
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    border: 1pt solid;
+    border-color: #d0d6da;
+    border-radius: 6px;
+    margin: 3px;
+}
+.header {
+    flex-shrink: 0;
+}
+.footer {
+    flex-shrink: 0;
+}
+.content {
+    flex-grow: 1;
+    overflow: auto;
+    min-height: 2em;
+    margin-top: 0px;
+    margin-bottom: 0px;
+}
+.dropdown {
+    float: right;
+    margin-right: 10px;
+    overflow: hidden;
+}
+.dropbtn {
+    border: none;
+    outline: none; text-decoration: none;
+    color: white;
+    padding:  6px 12px 19px 12px;
+    background-color: inherit;
+    font-family: inherit;
+    font-size: 11pt; font-style: normal; font-weight: normal;
+    margin: 0;
+}
+.dropbtn:hover {
+    text-decoration: underline;
+}
+.dropbtn:after { content: " \23f7"; } 
+.dropdown-content {
+    display: none;
+    position: absolute; right: 0;
+    background-color: #ffffff;
+    color: #304552;  
+    font-size: 11pt; font-style: normal; font-weight: normal;  min-width: 160px;
+    border: 1pt solid;
+    border-color: #dddddd; border-radius: 5px 0px 0px 5px; padding: 0px;
+    margin: 0px 8px;
+    z-index: 1;
+}
+.dropdown-content a {
+    float: none;
+    font-size: 11pt; font-style: normal; font-weight: 400;  min-width: 160px;
+    color: #304552;
+    padding: 12px 16px;
+    text-decoration: none;
+    display: block;
+    text-align: left;
+}
+.dropdown-content a:hover {
+    background-color: #e9f0fe;
+}
+.dropdown:hover .dropdown-content {
+    display: block;
+}
+  </style><script type="text/javascript">
+     function toggleDiv(divid)
+     {
+       if(document.getElementById(divid).style.display == "none")
+       {
+         document.getElementById(divid).style.display = "block";
+         document.getElementById(divid+"icon2").style.display = "inline";
+         document.getElementById(divid+"icon1").style.display = "none";
+       }
+       else
+       {
+ 	 document.getElementById(divid).style.display = "none";
+         document.getElementById(divid+"icon2").style.display = "none";
+         document.getElementById(divid+"icon1").style.display = "inline";
+       }
+     }
+     function setVisible(divid)
+     {
+       if(document.getElementById(divid).style.display == "none")
+       {
+         document.getElementById(divid).style.display = "block";
+       }
+     }
+     function setVisibleIcon(divid)
+     {
+       if(document.getElementById(divid).style.display == "none")
+       {
+         document.getElementById(divid).style.display = "block";
+         document.getElementById(divid+"icon2").style.display = "inline";
+         document.getElementById(divid+"icon1").style.display = "none";
+       }
+     }
+     function scrollToAnchor(anchorid)
+     {
+       document.getElementById(anchorid).scrollIntoView();
+     }  </script></head>
+   <body>
+      <div class="wrapper">
+         <div class="header">
+            <div class="headerbar">
+               <svg style="width: 57px; height: 20px;" viewBox="0 0 101 36" fill="none">
+                  <path d="M24.7071 8.16155V0.7854H0V35.2115H7.41499V22.9179H22.2368V15.5418H7.41499V8.16155H24.7071Z" fill="#FFF"></path>
+                  <path d="M34.4285 0.7854H27.0176V35.2115H34.4285V0.7854Z" fill="#FFF"></path>
+                  <path d="M62.2119 25.4173C60.7116 26.8325 58.8281 27.7799 56.7935 28.1428C54.7589 28.5057 52.6621 28.2683 50.7614 27.4598C48.8607 26.6514 47.2391 25.3071 46.0965 23.5927C44.9538 21.8783 44.34 19.8687 44.3307 17.8114C44.3214 15.7541 44.917 13.739 46.044 12.0144C47.1711 10.2898 48.7804 8.93109 50.6737 8.10558C52.567 7.28006 54.6616 7.02385 56.6994 7.3685C58.7372 7.71315 60.6292 8.64362 62.1423 10.0453C63.0208 7.75072 64.2918 5.62487 65.8989 3.76187C63.2563 1.70888 60.0863 0.437902 56.7518 0.0944177C53.4173 -0.249067 50.053 0.348812 47.0439 1.81963C44.0349 3.29045 41.5027 5.57476 39.7372 8.41114C37.9716 11.2475 37.0441 14.5213 37.0608 17.8579C37.0774 21.1945 38.0376 24.459 39.8313 27.2777C41.6251 30.0965 44.1799 32.3557 47.2035 33.7967C50.2271 35.2377 53.5972 35.8022 56.9281 35.4258C60.2591 35.0494 63.4162 33.7471 66.0382 31.6681C64.4127 29.8179 63.1184 27.7035 62.2119 25.4173Z" fill="#FFF"></path>
+                  <path d="M82.1058 0.0187993C78.5746 0.0187994 75.1226 1.06108 72.1866 3.01382C69.2505 4.96655 66.9622 7.74201 65.6111 10.9892C64.2599 14.2364 63.9066 17.8095 64.5958 21.2566C65.285 24.7037 66.9858 27.8699 69.483 30.3549C71.9803 32.8399 75.1618 34.5319 78.6253 35.2171C82.0888 35.9023 85.6786 35.5498 88.9408 34.2043C92.203 32.8587 94.991 30.5805 96.9523 27.6577C98.9136 24.735 99.9599 21.299 99.9591 17.7844C99.9591 15.451 99.4973 13.1405 98.6 10.9848C97.7028 8.82915 96.3876 6.87051 94.7298 5.22078C93.0719 3.57104 91.1037 2.26252 88.9377 1.36996C86.7716 0.477397 84.4501 0.0182638 82.1058 0.0187993ZM82.1058 28.3369C80.0087 28.3377 77.9585 27.7195 76.2144 26.5604C74.4703 25.4014 73.1108 23.7536 72.3077 21.8255C71.5046 19.8973 71.2941 17.7754 71.7027 15.7282C72.1113 13.6809 73.1208 11.8003 74.6033 10.324C76.0859 8.84785 77.975 7.84242 80.0318 7.43492C82.0885 7.02741 84.2205 7.23615 86.158 8.03473C88.0956 8.8333 89.7517 10.1858 90.9168 11.9213C92.082 13.6567 92.7039 15.6971 92.7039 17.7844C92.7039 20.5823 91.5874 23.2658 89.6 25.2447C87.6126 27.2235 84.917 28.3358 82.1058 28.3369Z" fill="#FFF"></path>
+                  <path d="M95.2476 32.8995C95.2469 32.6725 95.2758 32.4463 95.3336 32.2267C95.3888 32.0177 95.47 31.8163 95.5753 31.6273C95.6766 31.4454 95.8005 31.2769 95.944 31.1258C96.0879 30.9779 96.2504 30.8491 96.4274 30.7425C96.7001 30.5803 97.003 30.475 97.3178 30.433C97.6326 30.3909 97.9527 30.413 98.2587 30.4979C98.4572 30.554 98.6473 30.6363 98.824 30.7425C99.0005 30.8481 99.1617 30.977 99.3033 31.1258C99.4494 31.2757 99.5748 31.4444 99.6761 31.6273C99.7815 31.8163 99.8627 32.0177 99.9178 32.2267C100.032 32.6694 100.032 33.1337 99.9178 33.5764C99.8627 33.7854 99.7815 33.9867 99.6761 34.1757C99.5759 34.3606 99.4504 34.5307 99.3033 34.6813C99.1596 34.829 98.9987 34.9591 98.824 35.0687C98.6473 35.1749 98.4572 35.2572 98.2587 35.3134C97.8466 35.433 97.4089 35.433 96.9969 35.3134C96.7968 35.258 96.6052 35.1757 96.4274 35.0687C96.2522 34.9581 96.09 34.8282 95.944 34.6813C95.7994 34.5296 95.6755 34.3596 95.5753 34.1757C95.47 33.9867 95.3888 33.7854 95.3336 33.5764C95.2755 33.3554 95.2466 33.1279 95.2476 32.8995ZM95.6327 32.8995C95.6323 33.1791 95.6866 33.456 95.7924 33.715C95.8857 33.9615 96.0246 34.1883 96.2021 34.3837C96.3826 34.5717 96.5983 34.7227 96.8371 34.8281C97.0816 34.9332 97.3451 34.9873 97.6114 34.9873C97.8777 34.9873 98.1411 34.9332 98.3856 34.8281C98.6224 34.7212 98.8365 34.5703 99.0165 34.3837C99.194 34.1883 99.333 33.9615 99.4262 33.715C99.5321 33.456 99.5863 33.1791 99.586 32.8995C99.5874 32.6198 99.5331 32.3426 99.4262 32.084C99.3329 31.8388 99.1939 31.6133 99.0165 31.4194C98.8377 31.2324 98.6232 31.0827 98.3856 30.979C98.1411 30.874 97.8777 30.8198 97.6114 30.8198C97.3451 30.8198 97.0816 30.874 96.8371 30.979C96.5977 31.0815 96.3816 31.2313 96.2021 31.4194C96.0247 31.6133 95.8858 31.8388 95.7924 32.084C95.6856 32.3426 95.6313 32.6198 95.6327 32.8995ZM97.1362 33.1523V34.2777H96.6609V31.4316H97.5868C97.7374 31.4291 97.8876 31.447 98.0333 31.4846C98.1557 31.5159 98.271 31.5699 98.3734 31.6436C98.4671 31.7123 98.5418 31.8035 98.5905 31.9087C98.6416 32.0271 98.6668 32.1549 98.6642 32.2838C98.6666 32.414 98.6294 32.5419 98.5577 32.6508C98.4741 32.7623 98.3644 32.8519 98.2382 32.9117C98.3084 32.9404 98.3734 32.9804 98.4307 33.03C98.4808 33.0749 98.5236 33.1271 98.5577 33.1849C98.5892 33.2469 98.6126 33.3127 98.6274 33.3806C98.6406 33.4533 98.6475 33.527 98.6478 33.6008V33.7843C98.6434 33.8631 98.6434 33.942 98.6478 34.0208C98.6546 34.085 98.6698 34.148 98.6929 34.2084V34.2614H98.2095C98.196 34.2258 98.1864 34.1889 98.1808 34.1513C98.1808 34.1064 98.1808 34.0616 98.1808 34.0167C98.1808 33.9719 98.1808 33.9229 98.1808 33.8822V33.6049C98.1909 33.4769 98.1513 33.3499 98.0702 33.2501C97.9632 33.1638 97.8264 33.1227 97.6892 33.136L97.1362 33.1523ZM97.1362 32.7242H97.6564C97.7256 32.7233 97.7945 32.7137 97.8613 32.6956C97.922 32.6781 97.98 32.652 98.0333 32.6181C98.0817 32.5863 98.1211 32.5428 98.148 32.4917C98.1805 32.4392 98.1962 32.378 98.1931 32.3164C98.1932 32.2368 98.1779 32.1579 98.148 32.084C98.1288 32.0285 98.0931 31.9802 98.0456 31.9454C97.9912 31.9062 97.9278 31.881 97.8613 31.872C97.7668 31.8541 97.6707 31.8459 97.5745 31.8475H97.1239L97.1362 32.7242Z" fill="#FFF"></path>
+               </svg> Xpress Optimization
+            </div>
+         </div>
+         <div class="content">
+            <table class="table2" border="0" cellpadding="0" cellspacing="0" width="95%">
+               <tbody>
+                  <tr>
+                     <td align="left" valign="top" width="850">
+                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                           <tbody>
+                              <tr>
+                                 <td colspan="2">
+                                    <h2 class="titletext" align="left">Mosel I/O driver examples</h2>
+                                    <div class="bodytext">
+                                       <p class="Body">All examples in this directory are explained in the whitepaper
+                                          'Generalized file handling in Mosel'.
+                                       </p>
+                                       <p class="Body"><b>User-defined drivers:</b> The compression and code generation examples are located in the 'modules'
+                                          subdirectory of the standard set of Mosel examples.
+                                       </p>
+                                    </div><br><br></td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="burgdatamos"></a><a href="javascript:;" onmousedown="toggleDiv('burgdatamos_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="burgdatamos_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="burgdatamos_divicon2"></span>Burglar - Data source access from Mosel models</span></a>: 'mmodbc.odbc', 'mmsheet.excel', 'mmetc.diskdata' I/O drivers, SQL, XML, JSON
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="burgdatamos_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Knapsack Problem</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">2 (easy-medium)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">
+                                                <ul>
+                                                   <li class="Body">burglar.mos - data in the model, integer indices</li>
+                                                   
+                                                   <li class="Body">burglari.mos - data in the model, string indices</li>
+                                                   
+                                                   <li class="Body">burglar2.mos, burglar.dat - reading data from a text file</li>
+                                                   
+                                                   <li class="Body">burglar2o.mos, burglar.mdb, burglar.sqlite - reading data with mmodbc.odbc</li>
+                                                   
+                                                   <li class="Body">burglar2sql.mos, burglar.sqlite - reading data from SQLite, using SQL or ODBC</li>
+                                                   
+                                                   <li class="Body">burglar2e.mos, burglar.xls - reading data with mmsheet.excel 
+                                                      (Windows only)
+                                                   </li>
+                                                   
+                                                   <li class="Body">burglar2dd.mos, burglardd.dat - reading data with mmetc.diskdata</li>
+                                                   
+                                                   <li class="Body">burglar2ff.mos, burglarff.dat - reading data in free format</li>
+                                                   
+                                                   <li class="Body">burglar2x.mos, burglar.xml - reading data in XML format</li>
+                                                   
+                                                   <li class="Body">burglar2j.mos, burglar.json - reading data in JSON format</li>
+                                                </ul>
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="burglar.mos" data-keyword="burglar.mos"></a><a href="burglar.mos"><span class="code">burglar.mos</span></a>, <a id="burglari.mos" data-keyword="burglari.mos"></a><a href="burglari.mos"><span class="code">burglari.mos</span></a>, <a id="burglar2.mos" data-keyword="burglar2.mos"></a><a href="burglar2.mos"><span class="code">burglar2.mos</span></a>, <a id="burglar2o.mos" data-keyword="burglar2o.mos"></a><a href="burglar2o.mos"><span class="code">burglar2o.mos</span></a>, <a id="burglar2sql.mos" data-keyword="burglar2sql.mos"></a><a href="burglar2sql.mos"><span class="code">burglar2sql.mos</span></a>, <a id="burglar2e.mos" data-keyword="burglar2e.mos"></a><a href="burglar2e.mos"><span class="code">burglar2e.mos</span></a>, <a id="burglar2dd.mos" data-keyword="burglar2dd.mos"></a><a href="burglar2dd.mos"><span class="code">burglar2dd.mos</span></a>, <a id="burglar2ff.mos" data-keyword="burglar2ff.mos"></a><a href="burglar2ff.mos"><span class="code">burglar2ff.mos</span></a>, <a id="burglar2x.mos" data-keyword="burglar2x.mos"></a><a href="burglar2x.mos"><span class="code">burglar2x.mos</span></a>, <a id="burglar2j.mos" data-keyword="burglar2j.mos"></a><a href="burglar2j.mos"><span class="code">burglar2j.mos</span></a></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">Data file(s):</span></td>
+                                             <td><a id="burglar.dat" data-keyword="burglar.dat"></a><a href="burglar.dat"><span class="code">burglar.dat</span></a>, <a id="burglardd.dat" data-keyword="burglardd.dat"></a><a href="burglardd.dat"><span class="code">burglardd.dat</span></a>, <a id="burglarff.dat" data-keyword="burglarff.dat"></a><a href="burglarff.dat"><span class="code">burglarff.dat</span></a>, <a id="burglar.xml" data-keyword="burglar.xml"></a><a href="burglar.xml"><span class="code">burglar.xml</span></a>, <a id="burglar.json" data-keyword="burglar.json"></a><a href="burglar.json"><span class="code">burglar.json</span></a>, <a id="burglar.mdb" data-keyword="burglar.mdb"></a><a href="burglar.mdb"><span class="code">burglar.mdb</span></a>, <a id="burglar.xls" data-keyword="burglar.xls"></a><a href="burglar.xls"><span class="code">burglar.xls</span></a>, <a id="burglar.sqlite" data-keyword="burglar.sqlite"></a><a href="burglar.sqlite"><span class="code">burglar.sqlite</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="burgioc"></a><a href="javascript:;" onmousedown="toggleDiv('burgioc_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="burgioc_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="burgioc_divicon2"></span>Burglar - Exchange of information with embedded models</span></a>: 'cb', 'bin', 'mem', 'raw', 'sysfd' I/O drivers
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="burgioc_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Knapsack Problem</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">3 (intermediate)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">
+                                                
+                                                <ul>
+                                                   <li class="Body">iodrvmem.c  - working in memory ('mem' driver): compilation of a model
+                                                      held in memory to memory
+                                                   </li>
+                                                   
+                                                   <li class="Body">iodrvmem2.c - working in memory ('mem' driver): compilation of a model
+                                                      file to memory (requires burglar2.mos, burglar.dat)
+                                                   </li>
+                                                   
+                                                   <li class="Body">iodrvraw.c  - binary data format ('raw' driver): compilation of a model
+                                                      held in memory to memory
+                                                   </li>
+                                                   
+                                                   <li class="Body">iodrvraw2.c - binary data format ('raw' driver): working with physical 
+                                                      model files (requires burglar2r.mos)
+                                                   </li>
+                                                   
+                                                   <li class="Body">iodrvcb.c   - output to callback functions ('cb' driver); working with
+                                                      system file descriptors ('sysfd' driver)
+                                                   </li>
+                                                   
+                                                   <li class="Body">burgbindata.[c|java],  - use of 'bin:' / BinDrv for reading and 
+                                                      writing (requires burglar2m.mos)
+                                                   </li>
+                                                </ul>
+                                                For Java and .NET versions
+                                                see the subdirectories C2 and D3 of the Mosel User Guide examples folder.
+                                                
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="iodrvmem.c" data-keyword="iodrvmem.c"></a><a href="iodrvmem.c"><span class="code">iodrvmem.c</span></a>, <a id="iodrvmem2.c" data-keyword="iodrvmem2.c"></a><a href="iodrvmem2.c"><span class="code">iodrvmem2.c</span></a>, <a id="iodrvraw.c" data-keyword="iodrvraw.c"></a><a href="iodrvraw.c"><span class="code">iodrvraw.c</span></a>, <a id="iodrvraw2.c" data-keyword="iodrvraw2.c"></a><a href="iodrvraw2.c"><span class="code">iodrvraw2.c</span></a><i></i>, <a id="iodrvcb.c" data-keyword="iodrvcb.c"></a><a href="iodrvcb.c"><span class="code">iodrvcb.c</span></a>, <a id="burgbindata.c" data-keyword="burgbindata.c"></a><a href="burgbindata.c"><span class="code">burgbindata.c</span></a><i></i>, <a id="burgbindata.java" data-keyword="burgbindata.java"></a><a href="burgbindata.java"><span class="code">burgbindata.java</span></a><i></i>, <a id="burglar2.mos" data-keyword="burglar2.mos"></a><a href="burglar2.mos"><span class="code">burglar2.mos</span></a>, <a id="burglar2r.mos" data-keyword="burglar2r.mos"></a><a href="burglar2r.mos"><span class="code">burglar2r.mos</span></a><i> (submodel)</i>, <a id="burglar2m.mos" data-keyword="burglar2m.mos"></a><a href="burglar2m.mos"><span class="code">burglar2m.mos</span></a><i> (submodel)</i></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">Data file(s):</span></td>
+                                             <td><a id="burglar.dat" data-keyword="burglar.dat"></a><a href="burglar.dat"><span class="code">burglar.dat</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="burgiomos"></a><a href="javascript:;" onmousedown="toggleDiv('burgiomos_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="burgiomos_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="burgiomos_divicon2"></span>Burglar - In-memory data exchange between Mosel models</span></a>: 'bin', 'shmem', 'raw', 'text', 'tmp', 'rmt' I/O drivers
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="burgiomos_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Knapsack Problem</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">3 (intermediate)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">
+                                                <ul>
+                                                   <li class="Body">runburglar.mos, burglar.mos      - compile/load/run another model</li>
+                                                   
+                                                   <li class="Body">runburglario.mos, burglar2r.mos  - data exchange between models in memory 
+                                                      using bin format
+                                                   </li>
+                                                   
+                                                   <li class="Body">runburglarior.mos, burglar2r.mos - data exchange between models in memory
+                                                      using raw format
+                                                   </li>
+                                                   
+                                                   <li class="Body">runburglardistr.mos, burglar2m.mos  - data exchange between models in memory 
+                                                      on the local host, combining 'bin:', 'rmt:', 'shmem:'
+                                                   </li>
+                                                   
+                                                   <li class="Body">runburglardistr2.mos, burglar2m.mos - data exchange between models in memory
+                                                      on the remote Mosel instance, combining 'bin:', 'rmt:', 'shmem:'
+                                                   </li>
+                                                   
+                                                   <li class="Body">runburglarmem.mos                - compiling a model source from memory</li>
+                                                </ul>
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="runburglar.mos" data-keyword="runburglar.mos"></a><a href="runburglar.mos"><span class="code">runburglar.mos</span></a><i></i>, <a id="burglar.mos" data-keyword="burglar.mos"></a><a href="burglar.mos"><span class="code">burglar.mos</span></a>, <a id="runburglario.mos" data-keyword="runburglario.mos"></a><a href="runburglario.mos"><span class="code">runburglario.mos</span></a><i></i>, <a id="runburglarior.mos" data-keyword="runburglarior.mos"></a><a href="runburglarior.mos"><span class="code">runburglarior.mos</span></a><i></i>, <a id="burglar2r.mos" data-keyword="burglar2r.mos"></a><a href="burglar2r.mos"><span class="code">burglar2r.mos</span></a><i> (submodel)</i>, <a id="runburglardistr.mos" data-keyword="runburglardistr.mos"></a><a href="runburglardistr.mos"><span class="code">runburglardistr.mos</span></a><i></i>, <a id="runburglardistr2.mos" data-keyword="runburglardistr2.mos"></a><a href="runburglardistr2.mos"><span class="code">runburglardistr2.mos</span></a><i></i>, <a id="burglar2m.mos" data-keyword="burglar2m.mos"></a><a href="burglar2m.mos"><span class="code">burglar2m.mos</span></a><i> (submodel)</i>, <a id="runburglarmem.mos" data-keyword="runburglarmem.mos"></a><a href="runburglarmem.mos"><span class="code">runburglarmem.mos</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table>
+                                    </div><br></td>
+                              </tr>
+                              <tr>
+                                 <td><br>&nbsp;<br></td>
+                              </tr>
+                           </tbody>
+                        </table>
+                     </td>
+                  </tr>
+                  <tr height="20">
+                     <td colspan="2">
+                        <p class="bodytext">&nbsp;&nbsp;Comments or suggestions about the examples?
+                           Please e-mail <a href="mailto:support@fico.com?subject=Xpress examples">support@fico.com</a><br>&nbsp;
+                        </p>
+                     </td>
+                  </tr>
+               </tbody>
+            </table>
+         </div>
+         <div class="footer" align="left" height="20" width="100%">
+            <hr class="hr2"><font class="font7">&copy; Copyright 1983-2026 Fair Isaac Corporation. All rights reserved.</font></div>
+      </div>
+   </body>
+</html>

@@ -1,0 +1,294 @@
+(!*******************************************************
+   Mosel Example Problems
+   ======================
+
+   file elsp.mos
+   `````````````
+   Economic lot sizing, ELS, problem
+   (Cut generation algorithm adding (l,S)-inequalities 
+    in one or several rounds at the root node or in 
+    tree nodes)
+   
+   Parallel version.
+
+   *** Can be run standalone - intended to be run from runels.mos ***
+    
+   ELS considers production planning over a horizon
+   of T periods. In period t, t=1,...,T, there is a
+   given demand DEMAND[p,t] that must be satisfied by
+   production produce[p,t] in period t and by inventory
+   carried over from previous periods. There is a 
+   set-up up cost SETUPCOST[t] associated with
+   production in period t. The unit production cost
+   in period t is PRODCOST[p,t]. There is no inventory
+   or stock-holding cost.
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Nov. 2004, rev. July 2023
+  *******************************************************!)
+
+model Els
+ uses "mmxprs","mmsystem","mmjobs"
+
+ parameters
+  ALG = 0                              ! Default algorithm: no user cuts
+  CUTDEPTH = 3                         ! Maximum tree depth for cut generation
+  DATAFILE = "els4.dat"
+  T = 60
+  P = 4
+ end-parameters 
+
+ forward function cb_node: boolean
+ forward procedure tree_cut_gen
+ forward function cb_updatebnd: boolean
+ forward procedure cb_intsol
+ 
+ declarations
+  NEWSOL = 2                           ! "New solution" event class
+  EPS = 1e-6                           ! Zero tolerance
+  TIMES = 1..T                         ! Time periods
+  PRODUCTS = 1..P                      ! Set of products
+
+  DEMAND: array(PRODUCTS,TIMES) of integer  ! Demand per period
+  SETUPCOST: array(TIMES) of integer        ! Setup cost per period
+  PRODCOST: array(PRODUCTS,TIMES) of real   ! Production cost per period
+  CAP: array(TIMES) of integer              ! Production capacity per period
+  D: array(PRODUCTS,TIMES,TIMES) of integer ! Total demand in periods t1 - t2
+
+  produce: array(PRODUCTS,TIMES) of mpvar   ! Production in period t
+  setup: array(PRODUCTS,TIMES) of mpvar     ! Setup in period t
+
+  solprod: array(PRODUCTS,TIMES) of real    ! Sol. values for var.s produce 
+  solsetup: array(PRODUCTS,TIMES) of real   ! Sol. values for var.s setup
+  starttime: real
+ 
+  Msg: Event                           ! An event
+ end-declarations
+
+ initializations from DATAFILE
+  DEMAND SETUPCOST PRODCOST CAP
+ end-initializations
+
+ forall(p in PRODUCTS,s,t in TIMES) D(p,s,t):= sum(k in s..t) DEMAND(p,k)
+
+! Objective: minimize total cost
+ MinCost:= sum(t in TIMES) (SETUPCOST(t) * sum(p in PRODUCTS) setup(p,t) + 
+                            sum(p in PRODUCTS) PRODCOST(p,t) * produce(p,t) )
+
+! Production in period t must not exceed the total demand for the
+! remaining periods; if there is production during t then there
+! is a setup in t
+ forall(p in PRODUCTS, t in TIMES) 
+  ProdSetup(p,t):= produce(p,t) <= D(p,t,T) * setup(p,t)
+
+! Production in periods 0 to t must satisfy the total demand
+! during this period of time
+ forall(p in PRODUCTS,t in TIMES) 
+   sum(s in 1..t) produce(p,s) >= sum (s in 1..t) DEMAND(p,s)
+
+! Capacity limits
+ forall(t in TIMES) sum(p in PRODUCTS) produce(p,t) <= CAP(t)
+
+! Variables setup are 0/1
+ forall(p in PRODUCTS, t in TIMES) setup(p,t) is_binary 
+
+ setparam("zerotol", EPS/100)           ! Set Mosel comparison tolerance      
+ starttime:=gettime
+
+ setparam("XPRS_THREADS", 1)            ! No parallel threads for optimization
+
+! Uncomment to get detailed MIP output
+! setparam("XPRS_VERBOSE", true)
+ setparam("XPRS_LPLOG", 0)
+ setparam("XPRS_MIPLOG", -1000)
+
+ writeln("**************ALG=",ALG,"***************")
+
+ SEVERALROUNDS:=false; TOPONLY:=false
+
+ case ALG of
+  1: do
+      setparam("XPRS_CUTSTRATEGY", 0)   ! No cuts
+      setparam("XPRS_HEUREMPHASIS", 0)  ! No heuristics
+     end-do
+  2: do 
+      setparam("XPRS_CUTSTRATEGY", 0)   ! No cuts
+      setparam("XPRS_HEUREMPHASIS", 0)  ! No heuristics  
+      setparam("XPRS_PRESOLVE", 0)      ! No presolve
+     end-do
+  3: tree_cut_gen                       ! User branch-and-cut (single round)
+  4: do                                 ! User branch-and-cut (several rounds)
+      tree_cut_gen
+      SEVERALROUNDS:=true
+     end-do
+  5: do                                 ! User cut-and-branch (several rounds)
+      tree_cut_gen
+      SEVERALROUNDS:=true
+      TOPONLY:=true
+     end-do
+ end-case
+
+! Parallel setup
+ setcallback(XPRS_CB_PRENODE, ->cb_updatebnd) 
+ setcallback(XPRS_CB_INTSOL, ->cb_intsol)
+
+! Solve the problem 
+ minimize(MinCost) 
+
+
+!*************************************************************************
+!  Cut generation loop:                                 
+!    get the solution values                                            
+!    identify violated constraints and add them as cuts to the problem
+!    re-solve the modified problem                 
+!*************************************************************************
+ function cb_node:boolean
+  declarations
+   ncut:integer                         ! Counter for cuts
+   cut: array(range) of linctr          ! Cuts
+   cutid: array(range) of integer       ! Cut type identification
+   type: array(range) of integer        ! Cut constraint type 
+   ds: real
+  end-declarations
+
+  returned:=false                       ! OPTNODE: This node is not infeasible
+
+  depth:=getparam("XPRS_NODEDEPTH")
+  cnt:=getparam("XPRS_CALLBACKCOUNT_OPTNODE")
+
+  if ((TOPONLY and depth<1) or (not TOPONLY and depth<=CUTDEPTH)) and 
+     (SEVERALROUNDS or cnt<=1) then
+   ncut:=0 
+
+ ! Get the solution values
+   forall(t in TIMES, p in PRODUCTS) do
+     solprod(p,t):=getsol(produce(p,t))
+     solsetup(p,t):=getsol(setup(p,t))
+   end-do
+  
+ ! Search for violated constraints
+   forall(p in PRODUCTS,l in TIMES) do
+    ds:=0 
+    forall(t in 1..l)
+      if (solprod(p,t) < D(p,t,l)*solsetup(p,t) + EPS) then ds += solprod(p,t)
+      else  ds += D(p,t,l)*solsetup(p,t)
+      end-if
+  
+      ! Add the violated inequality: the minimum of the actual production
+      ! produce(p,t) and the maximum potential production D(p,t,l)*setup(t) 
+      ! in periods 1 to l must at least equal the total demand in periods 
+      ! 1 to l.
+      ! sum(t=1:l) min(produce(p,t), D(p,t,l)*setup(p,t)) >= D(p,1,l)
+    
+    if ds < D(p,1,l) - EPS then
+      cut(ncut):= sum(t in 1..l) 
+       if(solprod(p,t)<(D(p,t,l)*solsetup(p,t))+EPS, produce(p,t), 
+          D(p,t,l)*setup(p,t)) - D(p,1,l)
+      cutid(ncut):= 1
+      type(ncut):= CT_GEQ
+      ncut+=1
+    end-if   
+  end-do
+   
+ ! Add cuts to the problem
+   if ncut>0 then 
+    addcuts(cutid, type, cut);  
+    writeln("Model ", ALG, ": Cuts added : ", ncut, 
+            " (depth ", depth, ", node ", getparam("XPRS_NODES"), 
+            ", obj. ", getparam("XPRS_LPOBJVAL"), ")")
+   end-if
+  end-if
+ end-function
+
+! ****Optimizer settings for using the cut manager****
+
+ procedure tree_cut_gen
+  setparam("XPRS_HEUREMPHASIS", 0)    ! Switch heuristics off
+  setparam("XPRS_CUTSTRATEGY", 0)     ! Switch automatic cuts off
+  setparam("XPRS_PRESOLVE", 0)        ! Switch presolve off
+  setparam("XPRS_EXTRAROWS", 5000)    ! Reserve extra rows in matrix
+!  setparam("XPRS_EXTRAELEMS", 10*5000) ! Reserve extra matrix elements
+
+  setcallback(XPRS_CB_OPTNODE, ->cb_node)  ! Set the optnode callback function
+ end-procedure
+
+!*************************************************************************
+!  Setup for parallel solving:                                 
+!    check whether cutoff update required at every node                
+!    store and communicate any new solution found                 
+!*************************************************************************
+! Update cutoff value
+ function cb_updatebnd: boolean 
+  if not isqueueempty then
+   repeat
+    Msg:= getnextevent
+   until isqueueempty
+   newcutoff:= getvalue(Msg)
+   cutoff:= getparam("XPRS_MIPABSCUTOFF")
+   writeln("Model ", ALG, ": New cutoff: ", newcutoff, 
+           " old: ", cutoff)
+   if newcutoff<cutoff then
+    setparam("XPRS_MIPABSCUTOFF", newcutoff)
+   end-if
+   if newcutoff < getparam("XPRS_LPOBJVAL") then
+    returned:= true                    ! Node becomes infeasible
+   end-if
+  end-if
+ end-function
+
+! Store and communicate new solution
+ procedure cb_intsol
+  objval:= getparam("XPRS_LPOBJVAL")   ! Retrieve current objective value
+  cutoff:= getparam("XPRS_MIPABSCUTOFF")
+
+  writeln("Model ", ALG, ": ", objval, " cutoff: ", cutoff)
+  if(cutoff > objval) then
+   setparam("XPRS_MIPABSCUTOFF", objval)
+  end-if
+  
+ ! Get the solution values
+  forall(t in TIMES, p in PRODUCTS) do
+   solprod(p,t):=getsol(produce(p,t))
+   solsetup(p,t):=getsol(setup(p,t))
+  end-do
+  
+ ! Store the solution in shared memory  
+  initializations to "bin:shmem:sol"+ALG
+   solprod 
+   solsetup 
+  end-initializations
+  
+ ! Send "solution found" signal  
+  send(NEWSOL, objval) 
+ end-procedure
+ 
+end-model
+
+
+
+Economic Lot-Sizing (ELS)
+=========================
+
+A well-known class of valid inequalities for ELS are the
+(l,S)-inequalities.  Let D(pq) denote the total demand in periods p 
+to q and y(t) be a binary variable indicating whether there is any 
+production in period t.  For each period l and each subset of periods S 
+of 1 to l, the (l,S)-inequality is
+
+    sum (t=1:l | t in S) x(t) + sum (t=1:l | t not in S) D(tl) * y(t)
+        >= D(1l)
+
+It says that actual production x(t) in periods included S plus maximum 
+potential production D(tl)*y(t) in the remaining periods (those not in 
+S) must at least equal total demand in periods 1 to l.  Note that in 
+period t at most D(tl) production is required to meet demand up to 
+period l.
+
+Based on the observation that
+
+    sum (t=1:l | t in S) x(t) + sum (t=1:l | t not in S) D(tl) * y(t)
+        >= sum (t=1:l) min(x(t), D(tl) * y(t))
+        >= D(1l)
+
+it is easy to develop a separation algorithm and thus a cutting plane
+algorithm based on these (l,S)-inequalities.

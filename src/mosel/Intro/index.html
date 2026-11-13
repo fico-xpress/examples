@@ -1,0 +1,1908 @@
+<html xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xpress="http://www.fico.com/xpress">
+   <head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   
+      <title>FICO Xpress Optimization</title><style type="text/css">
+.bodytext { font-weight: normal; font-size: 14px; line-height: normal;
+    color: #212121;
+    font-style: normal; font-family: 'Roboto', Geneva, Helvetica, Arial, sans-serif
+}
+.bodybold {
+    font-weight: bold; font-size: 14px; line-height: normal;
+    font-style: normal; font-family: 'Roboto', Geneva, Helvetica, Arial, sans-serif;
+    color: #000000;
+}
+.bodybolditalic {
+    font-weight: 500; font-size: 14px; line-height: normal;
+    font-style: italic; font-family: 'Roboto', Geneva, Helvetica, Arial, sans-serif;
+}
+.bodyboldui {
+    font-weight: bold; font-size: 14px; line-height: normal;
+    font-style: italic; font-family: 'Roboto', Geneva, Helvetica, Arial, sans-serif;
+    text-decoration: underline;
+}
+a { font-weight: 500; color: #0a6de6; text-decoration: none;}
+a:hover { font-weight: 500; color: #304552; text-decoration: underline;}
+.asectionbar { color: #304552; }
+.asectionbar:hover { text-decoration: underline; }
+body { background-color: #FFFFFF; color: #000000; margin: 0; padding: 0;
+    font-family: 'Roboto', Geneva, Helvetica, Arial, sans-serif;
+}
+table, ul, ol { color: #000000;
+    font-family: 'Roboto', Geneva, Helvetica, Arial, sans-serif;
+    font-size: 12px }
+.chevrondown:before { content: "\23f7"; } 
+.chevronright:before { content: "\23f5"; }
+.Code { font-family: 'Roboto Mono', Courier; }
+.table2 { margin-left: 15px; margin-top: 15px; min-width: 2cm;}
+.headerbar { font-weight: normal; font-size: 24px; padding: 15px 15px;
+    color: #FFFFFF; background-color: #0a6de6; line-height: normal;  
+    font-style: normal; font-family: 'Roboto', Geneva, sans-serif; 
+    border-top-left-radius: 6px; border-top-right-radius: 6px;
+}
+.sectionbar {
+    font-weight: 500; font-size: 14px; padding: 5px 5px 5px 8px; border-radius: 4px;
+    background-color: #d0d6da; color: #304552; line-height: normal;
+    font-style: normal; font-family: 'Roboto', Geneva, sans-serif;
+}
+.docentry {
+    font-weight: 500; font-size: 12px; color: #212121;
+    line-height: normal; font-style: italic; font-family: 'Roboto', sans-serif;
+}
+.titletext {
+    font-weight: 300; font-size: 22px; color: #6e6d6a; line-height: normal;
+    font-style: normal; font-family: 'Roboto', Geneva, sans-serif;  
+    margin: 10px 0px 10px 0px;
+}
+.font7 { font-family: 'Roboto', sans-serif; font-size: 11px; line-height: 2.5;
+    font-weight: 400; color: #6e6d6a; text-decoration: none; 
+    margin: 5px 0px 5px 16px; }
+th,td { 
+    font-weight: normal; font-size: 14px; line-height: normal;
+    color: #1F323F;
+    font-style: normal; font-family: 'Roboto', Geneva, sans-serif;
+}
+.FctItem {
+    color: #304552;  font-size: 14px; font-style: normal; 
+    font-weight: bold; margin-bottom: 0pt; margin-left: 2pt; 
+    margin-right: 0pt; margin-top: 12pt; text-align: left; 
+    text-decoration: none; text-indent: 0pt; text-transform: none; 
+    vertical-align: baseline }
+.hr1 {
+    height: 1px;
+    background-color: #d0d6da;
+    width: 100%;
+    border:none;
+    margin:1.5em auto;
+}
+.hr2 {
+    height: 1px;
+    background-color: #d0d6da;
+    width: 100%;
+    border:none;
+    margin:1px 0px 5px 0px;
+}
+.wrapper {
+    height: 99%;
+    width: 99%;
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    border: 1pt solid;
+    border-color: #d0d6da;
+    border-radius: 6px;
+    margin: 3px;
+}
+.header {
+    flex-shrink: 0;
+}
+.footer {
+    flex-shrink: 0;
+}
+.content {
+    flex-grow: 1;
+    overflow: auto;
+    min-height: 2em;
+    margin-top: 0px;
+    margin-bottom: 0px;
+}
+.dropdown {
+    float: right;
+    margin-right: 10px;
+    overflow: hidden;
+}
+.dropbtn {
+    border: none;
+    outline: none; text-decoration: none;
+    color: white;
+    padding:  6px 12px 19px 12px;
+    background-color: inherit;
+    font-family: inherit;
+    font-size: 11pt; font-style: normal; font-weight: normal;
+    margin: 0;
+}
+.dropbtn:hover {
+    text-decoration: underline;
+}
+.dropbtn:after { content: " \23f7"; } 
+.dropdown-content {
+    display: none;
+    position: absolute; right: 0;
+    background-color: #ffffff;
+    color: #304552;  
+    font-size: 11pt; font-style: normal; font-weight: normal;  min-width: 160px;
+    border: 1pt solid;
+    border-color: #dddddd; border-radius: 5px 0px 0px 5px; padding: 0px;
+    margin: 0px 8px;
+    z-index: 1;
+}
+.dropdown-content a {
+    float: none;
+    font-size: 11pt; font-style: normal; font-weight: 400;  min-width: 160px;
+    color: #304552;
+    padding: 12px 16px;
+    text-decoration: none;
+    display: block;
+    text-align: left;
+}
+.dropdown-content a:hover {
+    background-color: #e9f0fe;
+}
+.dropdown:hover .dropdown-content {
+    display: block;
+}
+  </style><script type="text/javascript">
+     function toggleDiv(divid)
+     {
+       if(document.getElementById(divid).style.display == "none")
+       {
+         document.getElementById(divid).style.display = "block";
+         document.getElementById(divid+"icon2").style.display = "inline";
+         document.getElementById(divid+"icon1").style.display = "none";
+       }
+       else
+       {
+ 	 document.getElementById(divid).style.display = "none";
+         document.getElementById(divid+"icon2").style.display = "none";
+         document.getElementById(divid+"icon1").style.display = "inline";
+       }
+     }
+     function setVisible(divid)
+     {
+       if(document.getElementById(divid).style.display == "none")
+       {
+         document.getElementById(divid).style.display = "block";
+       }
+     }
+     function setVisibleIcon(divid)
+     {
+       if(document.getElementById(divid).style.display == "none")
+       {
+         document.getElementById(divid).style.display = "block";
+         document.getElementById(divid+"icon2").style.display = "inline";
+         document.getElementById(divid+"icon1").style.display = "none";
+       }
+     }
+     function scrollToAnchor(anchorid)
+     {
+       document.getElementById(anchorid).scrollIntoView();
+     }  </script></head>
+   <body>
+      <div class="wrapper">
+         <div class="header">
+            <div class="headerbar">
+               <svg style="width: 57px; height: 20px;" viewBox="0 0 101 36" fill="none">
+                  <path d="M24.7071 8.16155V0.7854H0V35.2115H7.41499V22.9179H22.2368V15.5418H7.41499V8.16155H24.7071Z" fill="#FFF"></path>
+                  <path d="M34.4285 0.7854H27.0176V35.2115H34.4285V0.7854Z" fill="#FFF"></path>
+                  <path d="M62.2119 25.4173C60.7116 26.8325 58.8281 27.7799 56.7935 28.1428C54.7589 28.5057 52.6621 28.2683 50.7614 27.4598C48.8607 26.6514 47.2391 25.3071 46.0965 23.5927C44.9538 21.8783 44.34 19.8687 44.3307 17.8114C44.3214 15.7541 44.917 13.739 46.044 12.0144C47.1711 10.2898 48.7804 8.93109 50.6737 8.10558C52.567 7.28006 54.6616 7.02385 56.6994 7.3685C58.7372 7.71315 60.6292 8.64362 62.1423 10.0453C63.0208 7.75072 64.2918 5.62487 65.8989 3.76187C63.2563 1.70888 60.0863 0.437902 56.7518 0.0944177C53.4173 -0.249067 50.053 0.348812 47.0439 1.81963C44.0349 3.29045 41.5027 5.57476 39.7372 8.41114C37.9716 11.2475 37.0441 14.5213 37.0608 17.8579C37.0774 21.1945 38.0376 24.459 39.8313 27.2777C41.6251 30.0965 44.1799 32.3557 47.2035 33.7967C50.2271 35.2377 53.5972 35.8022 56.9281 35.4258C60.2591 35.0494 63.4162 33.7471 66.0382 31.6681C64.4127 29.8179 63.1184 27.7035 62.2119 25.4173Z" fill="#FFF"></path>
+                  <path d="M82.1058 0.0187993C78.5746 0.0187994 75.1226 1.06108 72.1866 3.01382C69.2505 4.96655 66.9622 7.74201 65.6111 10.9892C64.2599 14.2364 63.9066 17.8095 64.5958 21.2566C65.285 24.7037 66.9858 27.8699 69.483 30.3549C71.9803 32.8399 75.1618 34.5319 78.6253 35.2171C82.0888 35.9023 85.6786 35.5498 88.9408 34.2043C92.203 32.8587 94.991 30.5805 96.9523 27.6577C98.9136 24.735 99.9599 21.299 99.9591 17.7844C99.9591 15.451 99.4973 13.1405 98.6 10.9848C97.7028 8.82915 96.3876 6.87051 94.7298 5.22078C93.0719 3.57104 91.1037 2.26252 88.9377 1.36996C86.7716 0.477397 84.4501 0.0182638 82.1058 0.0187993ZM82.1058 28.3369C80.0087 28.3377 77.9585 27.7195 76.2144 26.5604C74.4703 25.4014 73.1108 23.7536 72.3077 21.8255C71.5046 19.8973 71.2941 17.7754 71.7027 15.7282C72.1113 13.6809 73.1208 11.8003 74.6033 10.324C76.0859 8.84785 77.975 7.84242 80.0318 7.43492C82.0885 7.02741 84.2205 7.23615 86.158 8.03473C88.0956 8.8333 89.7517 10.1858 90.9168 11.9213C92.082 13.6567 92.7039 15.6971 92.7039 17.7844C92.7039 20.5823 91.5874 23.2658 89.6 25.2447C87.6126 27.2235 84.917 28.3358 82.1058 28.3369Z" fill="#FFF"></path>
+                  <path d="M95.2476 32.8995C95.2469 32.6725 95.2758 32.4463 95.3336 32.2267C95.3888 32.0177 95.47 31.8163 95.5753 31.6273C95.6766 31.4454 95.8005 31.2769 95.944 31.1258C96.0879 30.9779 96.2504 30.8491 96.4274 30.7425C96.7001 30.5803 97.003 30.475 97.3178 30.433C97.6326 30.3909 97.9527 30.413 98.2587 30.4979C98.4572 30.554 98.6473 30.6363 98.824 30.7425C99.0005 30.8481 99.1617 30.977 99.3033 31.1258C99.4494 31.2757 99.5748 31.4444 99.6761 31.6273C99.7815 31.8163 99.8627 32.0177 99.9178 32.2267C100.032 32.6694 100.032 33.1337 99.9178 33.5764C99.8627 33.7854 99.7815 33.9867 99.6761 34.1757C99.5759 34.3606 99.4504 34.5307 99.3033 34.6813C99.1596 34.829 98.9987 34.9591 98.824 35.0687C98.6473 35.1749 98.4572 35.2572 98.2587 35.3134C97.8466 35.433 97.4089 35.433 96.9969 35.3134C96.7968 35.258 96.6052 35.1757 96.4274 35.0687C96.2522 34.9581 96.09 34.8282 95.944 34.6813C95.7994 34.5296 95.6755 34.3596 95.5753 34.1757C95.47 33.9867 95.3888 33.7854 95.3336 33.5764C95.2755 33.3554 95.2466 33.1279 95.2476 32.8995ZM95.6327 32.8995C95.6323 33.1791 95.6866 33.456 95.7924 33.715C95.8857 33.9615 96.0246 34.1883 96.2021 34.3837C96.3826 34.5717 96.5983 34.7227 96.8371 34.8281C97.0816 34.9332 97.3451 34.9873 97.6114 34.9873C97.8777 34.9873 98.1411 34.9332 98.3856 34.8281C98.6224 34.7212 98.8365 34.5703 99.0165 34.3837C99.194 34.1883 99.333 33.9615 99.4262 33.715C99.5321 33.456 99.5863 33.1791 99.586 32.8995C99.5874 32.6198 99.5331 32.3426 99.4262 32.084C99.3329 31.8388 99.1939 31.6133 99.0165 31.4194C98.8377 31.2324 98.6232 31.0827 98.3856 30.979C98.1411 30.874 97.8777 30.8198 97.6114 30.8198C97.3451 30.8198 97.0816 30.874 96.8371 30.979C96.5977 31.0815 96.3816 31.2313 96.2021 31.4194C96.0247 31.6133 95.8858 31.8388 95.7924 32.084C95.6856 32.3426 95.6313 32.6198 95.6327 32.8995ZM97.1362 33.1523V34.2777H96.6609V31.4316H97.5868C97.7374 31.4291 97.8876 31.447 98.0333 31.4846C98.1557 31.5159 98.271 31.5699 98.3734 31.6436C98.4671 31.7123 98.5418 31.8035 98.5905 31.9087C98.6416 32.0271 98.6668 32.1549 98.6642 32.2838C98.6666 32.414 98.6294 32.5419 98.5577 32.6508C98.4741 32.7623 98.3644 32.8519 98.2382 32.9117C98.3084 32.9404 98.3734 32.9804 98.4307 33.03C98.4808 33.0749 98.5236 33.1271 98.5577 33.1849C98.5892 33.2469 98.6126 33.3127 98.6274 33.3806C98.6406 33.4533 98.6475 33.527 98.6478 33.6008V33.7843C98.6434 33.8631 98.6434 33.942 98.6478 34.0208C98.6546 34.085 98.6698 34.148 98.6929 34.2084V34.2614H98.2095C98.196 34.2258 98.1864 34.1889 98.1808 34.1513C98.1808 34.1064 98.1808 34.0616 98.1808 34.0167C98.1808 33.9719 98.1808 33.9229 98.1808 33.8822V33.6049C98.1909 33.4769 98.1513 33.3499 98.0702 33.2501C97.9632 33.1638 97.8264 33.1227 97.6892 33.136L97.1362 33.1523ZM97.1362 32.7242H97.6564C97.7256 32.7233 97.7945 32.7137 97.8613 32.6956C97.922 32.6781 97.98 32.652 98.0333 32.6181C98.0817 32.5863 98.1211 32.5428 98.148 32.4917C98.1805 32.4392 98.1962 32.378 98.1931 32.3164C98.1932 32.2368 98.1779 32.1579 98.148 32.084C98.1288 32.0285 98.0931 31.9802 98.0456 31.9454C97.9912 31.9062 97.9278 31.881 97.8613 31.872C97.7668 31.8541 97.6707 31.8459 97.5745 31.8475H97.1239L97.1362 32.7242Z" fill="#FFF"></path>
+               </svg> Xpress Optimization
+            </div>
+         </div>
+         <div class="content">
+            <table class="table2" border="0" cellpadding="0" cellspacing="0" width="95%">
+               <tbody>
+                  <tr>
+                     <td align="left" valign="top" width="850">
+                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                           <tbody>
+                              <tr>
+                                 <td colspan="2">
+                                    <h2 class="titletext" align="left">Introductory examples</h2>
+                                    <div class="bodytext">
+                                       <p class="Body">This directory contains the LP and MIP modeling examples that are shown as Introdutcory examples in the Workbench entry page.
+                                          The model files are named by optimization problem type. All models produce a graphical representation of results in SVG format.
+                                       </p>
+                                    </div><br><br></td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="assignmentgr"></a><a href="javascript:;" onmousedown="toggleDiv('assignmentgr_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="assignmentgr_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="assignmentgr_divicon2"></span>Assignment</span></a>: simple LP problem, graphical representation of results
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="assignmentgr_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Assignment</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">1 (simple)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">  A set of projects is assigned to persons with the
+                                                objective to maximize the overall satisfaction.
+                                                A preference rating per person and project is given.
+                                                In this model formulation the solution to the LP problem 
+                                                is integer, there is no need to define the decision 
+                                                variables explicitly as binaries.
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="assignment_graph_mos" data-keyword="assignment_graph_mos"></a><a href="assignment_graph.mos"><span class="code">assignment_graph.mos</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="binpackinggr"></a><a href="javascript:;" onmousedown="toggleDiv('binpackinggr_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="binpackinggr_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="binpackinggr_divicon2"></span>Bin packing</span></a>: simple MIP problem, random generation of data,
+                                    use of model parameters, setting Optimizer controls
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="binpackinggr_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Bin packing</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">2 (easy-medium)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">  A number of items of different sizes are to be put
+                                                into bins of different capacities. Item sizes and bin 
+                                                capacities are randomly generated integers that lie in 
+                                                the given intervals. We wish to minimize the total
+                                                number of bins used.
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="binpacking_graph_mos" data-keyword="binpacking_graph_mos"></a><a href="binpacking_graph.mos"><span class="code">binpacking_graph.mos</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="blendinggr"></a><a href="javascript:;" onmousedown="toggleDiv('blendinggr_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="blendinggr_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="blendinggr_divicon2"></span>Blending ores</span></a>: simple LP problem, formulation of blending constraints
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="blendinggr_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Blending</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">1 (simple)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">  Several ores are blended to a final product that must
+                                                have a certain quality ('grade'). We wish to determine 
+                                                the quantity of every ore to be used in the blend with 
+                                                the objective to maximize the total profit (calculated 
+                                                as sales revenues - raw material cost).
+                                                <ul>
+                                                   
+                                                   <li class="Body">simple LP problem</li>
+                                                   
+                                                   <li class="Body">data in model or input from file</li>
+                                                   
+                                                   <li class="Body">bounds on variables</li>
+                                                   
+                                                </ul>
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="blending_graph_mos" data-keyword="blending_graph_mos"></a><a href="blending_graph.mos"><span class="code">blending_graph.mos</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="capbgtgr"></a><a href="javascript:;" onmousedown="toggleDiv('capbgtgr_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="capbgtgr_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="capbgtgr_divicon2"></span>Capital budgeting</span></a>: simple MIP problem
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="capbgtgr_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Capital budgeting</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">1 (simple)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">  Among 8 projects under consideration we wish 
+                                                to choose the most profitable ones. Each project 
+                                                requires a capital investment and a commitment of 
+                                                skilled personnel. The (discounted) return of each 
+                                                project is known. The available capital and the 
+                                                number of skilled personnel are limited.
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="capbgt_graph_mos" data-keyword="capbgt_graph_mos"></a><a href="capbgt_graph.mos"><span class="code">capbgt_graph.mos</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="contractgr"></a><a href="javascript:;" onmousedown="toggleDiv('contractgr_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="contractgr_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="contractgr_divicon2"></span>Contract allocation</span></a>: simple MIP problem, semi-continuous variables,
+                                    graphical representation of results
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="contractgr_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Contract allocation</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">2 (easy-medium)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">  A public utility, which is divided into six regional 
+                                                districts, wishes to allocate ten power generation 
+                                                contracts to its regions as cheaply as possible. The cost 
+                                                per unit of power generated by each region for each 
+                                                contract is known. If part of a contract is allocated to 
+                                                a region then it must be at least as big as a certain 
+                                                minimum size (5 units). For reliability reasons, no 
+                                                contract may be placed exclusively with only one district. 
+                                                Each district has a limited power generation capacity.
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="contract_graph_mos" data-keyword="contract_graph_mos"></a><a href="contract_graph.mos"><span class="code">contract_graph.mos</span></a></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">Data file(s):</span></td>
+                                             <td><a id="contract.dat" data-keyword="contract.dat"></a><a href="contract.dat"><span class="code">contract.dat</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="cutstockgr"></a><a href="javascript:;" onmousedown="toggleDiv('cutstockgr_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="cutstockgr_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="cutstockgr_divicon2"></span>Cutting stock</span></a>: MIP problem solved by column generation, 
+                                    working with multiple problems, using 'sethidden',
+                                    setting Optimizer and Mosel control parameters
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="cutstockgr_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Cutting stock</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">5 (difficult)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">  A paper mill produces rolls of paper of a fixed width that 
+                                                are subsequently cut into smaller rolls according to the 
+                                                customer orders. The rolls can be cut into NWIDTHS different 
+                                                sizes. The orders are given as demands for each width. 
+                                                The objective of the paper mill is to satisfy the demand 
+                                                with the smallest possible number of paper rolls in order 
+                                                to minimize the losses. 
+                                                Starting with just a basic set of cutting patterns a 
+                                                column generation heuristic is employed to find more 
+                                                profitable cutting patterns. This heuristic solves a 
+                                                second optimization problem (a knapsack problem) that is
+                                                independent of the main, cutting stock problem.
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="cutstock_graph_mos" data-keyword="cutstock_graph_mos"></a><a href="cutstock_graph.mos"><span class="code">cutstock_graph.mos</span></a></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">Data file(s):</span></td>
+                                             <td><a id="cutstock.dat" data-keyword="cutstock.dat"></a><a href="cutstock.dat"><span class="code">cutstock.dat</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="elsgr"></a><a href="javascript:;" onmousedown="toggleDiv('elsgr_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="elsgr_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="elsgr_divicon2"></span>Lot sizing</span></a>: MIP problem, implementation of Branch-and-Cut and
+                                    Cut-and-Branch algorithms, definition of Optimizer callbacks,
+                                    Optimizer and Mosel parameter settings, 'case', 'procedure',
+                                    'function', time measurement
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="elsgr_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Lot sizing</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">4 (medium-difficult)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">  Economic lot sizing (ELS) considers production planning 
+                                                over a given planning horizon. In every period, there is 
+                                                a given demand for every product that must be satisfied by 
+                                                the production in this period and by inventory carried over 
+                                                from previous periods.
+                                                A set-up cost is associated with production in a period, 
+                                                and the total production capacity per period is limited. 
+                                                The unit production cost per product and time period is 
+                                                given. There is no inventory or stock-holding cost.
+                                                The model implements a configurable cutting plane algorithm 
+                                                for this problem.
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="els_graph_mos" data-keyword="els_graph_mos"></a><a href="els_graph.mos"><span class="code">els_graph.mos</span></a></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">Data file(s):</span></td>
+                                             <td><a id="els.dat" data-keyword="els.dat"></a><a href="els.dat"><span class="code">els.dat</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="facilitylocgr"></a><a href="javascript:;" onmousedown="toggleDiv('facilitylocgr_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="facilitylocgr_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="facilitylocgr_divicon2"></span>Facility location</span></a>: MIP problem, graphical solution representation,
+                                    re-solving with modified bounds, data input from file,
+                                    dynamic arrays for data and decision variables, use of
+                                    'exists', model cuts
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="facilitylocgr_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Facility location</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">3 (intermediate)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top"> There are a set of depot locations and a set of clients.
+                                                The cost of opening each depot, the depot capacities, and 
+                                                the demand of each client is given. For all possible 
+                                                delivery routes the unit shipping cost is given.
+                                                We wish to supply all the clients at the least cost.
+                                                The model is re-solved several times to study the effects 
+                                                of forcing some depots open.
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="facilityloc_graph_mos" data-keyword="facilityloc_graph_mos"></a><a href="facilityloc_graph.mos"><span class="code">facilityloc_graph.mos</span></a></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">Data file(s):</span></td>
+                                             <td><a id="facilityloc.dat" data-keyword="facilityloc.dat"></a><a href="facilityloc.dat"><span class="code">facilityloc.dat</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="folioqpgraph"></a><a href="javascript:;" onmousedown="toggleDiv('folioqpgraph_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="folioqpgraph_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="folioqpgraph_divicon2"></span>Portfolio optimization</span></a>: small QP problem, solved repeatedly with modified
+                                    constraints, graphical representation of the results,
+                                    use of 'min' and 'max'
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="folioqpgraph_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Portfolio optimization(QP)</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">3 (intermediate)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">  An investor is evaluating ten different securities ('shares').
+                                                He estimates the return on investment for a period of one 
+                                                year. To spread the risk he wishes to invest at most 
+                                                30% of the capital into any share. He further wishes 
+                                                to invest at least half of his capital in North-American 
+                                                shares and at most a third in high-risk shares. How should 
+                                                the capital be divided among the shares to  minimize the 
+                                                risk whilst obtaining a certain target yield? The investor 
+                                                adopts the Markowitz idea of getting estimates of the 
+                                                variance/covariance matrix of estimated returns on the 
+                                                securities.
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="folioqp_graph_mos" data-keyword="folioqp_graph_mos"></a><a href="folioqp_graph.mos"><span class="code">folioqp_graph.mos</span></a></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">Data file(s):</span></td>
+                                             <td><a id="folioqpgraph.dat" data-keyword="folioqpgraph.dat"></a><a href="folioqpgraph.dat"><span class="code">folioqpgraph.dat</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="knapsackgr"></a><a href="javascript:;" onmousedown="toggleDiv('knapsackgr_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="knapsackgr_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="knapsackgr_divicon2"></span>Knapsack</span></a>: simple IP problem, formulation of knapsack constraints,
+                                    model parameters, function 'random'
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="knapsackgr_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Knapsack</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">1 (simple)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">  We wish to choose among items of different value and
+                                                weight those that result in the maximum total value for 
+                                                a given weight limit.
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="knapsack_graph_mos" data-keyword="knapsack_graph_mos"></a><a href="knapsack_graph.mos"><span class="code">knapsack_graph.mos</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="prodplangr"></a><a href="javascript:;" onmousedown="toggleDiv('prodplangr_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="prodplangr_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="prodplangr_divicon2"></span>Multi-period, multi-site production planning</span></a>: LP or MIP problem, formulation of resource constraints and
+                                    material balance constraints, formatted solution printing, if-then-else, if-then-elif statements
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="prodplangr_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Production planning</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">3 (intermediate)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">  The company Coco has two plants that can produce two types 
+                                                of cocoa powder. The plant capacities are limited.
+                                                It is possible to store raw materials and finished product 
+                                                from one time period to the next. Raw material prices, 
+                                                sales revenues, and the maximum amount that may be sold 
+                                                depend on the time period. Raw material storage capacity 
+                                                is limited.
+                                                Storing product between time periods incurs storage costs. 
+                                                Some product is held in stock at the beginning of the 
+                                                planning period.
+                                                The objective function of maximizing the total profit is 
+                                                to maximize the sales revenues, minus the cost of production, 
+                                                buying raw material, and storing finished products and raw 
+                                                material.
+                                                
+                                                <ul>
+                                                   
+                                                   <li class="Body">problem formulation alterntives selected via a runtime parameter</li>
+                                                   
+                                                   <li class="Body">if-then, if-then-else, if-then-elif statements</li>
+                                                   
+                                                </ul>
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="prodplan_graph_mos" data-keyword="prodplan_graph_mos"></a><a href="prodplan_graph.mos"><span class="code">prodplan_graph.mos</span></a></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">Data file(s):</span></td>
+                                             <td><a id="prodplan.dat" data-keyword="prodplan.dat"></a><a href="prodplan.dat"><span class="code">prodplan.dat</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="projplangr"></a><a href="javascript:;" onmousedown="toggleDiv('projplangr_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="projplangr_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="projplangr_divicon2"></span>Project planning with resource constraints</span></a>: MIP problem, alternative formulation with SOS-1,
+                                    tricky formulation of resource use profiles and
+                                    calculation of benefits, graphical solution representation
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="projplangr_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Project planning w/ constraints</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">3 (intermediate)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">  Over the next 6 months we have three projects which can 
+                                                be done. Each of these projects has a profile of manpower 
+                                                requirements over its lifetime, and a benefit which accrues 
+                                                each month when the project has been completed.
+                                                Our problem is to determine when each project is to start, 
+                                                subject to the constraint that in no month can we try to 
+                                                use more manpower than is available.
+                                                		   
+                                                <ul>
+                                                   
+                                                   <li class="Body">simple MIP problem</li>
+                                                   
+                                                   <li class="Body">alternative formulation using binary variables or SOS-1</li>
+                                                   
+                                                   <li class="Body">if-then-else statement</li>
+                                                   
+                                                </ul>
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="projplan_graph_mos" data-keyword="projplan_graph_mos"></a><a href="projplan_graph.mos"><span class="code">projplan_graph.mos</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="purchasegr"></a><a href="javascript:;" onmousedown="toggleDiv('purchasegr_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="purchasegr_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="purchasegr_divicon2"></span>Purchasing with price breaks</span></a>: MIP problem, modeling a piecewise linear function with SOS-2,
+                                    graphical representation of data
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="purchasegr_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Purchasing with price breaks</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">3 (intermediate)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">  There are three suppliers of a good, and they have quoted 
+                                                various prices for various quantities of product. We want 
+                                                to buy at least total cost, yet not buy too much from any 
+                                                one supplier. Each supplier offers decreasing prices for
+                                                increased lot size, in the form of incremental discounts.
+                                                We wish to buy 600 items in total.
+                                                		     
+                                                <ul>
+                                                   
+                                                   <li class="Body">complex MIP model </li>
+                                                   
+                                                   <li class="Body">data input from file, including parameters for dimensioning</li>
+                                                   
+                                                   <li class="Body">splitting the declaration section to read first the parameters that are used to declare the data arrays</li> 
+                                                   
+                                                   <li class="Body">using SOS-2</li>
+                                                   
+                                                </ul>
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="purchase_graph_mos" data-keyword="purchase_graph_mos"></a><a href="purchase_graph.mos"><span class="code">purchase_graph.mos</span></a></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">Data file(s):</span></td>
+                                             <td><a id="purchase.dat" data-keyword="purchase.dat"></a><a href="purchase.dat"><span class="code">purchase.dat</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="transportgr"></a><a href="javascript:;" onmousedown="toggleDiv('transportgr_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="transportgr_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="transportgr_divicon2"></span>Transport</span></a>: simple LP problem, using dynamic arrays for data and
+                                    decision variables, formatted output printing, inline 'if',
+                                    format of data files
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="transportgr_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Transport</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">2 (easy-medium)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">  A company produces the same product at different plants. 
+                                                Every plant has a different production cost per unit and 
+                                                a limited total capacity. The customers (grouped into 
+                                                customer regions) may receive the product from different 
+                                                production locations. The transport cost is proportional 
+                                                to the distance between plants and customers, and the 
+                                                capacity on every delivery route is limited. The objective 
+                                                is to minimize the total cost, whilst satisfying the 
+                                                demands of all customers.
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="transport_graph_mos" data-keyword="transport_graph_mos"></a><a href="transport_graph.mos"><span class="code">transport_graph.mos</span></a></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">Data file(s):</span></td>
+                                             <td><a id="transport.dat" data-keyword="transport.dat"></a><a href="transport.dat"><span class="code">transport.dat</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="tspgr"></a><a href="javascript:;" onmousedown="toggleDiv('tspgr_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="tspgr_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="tspgr_divicon2"></span>TSP</span></a>: MIP problem, loop over problem solving, TSP subtour 
+                                    elimination algorithm; 
+                                    procedure for generating additional constraints, recursive 
+                                    subroutine calls, working with sets, 'forall-do', 
+                                    'repeat-until', 'getsize', 'not', graphical representation
+                                    of solutions
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="tspgr_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Symmetric TSP</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">5 (difficult)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">  A flight tour starts from airport 1, visits all 
+                                                the other airports and then comes back to the starting point. 
+                                                The distances between the airports are symmetric. In which 
+                                                order should the airports be visited to minimize the total 
+                                                distance covered?
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="tsp_graph_mos" data-keyword="tsp_graph_mos"></a><a href="tsp_graph.mos"><span class="code">tsp_graph.mos</span></a></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">Data file(s):</span></td>
+                                             <td><a id="tsp.dat" data-keyword="tsp.dat"></a><a href="tsp.dat"><span class="code">tsp.dat</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="coveringgr"></a><a href="javascript:;" onmousedown="toggleDiv('coveringgr_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="coveringgr_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="coveringgr_divicon2"></span>Set covering</span></a>: MIP problem, modeling an equivalence; sparse data format,
+                                    graphical output representation, 'if-then-else'
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="coveringgr_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Covering</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">2 (easy-medium)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">  A mobile phone operator decides to equip a currently 
+                                                uncovered geographical zone. A budget is allocated to equip 
+                                                this region. 7 locations are possible for the construction 
+                                                of the transmitters. Every transmitter only covers a certain
+                                                number of communities. For every community the number of 
+                                                inhabitants is known. Where should the transmitters be built 
+                                                to cover the largest population with the given budget?
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="covering_graph_mos" data-keyword="covering_graph_mos"></a><a href="covering_graph.mos"><span class="code">covering_graph.mos</span></a></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">Data file(s):</span></td>
+                                             <td><a id="covering.dat" data-keyword="covering.dat"></a><a href="covering.dat"><span class="code">covering.dat</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="prodmixgr"></a><a href="javascript:;" onmousedown="toggleDiv('prodmixgr_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="prodmixgr_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="prodmixgr_divicon2"></span>Single period product mix</span></a>: Simple LP problem, single period production planning
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="prodmixgr_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Single period product mix</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">1 (simple)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">  A firm has 3 workshops, each working 40 hours per week, in
+                                                which it can produce two products. A unit of each product 
+                                                requires a given number of hours in the workshops and a 
+                                                given number of man hours. The hourly labor cost and the 
+                                                unit sales prices are known. The objective is to determine 
+                                                the most profitable operation.
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="prodmix_graph_mos" data-keyword="prodmix_graph_mos"></a><a href="prodmix_graph.mos"><span class="code">prodmix_graph.mos</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="persplangr"></a><a href="javascript:;" onmousedown="toggleDiv('persplangr_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="persplangr_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="persplangr_divicon2"></span>Personnel requirement planning</span></a>: simple MIP problem, formulation of balance constraints
+                                    using inline 'if'
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="persplangr_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Personnel planning</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">2 (easy-medium)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">  The requirements for construction workers at a construction 
+                                                site during a period of six months are known. Transfers 
+                                                from other sites to this one are possible on the first day 
+                                                of every month and at the end of every month workers may 
+                                                leave to other sites. Transfer, understaffing, and 
+                                                overstaffing incur known costs per month per post.
+                                                Overtime work is limited to 25% of the hours worked 
+                                                normally. The monthly arrivals and departures are limited. 
+                                                Three workers are already present on site at the beginning 
+                                                of the planning period and that three workers need to 
+                                                remain on-site at the end. Which are the number of arrivals 
+                                                and departures every month to minimize the total cost?
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="persplan_graph_mos" data-keyword="persplan_graph_mos"></a><a href="persplan_graph.mos"><span class="code">persplan_graph.mos</span></a></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">Data file(s):</span></td>
+                                             <td><a id="persplan.dat" data-keyword="persplan.dat"></a><a href="persplan.dat"><span class="code">persplan.dat</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="matchinggr"></a><a href="javascript:;" onmousedown="toggleDiv('matchinggr_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="matchinggr_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="matchinggr_divicon2"></span>Matching flight crews</span></a>: 2 MIP problems with different objectives, data preprocessing,
+                                    incremental definition of data array, encoding of arcs, 
+                                    logical 'or' (cumulative version) and 'and', 'procedure' 
+                                    for printing solution, 'forall-do', 'max', 'finalize',
+                                    graphical representation of results, 'sin', 'cos'
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="matchinggr_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Bipartite matching</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">4 (medium-difficult)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">  The task is to form pilot/co-pilot pairs ('crews') for every 
+                                                plane with a compatible language and a sufficiently good 
+                                                knowledge of the aircraft type. In the first optimization 
+                                                run we maximize the number of crews that fly. The
+                                                second objective is to determine the set of crews with 
+                                                maximum total score (best matching pilot/co-pilot pairs).
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="matching_graph_mos" data-keyword="matching_graph_mos"></a><a href="matching_graph.mos"><span class="code">matching_graph.mos</span></a></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">Data file(s):</span></td>
+                                             <td><a id="matching.dat" data-keyword="matching.dat"></a><a href="matching.dat"><span class="code">matching.dat</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="maxflowgr"></a><a href="javascript:;" onmousedown="toggleDiv('maxflowgr_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="maxflowgr_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="maxflowgr_divicon2"></span>Maximum flow in a telecom network</span></a>: MIP problem, encoding of arcs, 'range', 'exists', 'create',
+                                    algorithm for printing paths, 'forall-do', 'while-do', 
+                                    'round', graphical representation of results
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="maxflowgr_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Maximum flow</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">3 (intermediate)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">  We wish to test the reliability of a telecommunications 
+                                                network that consists of eleven sites connected by 
+                                                bidirectional lines for data transmission. The specifications 
+                                                require that the two sites (nodes) 10 and 11 of the network 
+                                                remain able to communicate even if any three other sites of 
+                                                the network are destroyed.
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="maxflow_graph_mos" data-keyword="maxflow_graph_mos"></a><a href="maxflow_graph.mos"><span class="code">maxflow_graph.mos</span></a></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">Data file(s):</span></td>
+                                             <td><a id="maxflow.dat" data-keyword="maxflow.dat"></a><a href="maxflow.dat"><span class="code">maxflow.dat</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="multicomflowgr"></a><a href="javascript:;" onmousedown="toggleDiv('multicomflowgr_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="multicomflowgr_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="multicomflowgr_divicon2"></span>Multi-commodity network flow</span></a>: MIP problem, encoding of paths, 'finalize', 'getsize'
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="multicomflowgr_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Multi-commodity network flow</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">3 (intermediate)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">  A private telephone company exploits a network between 
+                                                five cities. At a given moment, the company is facing 
+                                                a given set of demands for circuits (telephone calls). 
+                                                The objective is to transmit as much as possible of the
+                                                demands and to indicate the corresponding routing, that is, 
+                                                the access paths used.
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="multicomflow_graph_mos" data-keyword="multicomflow_graph_mos"></a><a href="multicomflow_graph.mos"><span class="code">multicomflow_graph.mos</span></a></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">Data file(s):</span></td>
+                                             <td><a id="multicomflow.dat" data-keyword="multicomflow.dat"></a><a href="multicomflow.dat"><span class="code">multicomflow.dat</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="vrpgr"></a><a href="javascript:;" onmousedown="toggleDiv('vrpgr_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="vrpgr_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="vrpgr_divicon2"></span>Vehicle routing</span></a>: MIP problem, formulation of constraints to eliminate
+                                    inadmissible subtours, definition of model cuts,
+                                    selection  with '|', algorithm for printing the tours, 
+                                    graphical solution representation
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="vrpgr_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Vehicle routing (VRP)</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">4 (medium-difficult)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">  A transporter has to deliver heating oil from a refinery 
+                                                to a certain number of clients. The distances between the
+                                                clients and the refinery and the demands in liters for 
+                                                the different sites are given. The transport company uses 
+                                                tankers with a capacity of 39000 liters for the deliveries. 
+                                                Determine the tours for delivering to all clients that 
+                                                minimize the total number of kilometers driven.
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="vrp_graph_mos" data-keyword="vrp_graph_mos"></a><a href="vrp_graph.mos"><span class="code">vrp_graph.mos</span></a></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">Data file(s):</span></td>
+                                             <td><a id="vrp.dat" data-keyword="vrp.dat"></a><a href="vrp.dat"><span class="code">vrp.dat</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="mincostflowgr"></a><a href="javascript:;" onmousedown="toggleDiv('mincostflowgr_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="mincostflowgr_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="mincostflowgr_divicon2"></span>Minimum cost flow</span></a>: LP problem, formulation with extra nodes for modes of
+                                    transport; encoding of arcs, 'finalize', union of sets, 
+                                    nodes labeled with strings, graphical solution representation
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="mincostflowgr_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Minimum cost flow</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">2 (easy-medium)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">  A company needs to transport 180 tonnes of chemical products 
+                                                stored in four depots to three recycling centers. The depots 
+                                                contain 190 tonnes in total. Each depot only delivers to 
+                                                certain centers, by road and/or by rail, at a given cost 
+                                                per tonne. Transports by rail need to have at least 10 tonnes 
+                                                and at most 50 tonnes for any single delivery. 
+                                                How should the company transport the 180 tonnes of chemicals 
+                                                to minimize the total cost of transport?
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="mincostflow_graph_mos" data-keyword="mincostflow_graph_mos"></a><a href="mincostflow_graph.mos"><span class="code">mincostflow_graph.mos</span></a></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">Data file(s):</span></td>
+                                             <td><a id="mincostflow.dat" data-keyword="mincostflow.dat"></a><a href="mincostflow.dat"><span class="code">mincostflow.dat</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="linebalgr"></a><a href="javascript:;" onmousedown="toggleDiv('linebalgr_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="linebalgr_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="linebalgr_divicon2"></span>Line balancing</span></a>: MIP problem, encoding of arcs, 'range', formulation of 
+                                    sequencing constraints
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="linebalgr_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Line balancing</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">2 (easy-medium)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">  A product is produced on an assembly lines with four 
+                                                workstations. It is assembled in twelve operations between 
+                                                which there are certain precedence constraints. The duration 
+                                                of every task is given. We would like to distribute the 
+                                                tasks among the workstations in order to balance the line to 
+                                                obtain the shortest possible cycle time, that is, the total
+                                                time required for assembling the product. Every task needs 
+                                                to be assigned to a single workstation that has to process 
+                                                it without interruption. Every workstation deals with a 
+                                                single operation at a time.
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="linebal_graph_mos" data-keyword="linebal_graph_mos"></a><a href="linebal_graph.mos"><span class="code">linebal_graph.mos</span></a></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">Data file(s):</span></td>
+                                             <td><a id="linebal.dat" data-keyword="linebal.dat"></a><a href="linebal.dat"><span class="code">linebal.dat</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="spanningtreegr"></a><a href="javascript:;" onmousedown="toggleDiv('spanningtreegr_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="spanningtreegr_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="spanningtreegr_divicon2"></span>Minimum weight spanning tree</span></a>: MIP problem, formulation of constraints to exclude subcycles,
+                                    graphical representation of results
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="spanningtreegr_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Minimum weight spanning tree</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">3 (intermediate)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">  Six terminals located in different buildings need to be 
+                                                connected. The cost of connecting two terminals is 
+                                                proportional to the distance between them. Determine the 
+                                                connections to install to minimize the total cost.
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="spanningtree_graph_mos" data-keyword="spanningtree_graph_mos"></a><a href="spanningtree_graph.mos"><span class="code">spanningtree_graph.mos</span></a></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">Data file(s):</span></td>
+                                             <td><a id="spanningtree.dat" data-keyword="spanningtree.dat"></a><a href="spanningtree.dat"><span class="code">spanningtree.dat</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="flowshopgr"></a><a href="javascript:;" onmousedown="toggleDiv('flowshopgr_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="flowshopgr_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="flowshopgr_divicon2"></span>Flow-shop scheduling</span></a>: MIP problem, alternative formulation using SOS1,
+                                    graphical solution representation
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="flowshopgr_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Flow-shop scheduling</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">4 (medium-difficult)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">  A workshop with three different machines produces six 
+                                                types of pipes, for which the durations of the processing 
+                                                steps are given. Every workpiece runs through the machines
+                                                in the same order. Once started, any operations must be 
+                                                carried out without interruption, but the workpieces may
+                                                wait between the machines. Every machine only processes 
+                                                one piece at a time. A workpiece may not overtake any 
+                                                other by passing onto the following machine. Which is the 
+                                                sequence of workpieces that minimizes the total time for
+                                                completing all pieces?
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="flowshop_graph_mos" data-keyword="flowshop_graph_mos"></a><a href="flowshop_graph.mos"><span class="code">flowshop_graph.mos</span></a></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">Data file(s):</span></td>
+                                             <td><a id="flowshop.dat" data-keyword="flowshop.dat"></a><a href="flowshop.dat"><span class="code">flowshop.dat</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="jobshopgr"></a><a href="javascript:;" onmousedown="toggleDiv('jobshopgr_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="jobshopgr_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="jobshopgr_divicon2"></span>Job shop scheduling</span></a>: MIP problem, formulating disjunctions (BigM); 
+                                    'dynamic array', 'range', 'exists', 'forall-do',
+                                    graphical solution representation
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="jobshopgr_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Job shop scheduling</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">3 (intermediate)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">  A company has received an order for three types of 
+                                                wallpapers. Every paper type is produced as a continuous 
+                                                roll of paper that passes through several machines, each 
+                                                printing a different color. The order in which the papers 
+                                                are run through the machines depends on the design of the 
+                                                paper. The processing times differ depending on the surface 
+                                                that needs to be printed.
+                                                Knowing that every machine can only process one wallpaper 
+                                                at a time and that a paper cannot be processed by several 
+                                                machines simultaneously, how should the paper printing be 
+                                                scheduled on the machines in order to finish the order as 
+                                                early as possible? 
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="jobshop_graph_mos" data-keyword="jobshop_graph_mos"></a><a href="jobshop_graph.mos"><span class="code">jobshop_graph.mos</span></a></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">Data file(s):</span></td>
+                                             <td><a id="jobshop.dat" data-keyword="jobshop.dat"></a><a href="jobshop.dat"><span class="code">jobshop.dat</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="transshipgr"></a><a href="javascript:;" onmousedown="toggleDiv('transshipgr_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="transshipgr_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="transshipgr_divicon2"></span>Transshipment formulation of multi-period production planning</span></a>: MIP problem, representation of multi-period production 
+                                    as flow; encoding of arcs, 'exists', 'create', 'isodd', 
+                                    'getlast', inline 'if'
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="transshipgr_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Production planning</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">3 (intermediate)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">  A company wishes to plan the production of a product
+                                                for the next six weeks. The weekly demand is known for 
+                                                the entire planning period. The production capacity and 
+                                                the production and storage costs take different values 
+                                                depending on the time period. Which is the production 
+                                                plan that minimizes the total cost of production and 
+                                                storage?
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="transship_graph_mos" data-keyword="transship_graph_mos"></a><a href="transship_graph.mos"><span class="code">transship_graph.mos</span></a></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">Data file(s):</span></td>
+                                             <td><a id="transship.dat" data-keyword="transship.dat"></a><a href="transship.dat"><span class="code">transship.dat</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="partitioninggr"></a><a href="javascript:;" onmousedown="toggleDiv('partitioninggr_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="partitioninggr_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="partitioninggr_divicon2"></span>Set partitioning</span></a>: MIP problem, algorithm for data preprocessing; file 
+                                    inclusion, 3 nested/recursive procedures, working with 
+                                    sets, 'if-then', 'forall-do', 'exists', 'finalize'
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="partitioninggr_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Partitioning</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">4 (medium-difficult)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">  In a country far away, the party of the duke Sark Mevo has 
+                                                finally beaten the ruling coalition headed by the princess 
+                                                Reguel Tekris. Mevo wishes to consolidate his position in 
+                                                the capital, the fourteen quarters of which need to be 
+                                                grouped to electoral districts. The forecast number of 
+                                                favorable votes for Mevo and the total number of electors 
+                                                per quarter are known. All electors must vote and the 
+                                                winner needs to have the absolute majority. A valid 
+                                                electoral district is formed by several adjacent quarters 
+                                                and must have between 30,000 and 100,000 voters. Electoral 
+                                                districts consisting of a single quarter are permitted if 
+                                                it has at least 50,000 voters. Nevertheless, Mevo may not 
+                                                decently define an electoral district solely with quarter 
+                                                10, since this contains his residence.
+                                                Determine a partitioning into five electoral districts 
+                                                that maximizes the number of seats for Mevo. Should this 
+                                                cause any difficulties, try a partitioning into six 
+                                                districts.
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="partitioning_graph_mos" data-keyword="partitioning_graph_mos"></a><a href="partitioning_graph.mos"><span class="code">partitioning_graph.mos</span></a></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">Data file(s):</span></td>
+                                             <td><a id="partition_calc.mos" data-keyword="partition_calc.mos"></a><a href="partition_calc.mos"><span class="code">partition_calc.mos</span></a>, <a id="partitioning.dat" data-keyword="partitioning.dat"></a><a href="partitioning.dat"><span class="code">partitioning.dat</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="openshopgr"></a><a href="javascript:;" onmousedown="toggleDiv('openshopgr_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="openshopgr_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="openshopgr_divicon2"></span>Open shop scheduling</span></a>: MIP problem, data preprocessing, algorithm for preemptive 
+                                    scheduling that involves looping over optimization,
+                                    ''Gantt chart'' printing and drawing
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="openshopgr_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Preemptive open shop</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">5 (difficult)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">  A satellite routes the traffic from four transmitter 
+                                                stations to four receiver stations. It has a switch that 
+                                                allows any permutation (mode) between the four transmitters 
+                                                and the four receivers. A valid schedule of transmissions 
+                                                defines a sequence of permutations that routes all the 
+                                                traffic of the given traffic matrix TRAF. An element of 
+                                                TRAF may be fragmented, and appear in several modes of 
+                                                the final decomposition. The objective is to find a 
+                                                schedule with minimal total duration.
+                                                The solution algorithm solves an assignment problem for 
+                                                every permutation.
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="openshop_graph_mos" data-keyword="openshop_graph_mos"></a><a href="openshop_graph.mos"><span class="code">openshop_graph.mos</span></a></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">Data file(s):</span></td>
+                                             <td><a id="openshop.dat" data-keyword="openshop.dat"></a><a href="openshop.dat"><span class="code">openshop.dat</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="sequencinggr"></a><a href="javascript:;" onmousedown="toggleDiv('sequencinggr_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="sequencinggr_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="sequencinggr_divicon2"></span>Sequencing jobs on a single machine</span></a>: MIP problem with 3 different objectives; 'procedure' 
+                                    for solution printing, 'if-then'
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="sequencinggr_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Sequencing jobs on a machine</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">3 (intermediate)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">  A set of tasks (or jobs) is to be processed on a single 
+                                                machine. The execution of tasks is non-preemptive (that is, 
+                                                an operation may not be interrupted before its completion). 
+                                                For every task its release date, due date, and duration are 
+                                                given. 
+                                                The model shows how to minimize the total processing time, 
+                                                the average processing time, and the total tardiness (that 
+                                                is, the amount of time by which the completion of jobs 
+                                                exceeds their respective due dates).
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="sequencing_graph_mos" data-keyword="sequencing_graph_mos"></a><a href="sequencing_graph.mos"><span class="code">sequencing_graph.mos</span></a></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">Data file(s):</span></td>
+                                             <td><a id="sequencing.dat" data-keyword="sequencing.dat"></a><a href="sequencing.dat"><span class="code">sequencing.dat</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table><br></div>
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td colspan="2"><a id="timetablegr"></a><a href="javascript:;" onmousedown="toggleDiv('timetablegr_div');"><span class="bodybolditalic"><span class="chevronright" style="display:inline;right: 2px;" id="timetablegr_divicon1"></span><span class="chevrondown" style="display:none;right: 2px;" id="timetablegr_divicon2"></span>Timetable for courses and teachers</span></a>: MIP problem, many specific constraints, tricky (pseudo-)
+                                    objective function, 'finalize'
+                                 </td>
+                              </tr>
+                              <tr valign="top">
+                                 <td width="25">&nbsp;</td>
+                                 <td class="bodytext" width="825">
+                                    <div style="display:none" id="timetablegr_div">
+                                       <table border="0" cellpadding="1" cellspacing="0" width="825">
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Type:</span></td>
+                                             <td align="left" valign="top"><b>Timetabling</b></td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" width="100"><span class="FctItem">Rating:</span></td>
+                                             <td align="left" valign="top">2 (easy-medium)</td>
+                                          </tr>
+                                          <tr>
+                                             <td align="left" valign="top" width="100"><span class="FctItem">Description:</span></td>
+                                             <td align="left" valign="top">  We want to establish the weekly timetable for two classes of 
+                                                a college. The two classes have the same teachers, except 
+                                                for mathematics and sport. All lessons have a duration of 
+                                                two hours. All students of the same class attend exactly 
+                                                the same courses. Every class may only have one two-hour 
+                                                lesson per subject on a single day. Some teachers are only
+                                                available on certain days. Some time slots are reserved
+                                                for certain subjects.
+                                             </td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">File(s):</span></td>
+                                             <td><a id="timetable_graph_mos" data-keyword="timetable_graph_mos"></a><a href="timetable_graph.mos"><span class="code">timetable_graph.mos</span></a></td>
+                                          </tr>
+                                          <tr valign="top">
+                                             <td align="left" width="100"><span class="FctItem">Data file(s):</span></td>
+                                             <td><a id="timetable.dat" data-keyword="timetable.dat"></a><a href="timetable.dat"><span class="code">timetable.dat</span></a></td>
+                                          </tr>
+                                          <tr>
+                                             <td colspan="2" style="color:#a0a0a0">
+                                                <hr noshade>
+                                             </td>
+                                          </tr>
+                                       </table>
+                                    </div><br></td>
+                              </tr>
+                              <tr>
+                                 <td><br>&nbsp;<br></td>
+                              </tr>
+                           </tbody>
+                        </table>
+                     </td>
+                  </tr>
+                  <tr height="20">
+                     <td colspan="2">
+                        <p class="bodytext">&nbsp;&nbsp;Comments or suggestions about the examples?
+                           Please e-mail <a href="mailto:support@fico.com?subject=Xpress examples">support@fico.com</a><br>&nbsp;
+                        </p>
+                     </td>
+                  </tr>
+               </tbody>
+            </table>
+         </div>
+         <div class="footer" align="left" height="20" width="100%">
+            <hr class="hr2"><font class="font7">&copy; Copyright 1983-2026 Fair Isaac Corporation. All rights reserved.</font></div>
+      </div>
+   </body>
+</html>

@@ -1,0 +1,231 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file roadworks.mos
+   ``````````````````
+   Shortest path with cardinality robustness constraints
+
+   (c) 2014 Fair Isaac Corporation
+       author: S. Heipcke, Mar. 2014, rev. Nov. 2014
+*******************************************************!)
+model "road network"
+ uses "mmxprs", "mmrobust"
+
+ parameters
+   DATAFILE="roads_9.dat"
+   NWORK = 2             ! Number of roadworks
+ end-parameters 
+
+ forward procedure printsol(val: real)
+ forward procedure printrobsoleval
+ forward procedure evalfixedrobsol
+
+ declarations
+   Nodes: range                                  ! Set of nodes
+   ARC: array(Arcs:range,1..2) of integer        ! Arc origins/destinations
+   LEN,MAXDELAY: array(Arcs) of real             ! Length and max delay per arc
+   DELAY: array(Arcs) of real                    ! Actual delay
+   Source,Sink: integer                          ! Source and sink node numbers
+
+   NomProb,ExtProb,RobProb: mpproblem            ! Alternative problem formulations
+   use: array(Arcs) of mpvar                     ! 1 iff arc is used
+   usesol: array(Arcs) of real                   ! Solution values
+   userobsol: array(Arcs) of real                ! Robust solution values
+
+   delay: array(Arcs) of uncertain               ! Uncertain delay
+ end-declarations
+
+ !**** Input datafile ****
+ initializations from DATAFILE
+  Nodes
+  Arcs
+  ARC
+  [LEN,MAXDELAY] as "ArcData"
+  Source  Sink
+ end-initializations
+
+!**** Robust problem formulation ****
+ with RobProb do
+   forall(a in Arcs) use(a) is_binary
+
+  ! Sink and source of flow
+   OneSourceR:= sum(a in Arcs | ARC(a,1)=Source) use(a)=1
+   OneSinkR:= sum(a in Arcs | ARC(a,2)=Sink) use(a)=1
+   NoRetSourceR:= sum(a in Arcs | ARC(a,2)=Source) use(a)=0
+   NoRetSinkR:=sum(a in Arcs | ARC(a,1)=Sink) use(a)=0
+ 
+  ! Flow balance in intermediate nodes
+   forall(n in Nodes-{Source,Sink})
+     BalanceR(n):= sum(a in Arcs | ARC(a,2)=n) use(a) = sum(a in Arcs | ARC(a,1)=n) use(a)
+
+  ! Only use one direction per edge
+   forall(a in Arcs | ARC(a,1)<ARC(a,2)) OneDirR(a):= use(a) + 
+     sum(b in Arcs | ARC(b,2)=ARC(a,1) and ARC(b,1)=ARC(a,2)) use(b) <= 1
+
+  ! Random construction work on NWORK arcs   
+   forall(a in Arcs) delay(a) <= MAXDELAY(a) 
+   forall(a in Arcs) delay(a) >= 0 
+   cardinality(union(a in Arcs) {delay(a)}, NWORK)
+  
+  ! Shortest path length
+   TotalLengthR:= sum(a in Arcs) (LEN(a)+delay(a))*use(a)
+
+  ! Solving
+   minimize(TotalLengthR)
+
+  ! Solution reporting
+   writeln("#### Robust solution ####")
+   if getprobstat=XPRS_OPT then	 
+     writeln("Delay: ", array(a in Arcs) delay(a).sol )
+     writeln("Shortest path: ", getobjval)
+     writeln("Delay on shortest path: ", 
+       sum(a in Arcs | use(a).sol>0 ) delay(a).sol)
+     forall(a in Arcs | use(a).sol>0)
+       write("  ", if(ARC(a,1)=Source, "Source", string(ARC(a,1))), "->", 
+             if(ARC(a,2)=Sink, "Sink", string(ARC(a,2))), " (",
+             LEN(a), "+", delay(a).sol,");")
+     writeln
+   else
+     writeln("No solution")
+   end-if    	
+  
+  ! Save the robust solution
+   forall(a in Arcs) userobsol(a):=use(a).sol 
+
+ end-do
+
+!**** Nominal problem (all delays fixed at zero) ****
+ with NomProb do
+   forall(a in Arcs) use(a) is_binary
+
+  ! Sink and source of flow
+   sum(a in Arcs | ARC(a,1)=Source) use(a)=1
+   sum(a in Arcs | ARC(a,2)=Sink) use(a)=1
+   sum(a in Arcs | ARC(a,2)=Source) use(a)=0
+   sum(a in Arcs | ARC(a,1)=Sink) use(a)=0
+ 
+  ! Flow balance in intermediate nodes
+   forall(n in Nodes-{Source,Sink})
+     sum(a in Arcs | ARC(a,2)=n) use(a) = sum(a in Arcs | ARC(a,1)=n) use(a)
+
+  ! Only use one direction per edge
+   forall(a in Arcs | ARC(a,1)<ARC(a,2)) use(a) + 
+     sum(b in Arcs | ARC(b,2)=ARC(a,1) and ARC(b,1)=ARC(a,2)) use(b) <= 1
+
+  ! Delays fixed to maximum
+   forall(a in Arcs) DELAY(a) := 0
+
+  ! Shortest path length
+   TotalLengthN:= sum(a in Arcs) (LEN(a)+DELAY(a))*use(a)
+
+  ! Solving
+   minimize(TotalLengthN)
+
+  ! Solution reporting
+   writeln("\n#### Nominal solution (no delay) ####")
+   printsol(getobjval)
+   printrobsoleval
+
+  ! Save the solution values and calculate worst case value for the given N
+   forall(a in Arcs) usesol(a):=use(a).sol 
+   evalfixedrobsol
+
+ end-do
+ 
+
+!**** Extreme problem (all delays fixed at upper bounds) ****
+ with ExtProb do
+   forall(a in Arcs) use(a) is_binary
+
+  ! Sink and source of flow
+   sum(a in Arcs | ARC(a,1)=Source) use(a)=1
+   sum(a in Arcs | ARC(a,2)=Sink) use(a)=1
+   sum(a in Arcs | ARC(a,2)=Source) use(a)=0
+   sum(a in Arcs | ARC(a,1)=Sink) use(a)=0
+ 
+  ! Flow balance in intermediate nodes
+   forall(n in Nodes-{Source,Sink})
+     sum(a in Arcs | ARC(a,2)=n) use(a) = sum(a in Arcs | ARC(a,1)=n) use(a)
+
+  ! Only use one direction per edge
+   forall(a in Arcs | ARC(a,1)<ARC(a,2)) use(a) + 
+     sum(b in Arcs | ARC(b,2)=ARC(a,1) and ARC(b,1)=ARC(a,2)) use(b) <= 1
+
+  ! Delays fixed to maximum
+   forall(a in Arcs) DELAY(a):= MAXDELAY(a)
+
+  ! Shortest path length
+   TotalLengthN:= sum(a in Arcs) (LEN(a)+DELAY(a))*use(a)
+
+  ! Solving
+   minimize(TotalLengthN)
+
+  ! Solution reporting
+   writeln("\n#### Worst-case solution (all roads delayed) ####")
+   printsol(getobjval)
+   printrobsoleval
+
+  ! Save the solution values and calculate worst case value for the given N
+   forall(a in Arcs) usesol(a):=use(a).sol 
+   evalfixedrobsol
+
+ end-do
+ 
+
+ !**** Solution reporting ****
+ procedure printsol(val: real)
+   writeln("Delay: ", DELAY)	
+   if getprobstat=XPRS_OPT then	 
+     writeln("Shortest path: ", val)
+     writeln("Delay on shortest path: ", sum(a in Arcs) DELAY(a)*use(a).sol)
+     forall(a in Arcs | use(a).sol>0) 
+       write("  ", if(ARC(a,1)=Source, "Source", string(ARC(a,1))), "->", 
+             if(ARC(a,2)=Sink, "Sink", string(ARC(a,2))), " (",
+             LEN(a), "+", DELAY(a),");")
+     writeln
+   else
+     writeln("No solution")
+   end-if    	
+ end-procedure
+
+ !**** Evaluate the saved robust solution with actual delay values ****
+ procedure printrobsoleval
+   writeln("Evaluation of robust solution with fixed delay values:")
+   writeln("  Robust solution path: ", 
+     sum(a in Arcs) (LEN(a)+DELAY(a))*userobsol(a) )	
+   writeln("  Delay for robust sol: ", sum(a in Arcs) DELAY(a)*userobsol(a) )	
+   forall(a in Arcs | userobsol(a).sol>0) 
+       write("  ", if(ARC(a,1)=Source, "Source", string(ARC(a,1))), "->", 
+             if(ARC(a,2)=Sink, "Sink", string(ARC(a,2))), " (",
+             LEN(a), "+", DELAY(a),");")
+     writeln
+ end-procedure
+
+ !**** Calculate the worst case delay for a given solution ****
+ procedure evalfixedrobsol
+   writeln("Worst-case delay for selected path (N=", NWORK, " delays):") 
+   with RobProb do
+    ! Fix path to current (non-robust) solution values
+     forall(a in Arcs | usesol(a)>0) FixArc(a):=use(a)>=usesol(a)
+
+    ! Solving
+     minimize(TotalLengthR)
+
+    ! Solution reporting
+     writeln("  Value for shortest path: ", getobjval)
+     writeln("  Delay on shortest path: ", 
+       sum(a in Arcs | use(a).sol>0 ) delay(a).sol )
+     forall(a in Arcs | use(a).sol>0)
+       write("  ", if(ARC(a,1)=Source, "Source", string(ARC(a,1))), "->", 
+             if(ARC(a,2)=Sink, "Sink", string(ARC(a,2))), " (",
+             LEN(a), "+", delay(a).sol,");")
+     writeln
+  
+    ! Unfix the solution values
+     forall(a in Arcs | usesol(a)>0) FixArc(a):=0
+
+   end-do
+ end-procedure
+
+end-model

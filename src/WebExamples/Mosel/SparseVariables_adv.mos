@@ -1,0 +1,47 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file SparseVariables_adv.mos 
+   ````````````````````````````
+   Improved version of model 'SparseVariables_std.mos'.
+   -- Enumeration of sparse multidimensional arrays --
+ 
+   (c) 2019-2026 Fair Isaac Corporation
+       author: S.Heipcke
+*******************************************************!)
+model "Sparse Variables"
+
+  !S:IMPORT
+  uses "mmsheet","mmsystem"
+
+  parameters
+    DATA_FILE_PREFIX = "00"
+  end-parameters
+  writeln("#E:IMPORT")
+
+  writeln("#S:READ")
+  declarations
+    ISet: range
+    f: dynamic array(ISet,ISet,ISet,ISet) of mpvar
+    C: dynamic array(ISet,ISet,ISet,ISet) of real
+  end-declarations
+
+  initializations from "mmetc.diskdata:"
+    C as "sparse,skiph," + DATA_FILE_PREFIX + "_H_SparseVariables_C.csv"
+  end-initializations
+ ! Same as previous lines:
+ ! diskdata(ETC_SPARSE+ETC_SKIPH, "data/" + DATA_FILE_PREFIX + "_H_SparseVariables_C.csv", C) 
+  writeln("#E:READ")
+
+  writeln("#S:PROC")
+  forall(i,j,k,l in ISet | exists(C(i,j,k,l)) ) create(f(i,j,k,l))
+  writeln("#E:PROC")
+
+  writeln("#S:TEST")
+  forall(i,j,k,l in ISet | exists(C(i,j,k,l)) ) do
+    writeln(i, " ", j, " ", k, " ", l)
+  end-do
+  writeln("#E:TEST")
+
+end-model

@@ -1,0 +1,118 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file covering.mos
+   `````````````````
+   TYPE:         Covering problem
+   DIFFICULTY:   2
+   FEATURES:     MIP problem, modeling an equivalence; sparse data format,
+                 graphical output representation, 'if-then-else'
+   DESCRIPTION:  A mobile phone operator decides to equip a currently 
+                 uncovered geographical zone. A budget is allocated to equip 
+                 this region. 7 locations are possible for the construction 
+                 of the transmitters. Every transmitter only covers a certain
+                 number of communities. For every community the number of 
+                 inhabitants is known. Where should the transmitters be built 
+                 to cover the largest population with the given budget?     
+   FURTHER INFO: `Applications of optimization with Xpress-MP', 
+                 Section 12.6 `Location of GSM transmitters'. 
+                 Similar problems: Section 9.5 `Cutting of sheet metal', 
+                 Section 15.2 `CCTV surveillance'
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2002, rev. Sep. 2017
+*******************************************************!)
+
+model "Transmitter placement"
+ uses "mmxprs", "mmsvg"
+
+ declarations
+  COMMS = 1..15                         ! Set of communities
+  PLACES = 1..7                         ! Set of possible transm. locations
+
+  COST: array(PLACES) of real           ! Cost of constructing transmitters
+  COVER: array(PLACES,COMMS) of integer ! Coverage by transmitter locations
+  POP: array(COMMS) of integer          ! Number of inhabitants (in 1000)
+  BUDGET: integer                       ! Budget limit
+   
+  build: array(PLACES) of mpvar         ! 1 if transmitter built, 0 otherwise
+  covered: array(COMMS) of mpvar        ! 1 if community covered, 0 otherwise 
+ end-declarations
+
+ initializations from 'covering.dat'
+  COST COVER POP BUDGET
+ end-initializations
+
+! Objective: total population covered
+ Coverage:= sum(c in COMMS) POP(c)*covered(c)
+
+! Towns covered
+ forall(c in COMMS) 
+  CoverTown(c):= sum(p in PLACES) COVER(p,c)*build(p) >= covered(c) 
+
+! Budget limit
+ BudgetLim:= sum(p in PLACES) COST(p)*build(p) <= BUDGET
+
+ forall(p in PLACES) build(p) is_binary
+ forall(c in COMMS) covered(c) is_binary
+
+! Solve the problem
+ maximize(Coverage)
+ 
+! Solution printing
+ writeln("Total coverage: ", getobjval, " total cost: ", 
+         getsol(sum(p in PLACES) COST(p)*build(p)))
+ write("Build transmitters:")
+ forall(p in PLACES) write(if(getsol(build(p))>0, " "+p, ""))
+ write("\nCommunities covered:")
+ forall(c in COMMS) write(if(getsol(covered(c))>0, " "+c, ""))
+ writeln
+
+! Solution drawing
+ declarations
+  XT,YT: array(PLACES) of integer       ! x-y-coordinates for transmitters
+  XC,YC: array(COMMS) of integer        ! x-y-coordinates of communities
+ end-declarations
+ 
+ initializations from 'covering.dat'
+  [XT,YT] as 'POST'
+  [XC,YC] as 'POSC'
+ end-initializations
+
+ svgsetgraphviewbox(10,10,110,75)
+ svgsetgraphscale(2)
+ 
+ svgaddgroup("CovGraph", "Communities covered", SVG_BLACK)
+ svgaddgroup("UncGraph", "Communities not covered", svgcolor(150,150,150))
+ forall(c in COMMS) do
+  if(getsol(covered(c))>0) then
+   svgaddpoint("CovGraph", XC(c), YC(c))
+   svgaddtext("CovGraph", XC(c)+1, YC(c)+1, text(c))
+  else
+   svgaddpoint("UncGraph", XC(c), YC(c))
+   svgaddtext("UncGraph", XC(c)+1, YC(c)+1, text(c))
+  end-if
+ end-do
+ 
+ svgaddgroup("LocGraph", "Possible locations", svgcolor(120,0,0))
+ svgsetstyle(SVG_FILL,SVG_CURRENT)
+ svgaddgroup("BuildGraph", "Chosen locations", SVG_RED)
+ svgsetstyle(SVG_FILL,SVG_CURRENT)
+ forall(p in PLACES)
+  if(getsol(build(p))>0) then
+   svgaddcircle("BuildGraph", XT(p), YT(p), 1)
+   svgaddtext("BuildGraph", XT(p)+1, YT(p)+1, text(p))
+   forall(c in COMMS)
+    if(COVER(p,c)>0) then 
+     svgaddline("BuildGraph", XT(p), YT(p), XC(c), YC(c))
+    end-if
+  else
+   svgaddcircle("LocGraph", XT(p), YT(p), 1)
+   svgaddtext("LocGraph", XT(p)+1, YT(p)+1, text(p))
+  end-if
+
+ svgsave("covering.svg")
+ svgrefresh
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+end-model

@@ -1,0 +1,41 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file runsubshm.mos
+   ``````````````````
+   Running a model from another Mosel model.
+   Communication of data to/from submodel
+   using 'shmem' IO driver with 'bin'.
+       
+   (c) 2011 Fair Isaac Corporation
+       author: S. Heipcke, April 2011
+*******************************************************!)
+
+model "Run model testsubshm"
+ uses "mmjobs"
+
+ declarations
+  modSub: Model
+  A = 30..40 
+  B: array(A) of real
+ end-declarations
+                                   ! Compile the model file
+ if compile("testsubshm.mos")<>0 then exit(1); end-if
+ load(modSub, "testsubshm.bim")    ! Load the bim file
+
+ initializations to "bin:shmem:indata"
+  A
+ end-initializations
+
+ run(modSub)                       ! Start model execution
+ wait                              ! Wait for model termination
+ dropnextevent                     ! Ignore termination event message
+
+ initializations from "bin:shmem:resdata"
+  B
+ end-initializations
+
+ writeln(B)
+ 
+end-model 

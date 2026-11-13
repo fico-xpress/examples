@@ -1,0 +1,162 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file reftosubr.mos 
+   ``````````````````
+   Subroutine references:
+   * declaration, type definition
+   * assignment ('reference to' operator) and invocation
+   * subroutine returning a subroutine
+   * error handling
+   * using mmreflect functionality for retrieving and calling subroutines
+ 
+   (c) 2022 Fair Isaac Corporation
+       author: S. Heipcke, Mar. 2022
+*******************************************************!)
+model "subroutine references"
+ uses "mmsystem", "mmreflect"
+
+ declarations
+   myfct: function(real):real    ! Subroutine reference
+   u: any
+   realfct=function(real):real   ! Subroutine type definition
+ end-declarations
+
+ function div2(r:real):real
+   returned:=r/2
+ end-function
+
+ myfct:=->div2
+ writeln("div2(10)=", myfct(10))
+
+ u:=->div2
+ writeln(u)        ! Display the internal name of the subroutine
+! In order to call 'u' as a subroutine we need to know its type 
+! (or alternatively, use 'callproc' or 'callfunc' of mmreflect)
+ writeln("div2(10)=", u.realfct(10))
+
+!**** Typed(=declared) list of subroutines
+ declarations
+   L: list of function(real):real
+! or equivalently:
+!  L: list of realfct
+ end-declarations
+
+ L:=[->cos,->sin,->arctan,->abs,->exp,->div2]
+ forall(i in [-1.0,0.5]) do
+   write(formattext("i=%3g:", i))
+   forall(f in L) write(formattext(" %10g", f(i)))
+   writeln
+ end-do
+
+!**** Untyped list of functions
+ L2:=[->cos,->sin,->arctan,realfct(->abs),->exp,->div2]
+ forall(i in [-1.0,0.5]) do
+   write(formattext("i=%3g:", i))
+   forall(f in L2) write(formattext(" %10g", f.realfct(i)))
+   writeln
+ end-do
+
+!**** Subroutine as return type in subroutine definition
+ function choose(name:string):function(real):real
+   case name of
+     "cos": returned:= ->cos
+     "abs": returned:= ->abs
+     "div": returned:= ->div2
+     else writeln("Unknown selection '", name, "'")
+   end-case
+ end-function
+ fsel:=choose("cos")
+ if isdefined(->fsel) then
+   writeln("cos(1)=", fsel(1))
+ end-if
+! Reset cancels the association
+ reset(->fsel)
+ if not isdefined(->fsel) then
+   writeln("no function selected")
+ end-if
+
+ fsel:=choose("error")
+ if not isdefined(->fsel) then
+   writeln("no function selected")
+ end-if
+
+!****Syntax for calling an element of an array of subroutines with arguments
+ declarations
+   arfct:array(string) of function(real):real
+! or equivalently:
+!  arfct:array(string) of realfct
+ end-declarations
+
+ arfct("cos"):= ->cos
+ arfct("sin"):= ->sin
+ writeln("cos(1)=", arfct("cos")(1))
+
+!*********************Using mmreflect functionality*********************
+
+!**** Retrieving and calling a function with arguments
+ declarations
+   res:any
+ end-declarations
+
+ if findident("div2", u, realfct.id)<>0 then
+   callfunc(u,res,real(-10))
+! Same behaviour as:
+!  res:= u.realfct(-10)
+   writeln("Result:", res)      ! or:   res.real
+ end-if
+
+!**** Calling a subroutine with a list of arguments
+ declarations
+   procrs=procedure(real,real,real)
+ end-declarations
+
+ public procedure mysum(a,b,c:real)
+   writeln(a+b+c)
+ end-procedure
+
+ asproc(findident("mysum", u, procrs.id))
+! Simpler form that results in the same:
+!  u:= procrs(->mysum)
+ write("mysum+lsa:" ); callproclsa(u, [1.2,3.4,5.6])
+! Same as:
+ write("mysum:" ); callproc(u, 1.2, 3.4, 5.6)
+
+!**** Retrieving and calling a procedure with arguments
+ declarations
+   procstr=procedure(string)
+ end-declarations
+
+ public procedure hello(msg:string)
+   writeln("hello ", msg)
+ end-procedure
+ 
+ if findident("hello", u, procstr.id)<>0 then
+   u.procstr("world")                  ! Output:  'hello world'
+! Same behaviour as:
+!  callproc(u,"world")         
+ end-if
+
+ stat:=findident("hello", u)
+ if stat.struct=STRUCT_ROUTINE and stat.eltype=0 then
+   callproc(u, "world")                ! Output:  'hello world'
+ end-if
+
+!**** Retrieving all procedures that match a given name 
+! Overloaded version with a different signature
+ public procedure hello
+   writeln("hello")
+ end-procedure
+
+ declarations
+   flist: list of any
+ end-declarations 
+
+ asproc(findident("hello", flist))
+ forall(ff in flist,ct as counter) 
+   writeln("Entry ", ct, " is a procedure: ", ff is procedure,
+     " returns nothing: ", ff.rettype=0, " signature: '", ff.signature, "'")
+
+end-model
+

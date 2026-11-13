@@ -1,0 +1,48 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file multiout.mos
+   `````````````````
+   Output several data arrays into a single table.
+   - Using 'initializations to' with odbc driver -
+       
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2006, rev. Jan. 2014
+*******************************************************!)
+
+model "Output multiple data columns"
+ uses "mmetc" , "mmodbc"
+
+ declarations
+  PRODUCTS: set of string
+  MACH: range
+  COST: dynamic array(PRODUCTS,MACH) of real
+  DUR: dynamic array(PRODUCTS,MACH) of integer
+ end-declarations
+
+! Read data
+ initializations from "multiout.dat"
+  COST DUR
+ end-initializations
+
+! **** Writing data to text files ****
+! Write out data in Mosel format: add data to the input file
+ initializations to "multiout.dat"
+  [COST,DUR] as "CombData"
+ end-initializations
+
+! Write out data in diskdata format
+ initializations to "mmetc.diskdata:sparse"
+  [COST,DUR] as "multiodd.dat"
+ end-initializations
+
+! **** Writing data to databases ****
+ setparam("SQLverbose",true)
+
+! Write data to the SQLite database multicol.sqlite  
+ initializations to "mmodbc.odbc:debug;multicol.sqlite"
+  [COST,DUR] as 'CombData'
+ end-initializations
+
+end-model

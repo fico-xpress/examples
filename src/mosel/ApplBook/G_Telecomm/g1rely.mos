@@ -1,0 +1,92 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file g1rely.mos
+   ```````````````
+   Reliability of a telecommunications network
+
+   A military telecommunications network has eleven sites
+   connected by bidirectional lines for data transmission.
+   Due to reliability reasons, node 10 and 11 must remain
+   able to communicate even if any three other sites are
+   destroyed. Is this possible given the current network
+   configuration?
+
+   This problem can be modeled as a maximum flow problem
+   where the graph with N nodes is encoded as an adjacency
+   matrix. To create a more compact model, the variables
+   'flow' are only defined for existing arcs. Since there is
+   a bidirectional connection between each node, only one
+   direction is provided in the data and we define the
+   opposite direction within the code. We use the function
+   'round' to transform the result of 'getsol' from 'real'
+   to 'integer'.
+
+   (c) 2008-2022 Fair Isaac Corporation
+       author: S. Heipcke, Mar. 2002, rev. Mar. 2022
+*******************************************************!)
+
+model "G-1 Network reliability"
+ uses "mmxprs"
+
+ declarations
+  NODES: range                        ! Set of nodes
+  SOURCE = 10; SINK = 11              ! Source and sink nodes 
+
+  ARC: dynamic array(NODES,NODES) of integer ! 1 if arc defined, 0 otherwise
+  
+  flow: dynamic array(NODES,NODES) of mpvar  ! 1 if flow on arc, 0 otherwise
+ end-declarations
+
+ initializations from 'g1rely.dat'
+  ARC
+ end-initializations
+
+ forall(n,m in NODES | exists(ARC(n,m)) and n<m ) ARC(m,n):= ARC(n,m)
+ forall(n,m in NODES | exists(ARC(n,m)) )  create(flow(n,m))
+
+! Objective: number of disjunctive paths
+ Paths:= sum(n in NODES) flow(SOURCE,n)
+
+! Flow conservation and capacities
+ forall(n in NODES | n<>SOURCE and n<>SINK) do
+  sum(m in NODES) flow(m,n) = sum(m in NODES) flow(n,m)
+  sum(m in NODES) flow(n,m) <= 1
+ end-do 
+
+! No return to SOURCE node
+ sum(n in NODES) flow(n,SOURCE) = 0
+
+ forall(n,m in NODES | exists(ARC(n,m)) )  flow(n,m) is_binary
+
+! Solve the problem
+ maximize(Paths)
+ 
+! Solution printing
+ writeln("Total number of paths: ", getobjval)
+
+ forall(n in NODES | n<>SOURCE and n<>SINK and getsol(flow(SOURCE,n))>0) do
+  write(SOURCE, " - ",n)
+  nnext:=n
+  while (nnext<>SINK) do
+   nnext:=round(getsol(sum(m in NODES) m*flow(nnext,m)))
+   write(" - ", nnext)
+  end-do
+  writeln
+ end-do
+
+! Alternative solution display storing paths in a list structure
+ declarations
+  SolPath: array(range) of list of integer
+ end-declarations
+  
+ forall(n in NODES | n<>SOURCE and n<>SINK and getsol(flow(SOURCE,n))>0, 
+        i as counter) do
+  SolPath(i):= [SOURCE, n]
+  while (SolPath(i).last<>SINK)
+   SolPath(i) += [round(getsol(sum(m in NODES) m*flow(SolPath(i).last,m)))]
+ end-do
+ writeln("Paths: ", SolPath)
+
+end-model

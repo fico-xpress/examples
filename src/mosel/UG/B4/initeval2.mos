@@ -1,0 +1,52 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file initeval2.mos 
+   `````````````````` 
+   Initializations with evaluation.
+   - Using arrays -
+ 
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Sep. 2007, rev. Jan. 2010
+*******************************************************!)
+
+model "Evaluations 2"
+ uses "mmxprs" 
+ 
+ declarations
+  R = 1..2                             ! Index range
+  DUR, WOOD, PROFIT: array(R) of real  ! Coefficients
+  x: array(R) of mpvar                 ! Array of variables
+ end-declarations
+
+! Function returning solution values as an array
+ function solx:array(R) of real
+  forall(i in R) returned(i):=x(i).sol
+ end-function
+ 
+ DUR   :: [3, 2]                       ! Initialize data arrays
+ WOOD  :: [1, 3]
+ PROFIT:: [5, 20]
+                                       ! Constraint definition
+ Lathe:= sum(i in R) DUR(i)*x(i) <= 160   
+ Boxwood:= sum(i in R) WOOD(i)*x(i) <= 200      
+ forall(i in R) x(i) is_integer
+
+ maximize(sum(i in R) PROFIT(i)*x(i))
+
+ initializations to "chessout.txt"     ! Solution output to a file
+  evaluation of getobjval as "Objective"
+  evaluation of Lathe.slack as "Spare time"
+  evaluation of Boxwood.act as "Used wood"
+  evaluation of Boxwood.act-200 as "Spare wood"
+  evaluation of solx as "x_sol"
+  evaluation of array(i in R) x(i).sol as "x_sol_alt"
+ end-initializations 
+
+ writeln("Solution: ", getobjval)      ! Print objective function value
+ writeln("x: ", solx)                  ! Print solution values
+ writeln("Time: ", getact(Lathe), " ", getslack(Lathe))
+ writeln("Wood: ", Boxwood.sol, "  ", Boxwood.act, "  ", Boxwood.slack)
+
+end-model

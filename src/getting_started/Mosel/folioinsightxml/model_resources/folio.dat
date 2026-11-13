@@ -1,0 +1,17 @@
+! Data file for `folio*.mos'
+
+RET: [("treasury") 5 ("hardware") 17 ("theater") 26 ("telecom") 12     
+      ("brewery") 8 ("highways") 9 ("cars") 7 ("bank") 6
+      ("software") 31 ("electronics") 21 ]
+
+DEV: [("treasury") 0.1 ("hardware") 19 ("theater") 28 ("telecom") 22
+      ("brewery") 4 ("highways") 3.5 ("cars") 5 ("bank") 0.5 
+      ("software") 25 ("electronics") 16 ]
+
+NAMES:  ["treasury" "hardware" "theater" "telecom" "brewery" "highways" "cars" "bank" "software" "electronics"]
+
+COUNTRY: ["Canada" "USA" "USA" "USA" "UK" "France" "Germany" "Luxemburg" "India" "Japan"]
+
+RISK: ["hardware" "theater" "telecom" "software" "electronics"]
+
+NA: ["treasury" "hardware" "theater" "telecom"]

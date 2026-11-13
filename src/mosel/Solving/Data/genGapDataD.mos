@@ -1,0 +1,65 @@
+(!************************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file genGapDataD.mos
+   ````````````````````   
+   Generate random instances of the Generalized Assignment
+   Problem (GAP) of type D
+     
+   (c) 2008 Fair Isaac Corporation
+       author: Hernan Wurgaft, 2007
+**************************************************************!)
+model GenGAPData
+  uses "mmsystem"
+ 
+  parameters
+    NM = 5     ! Number of machines
+    NP = 30    ! Number of production batches
+    NI = 6     ! Number of problem instances
+  end-parameters
+
+  declarations
+    DATAFILE: string
+    RM = 1..NM
+    RP = 1..NP
+    DUR: array(RM,RP) of integer
+    PROFIT: array(RM,RP) of integer
+    CAP: array(RM) of integer
+  end-declarations
+
+  setrandseed(666)
+
+  forall(inst in 1..NI) do
+  ! Generate data
+    DATAFILE:=
+      string(text("Dtestx")+text(NM)+"_"+text(NP)+"_"+text(inst)+".dat")
+    forall(i in RM) do
+      tot:=0
+      forall(j in RP) do
+        DUR(i,j):= integer(round((100*random)+0.5)) ! Random integer in [1,100]
+        tot+=DUR(i,j)
+        e1:= integer(round((20*random)))-10        ! Random integer in [-10,10]
+        PROFIT(i,j):= 111-DUR(i,j)+e1
+      end-do
+      CAP(i):=integer(round(.8*tot/NM))
+    end-do
+    maxprofit:=0
+    forall(i in RM,j in RP) do
+      if PROFIT(i,j)>maxprofit then
+        maxprofit:=PROFIT(i,j)
+      end-if
+    end-do        
+  
+    maxprofit+=1
+    forall(i in RM,j in RP) PROFIT(i,j):=maxprofit-PROFIT(i,j)
+ 
+  ! Write data to file
+    initializations to DATAFILE
+      NM NP
+      DUR CAP PROFIT
+    end-initializations
+
+  end-do
+
+end-model

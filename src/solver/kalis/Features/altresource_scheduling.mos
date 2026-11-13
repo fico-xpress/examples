@@ -1,0 +1,191 @@
+(!****************************************************************
+   CP example problems
+   ===================
+
+   file altresource_scheduling.mos
+   ```````````````````````````````
+   Scheduling jobs with resource choice and variable durations.
+   Task-based branching strategy with user-defined resource selection.
+
+   (c) 2022 Artelys S.A. and Fair Isaac Corporation
+       Creation: Apr. 2022
+*****************************************************************!)
+model "Scheduling with alternative resources"
+ uses "kalis", "mmsystem"
+
+ setparam("KALIS_DEFAULT_LB", 0)
+ setparam("KALIS_VERBOSE_LEVEL", 1)
+
+ forward procedure print_and_check_solution
+ forward public function smallest_duration_assignment(assignments: cpvarlist): integer
+
+ declarations
+  JOBS: set of string                       ! Index set of jobs
+  TEAMS: set of string                      ! Index set of teams (resources)
+  DURATIONS: array(JOBS, TEAMS) of integer  ! Durations of JOBS for each team
+  POSSIBLE_TEAMS: array(JOBS) of set of string  ! Possible team for each task
+  PRECEDENCES: list of list of string       ! Pairs of precedence constraints
+
+  job: array(JOBS) of cptask                ! Jobs
+  team: array(TEAMS) of cpresource          ! Teams
+
+  ASSIGN_VARS_INDEXES: set of integer       ! Mapping model entities to indices
+  ASSIGNMENT_VARS_JOB: array(ASSIGN_VARS_INDEXES) of string
+  ASSIGNMENT_VARS_TEAM: array(ASSIGN_VARS_INDEXES) of string
+ end-declarations
+
+ ! **************** Data ****************
+ ! -1 duration indicates the team cannot process the task
+ DURATIONS::(["J0", "J1", "J2", "J3", "J4", "J5", "J6", "J7", "J8", "J9",
+     "J10", "J11", "J12", "J13", "J14", "J15", "J16", "J17"],
+    ["T1", "T2", "T3"])[
+       2, -1,  2,
+      16, 14, 15,
+       9, -1,  8,
+       8,  5,  8,
+      10, 11,  8,
+       6,  5,  7,
+      -1,  3,  4,
+       2,  1,  2,
+       9,  6,  9,
+       5,  7, -1,
+       3, -1,  1,
+       2,  3,  3,
+       1, -1,  1,
+       7,  4,  7,
+       4,  6,  4,
+       3,  2,  1,
+       9,  9, -1,
+       1,  2,  3]
+
+ forall(j in JOBS)
+  POSSIBLE_TEAMS(j) := union(t in TEAMS | DURATIONS(j, t) <> -1) {t}
+
+ PRECEDENCES:= [ ["J1", "J0"], ["J2", "J1"], ["J3", "J1"], ["J13", "J1"],
+       ["J4", "J2"], ["J5", "J3"], ["J6", "J3"], ["J8", "J3"],
+       ["J9", "J3"], ["J14", "J3"], ["J5", "J4"], ["J7", "J5"],
+       ["J8", "J5"], ["J10", "J5"], ["J12", "J6"], ["J15", "J7"],
+       ["J11", "J8"], ["J15", "J10"], ["J16", "J11"],
+       ["J14", "J13"], ["J15", "J13"], ["J17", "J16"]]
+
+ ! **************** Problem formulation ****************
+ ! Define discrete resources
+ forall(t in TEAMS) do
+  set_resource_attributes(team(t), KALIS_DISCRETE_RESOURCE, 1)
+  team(t).name := t
+ end-do
+
+ ! Define possible teams for each task
+ forall(j in JOBS) do
+  job(j).name := j
+  requires(job(j), union(t in POSSIBLE_TEAMS(j)) {resusage(team(t), 1)})
+ end-do
+
+ ! Define associated duration for each task
+ forall(j in JOBS) do
+  setdomain(getduration(job(j)),
+      min(t in POSSIBLE_TEAMS(j)) DURATIONS(j, t),
+      max(t in POSSIBLE_TEAMS(j)) DURATIONS(j, t))
+  forall(t in POSSIBLE_TEAMS(j))
+   implies(getassignment(job(j), team(t)) = 1, 
+           getduration(job(j)) = DURATIONS(j, t))
+ end-do
+
+ ! Define precedences
+ forall(j in JOBS)
+  setpredecessors(job(j), union(p in PRECEDENCES | p(1) = j) {job(p.last)})
+
+ cp_close_schedule
+
+ ! **************** Solving ****************
+ ! Perform constraint propagation
+ if not cp_propagate then
+  writeln("Problem is infeasible")
+  exit(1)
+ end-if
+
+ ! Initialize mapping with assignment variables
+ forall(j in JOBS, t in POSSIBLE_TEAMS(j)) do
+  var_index := getindex(getassignment(job(j), team(t)))
+  ASSIGN_VARS_INDEXES += {var_index}
+  ASSIGNMENT_VARS_JOB(var_index) := j
+  ASSIGNMENT_VARS_TEAM(var_index) := t
+ end-do
+
+ ! Define branching strategy with user-defined resource selection criterion
+ Strategy:= task_serialize(KALIS_SMALLEST_EST, KALIS_MIN_TO_MAX, 
+  KALIS_MIN_TO_MAX, "smallest_duration_assignment", KALIS_MAX_TO_MIN, 
+  job, MAX_INT, 1)
+
+ cp_set_schedule_strategy(KALIS_INITIAL_SOLUTION, Strategy)
+ cp_set_schedule_strategy(KALIS_OPTIMAL_SOLUTION, Strategy)
+
+ setparam("KALIS_MAX_COMPUTATION_TIME", 10)
+
+ ! Solve the problem
+ if cp_schedule(getmakespan)=0 then
+  writeln("No solution")
+  exit(0)
+ end-if
+
+ ! Solution printing
+ print_and_check_solution
+
+! **************** Subroutine definitions ****************
+ procedure print_and_check_solution
+  declarations
+   starts: array(JOBS) of integer
+   ends: array(JOBS) of integer
+   operating_teams: array(JOBS) of string
+  end-declarations
+
+  ! Display the solution
+  writeln("makespan=", getsol(getmakespan))
+  forall(j in JOBS) do
+   starts(j) := getsol(getstart(job(j)))
+   ends(j) := getsol(getend(job(j)))
+   forall(t in POSSIBLE_TEAMS(j) | getsol(getassignment(job(j),team(t))) > 0) do
+    operating_teams(j) := t
+    break
+   end-do
+   writeln(formattext("%3s: %2d - %2d team=%s", j, starts(j), ends(j), 
+    operating_teams(j)))
+  end-do
+
+  ! Check solution
+  forall(j in JOBS | operating_teams(j) not in TEAMS)
+   writeln("Error: ", j, " doesn't have an operating team.")
+
+  forall(p in PRECEDENCES | starts(getfirst(p)) < ends(getlast(p)))
+   writeln("Error: Precedence constraint ", p, " is violated.")
+
+  forall(j in JOBS | starts(j) + DURATIONS(j, operating_teams(j)) <> ends(j))
+   writeln("Error: Job ", j, " has a wrong duration.")
+
+  if max(j in JOBS) ends(j) <> getsol(getmakespan) then
+   writeln("Error: Objective value is different from computed makespan value.")
+  end-if
+ end-procedure
+
+! **** User-defined resource assignment strategy
+ public function smallest_duration_assignment(assignments: cpvarlist): integer
+  min_duration := MAX_INT
+  returned := 0                   ! Selected variable index value
+  forall(i in 1..getsize(assignments)) do
+   if is_fixed(getvar(assignments, i)) then
+    next
+   end-if
+   var_index := getindex(getvar(assignments, i))
+   if var_index not in ASSIGN_VARS_INDEXES then
+    next
+   end-if
+   j := ASSIGNMENT_VARS_JOB(var_index)
+   t := ASSIGNMENT_VARS_TEAM(var_index)
+   if DURATIONS(j, t) < min_duration then
+    returned := i
+    min_duration := DURATIONS(j, t)
+   end-if
+  end-do
+ end-function
+
+end-model

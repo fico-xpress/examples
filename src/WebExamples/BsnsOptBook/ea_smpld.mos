@@ -1,0 +1,245 @@
+(!*********************************************************************
+   Mosel Example Problems
+   ======================
+
+   file ea_smlpd.mos
+   `````````````````  
+   Supply Management problem with lower-bounded demands (SMPLD) 
+   solved via two approaches:
+     ALG=1: standard MIP formulation
+     ALG=2: Evoluationary algorithm (EA) with relaxed constraints 
+            (iterating over LP problem solves)
+
+     Example discussed in section 14.1.3.3 of
+     J. Kallrath: Business Optimization Using Mathematical Programming -
+     An Introduction with Case Studies and Solutions in Various Algebraic 
+     Modeling Languages. 2nd edition, Springer Nature, Cham, 2021 
+
+   author: S. Heipcke, October 2020
+
+   based on the GAMS implementation in ea-smpld.gms
+     by J.Kallrath and A.Ereemev, 2009
+
+   (c) Copyright 2020 Fair Isaac Corporation
+  
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+*********************************************************************!)
+model "ea_smpld"
+ uses "mmxprs", "mmsystem"
+
+ parameters
+   ALG=1                    ! 1: MIP, 2: EA
+ end-parameters
+
+!******** Input data ********
+ declarations
+   PROVIDERS: range         ! Set of providers (plants)
+   CONSUMERS: range         ! Set of consumers (customers)
+
+   CAP: array(PROVIDERS) of real ! Mi Number of products produced at provider
+   DEM: array(CONSUMERS) of real ! Aj Number of products consumed at client
+   MINAMT: array(PROVIDERS,CONSUMERS) of real ! m Min number of deliveries
+   COST: array(PROVIDERS,CONSUMERS) of real ! c Variable cost of deliveries
+   FCOST: array(PROVIDERS,CONSUMERS) of real ! a Fixed cost of deliveries
+ end-declarations
+
+ CAP::(1..4)[20,17,39,41]
+ DEM::(1..3)[16,17,10]
+ MINAMT::(1..4,1..3)[1,2,2,
+                     2,2,3,
+                     3,2,4,
+                     4,2,2]
+ COST:: (1..4,1..3)[19,26,46,
+                    23,16,30,
+                    56,39,19,
+                    19,34,15]
+ FCOST::(1..4,1..3)[1,2,3,
+                    1,2,3,
+                    1,2,3,
+                    1,2,3]
+
+! Tunable algorithmic configuration settings for Evolutionary Algorithm
+ declarations    
+   tMax=80       ! Maximal number of iterations    
+   N=10000       ! Penalty factor (sufficiently large value)  
+   pMut=0.1      ! Mutation probability    
+ end-declarations
+
+!********************************************************************
+ 
+ function solvelpiter(zsol: array(range,range) of real,
+                      csol: array(string) of real,
+                      qsol: array(range,range) of real): boolean
+   declarations
+     quant: array(PROVIDERS,CONSUMERS) of mpvar      ! Volume supply
+     devSup: array(PROVIDERS) of mpvar   ! Relaxation var. in supply inequality
+     devDem: array(CONSUMERS) of mpvar   ! Relaxation var. in demand inequality
+     transport: mpproblem
+   end-declarations
+
+   with transport do
+    ! Objective function: total cost
+     Cost:= sum(i in PROVIDERS, j in CONSUMERS) (COST(i,j)*quant(i,j)+FCOST(i,j)*zsol(i,j))
+
+    ! Constraint violation associated with the relaxation variables
+     Viol:= (sum(i in PROVIDERS) devSup(i) + sum(j in CONSUMERS) devDem(j))
+
+    ! Objective function with penalty term
+     Fit:= Cost + N*Viol
+
+    ! Relaxed requirement to respect the upper bound on supply of each plant
+     forall(i in PROVIDERS)
+       Supply(i):= sum(j in CONSUMERS) quant(i,j) <= CAP(i) + devSup(i) 
+
+    ! Relaxed requirement to provide sufficient supply to each customer
+     forall(j in CONSUMERS)
+       Demand(j):= sum(i in PROVIDERS) quant(i,j) >= DEM(j) - devDem(j) 
+
+    ! Bounds on quantity variables
+     forall(i in PROVIDERS, j in CONSUMERS) do
+       Lbd(i,j):= quant(i,j)>= zsol(i,j)*MINAMT(i,j)
+       Ubd(i,j):= quant(i,j)<= zsol(i,j)*CAP(i)
+     end-do
+
+    ! Solve the problem (LP)
+     minimize(Fit)
+     returned:= getprobstat=XPRS_OPT
+     if returned then
+       csol("Cost"):= Cost.sol; csol("Viol"):= Viol.sol; csol("Fit"):= Fit.sol
+       forall(i in PROVIDERS, j in CONSUMERS) qsol(i,j):= quant(i,j).sol
+     end-if
+   end-do
+ end-function
+
+ procedure evolutionalg
+   declarations
+    ! Tunable algorithmic configuration settings:
+     tMax=80       ! Maximal number of iterations    
+     N=10000       ! Penalty factor (sufficiently large value)  
+     pMut=0.1      ! Mutation probability    
+    ! Solution handling:
+     Z2: array(PROVIDERS,CONSUMERS) of real     ! Current solution (also the best seen solution w.r.t. the fitness function)
+     Z: array(PROVIDERS,CONSUMERS) of real      ! New tentative solution vector constructed by the last mutation
+     Z_best: array(PROVIDERS,CONSUMERS) of real ! z-component of the best found solution w.r.t. fitness function
+     q_best: array(PROVIDERS,CONSUMERS) of real ! q-component of the best found solution w.r.t. fitness function
+     fbest: real                                ! Best objective function value
+     fitmin: real                               ! Best fitness function value
+     csol: array(string) of real                ! Objective func. components sol values
+     qsol: array(PROVIDERS,CONSUMERS) of real   ! Sol. values from LP solve
+   end-declarations
+
+  !**** Step 1: Initialization
+  ! Transport connection matrix: with 50% probability, Z2(i,j) is initialized to 1
+   setrandseed(3)
+   forall(i in PROVIDERS, j in CONSUMERS) Z2(i,j):= round(random)
+  ! Initialize objective function values
+   fitmin:= INFINITY; fbest:=INFINITY
+   forall(i in PROVIDERS, j in CONSUMERS) Z_best(i,j):= INFINITY
+  ! Copy initial transport connection matrix
+   forall(i in PROVIDERS, j in CONSUMERS) Z(i,j):= Z2(i,j)
+
+   writeln("Iteration, best found fitness, current fitness (with penalty), current objective, constraints violation, best objective")
+   forall(t in 0..tMax) do
+    !**** Step 2: Solve the current LP problem
+     if solvelpiter(Z, csol, qsol) then
+      ! If the child produced a better solution than the parent, we update
+      ! the parent by the child - otherwise we keep the parent
+       if csol("Fit")<= fitmin then
+         forall(i in PROVIDERS, j in CONSUMERS) Z2(i,j):=Z(i,j)
+	 fitmin:=csol("Fit")
+       end-if
+      ! Update best found solution
+       if csol("Viol")=0 and csol("Cost")<fbest then
+         forall(i in PROVIDERS, j in CONSUMERS) Z_best(i,j):= Z(i,j) 
+         forall(i in PROVIDERS, j in CONSUMERS) q_best(i,j):= qsol(i,j)
+	 fbest:= csol("Cost")
+       end-if
+      ! Check whether a feasible solution has been found
+       if fbest<INFINITY then
+        writeln(formattext("%12d, %8.5f, %8.5f, %8.5f, %8.5f, %8.5f", t, fitmin, csol("Fit"), csol("Cost"), csol("Viol"), fbest))
+       else
+         writeln(formattext("%12d, %8.5f, %8.5f, %8.5f, %8.5f, N/A", t, fitmin, csol("Fit"), csol("Cost"), csol("Viol")))
+        end-if
+     else
+      ! No solution to LP problem found
+       writeln(formattext("%12d, %8.5f, N/A, N/A, N/A, %8.5f",t, fitmin, fbest))
+     end-if
+    !**** Step 3: Generate the children
+     forall(i in PROVIDERS, j in CONSUMERS) Z(i,j):= Z2(i,j) 
+     forall(i in PROVIDERS, j in CONSUMERS) 
+       Z(i,j):= if(random<pMut, 1-Z(i,j),  Z(i,j))   ! Mutation function 
+   end-do
+
+   writeln("Best solution: Total cost=", fbest)
+     forall(i in PROVIDERS, j in CONSUMERS | Z_best(i,j)>0)
+       writeln(i, " -> ", j, ": ", q_best(i,j))
+
+ end-procedure
+
+!********************************************************************
+ procedure mipapproach
+   declarations
+     quant: array(PROVIDERS,CONSUMERS) of mpvar      ! Volume supply
+     ifdelvr: array(PROVIDERS,CONSUMERS) of mpvar    ! Connections
+     TotalCost: linctr      ! Objective function: total cost
+   end-declarations
+
+   forall(i in PROVIDERS, j in CONSUMERS) ifdelvr(i,j) is_binary
+
+  ! Objective: total cost of deliveries
+   FixedCost:= sum(i in PROVIDERS, j in CONSUMERS) FCOST(i,j)*ifdelvr(i,j)
+   VarCost:= sum(i in PROVIDERS, j in CONSUMERS) COST(i,j)*quant(i,j)
+   TotalCost:= FixedCost+VarCost
+
+  ! Plant (supply) capacity limits
+   forall(i in PROVIDERS) sum(j in CONSUMERS) quant(i,j) <= CAP(i)
+
+  ! Satisfy demand of customers
+   forall(j in CONSUMERS) sum(i in PROVIDERS) quant(i,j) >= DEM(j)
+
+  ! Lower and upper bounds on 'quant':
+  ! Option 1: semi-continuous variable formulated via binary variables
+   forall(i in PROVIDERS, j in CONSUMERS | CAP(i)>0) 
+     quant(i,j) <= CAP(i)*ifdelvr(i,j) 
+   forall(i in PROVIDERS, j in CONSUMERS | MINAMT(i,j)>0) 
+     quant(i,j) >= MINAMT(i,j)*ifdelvr(i,j) 
+
+ (! Option 2: indicator constraints
+   forall(i in PROVIDERS, j in CONSUMERS | MINAMT(i,j)>0) 
+     indicator(1, ifdelvr(i,j), quant(i,j) >= MINAMT(i,j))  ! ifdelvr)i,j)=1 -> quant(i,j)>=MINAMT(i,j)
+    forall(i in PROVIDERS, j in CONSUMERS) 
+     indicator(-1, ifdelvr(i,j), quant(i,j) <= 0)   ! ifdelvr)i,j)=0 -> quant(i,j)<=0
+ !)
+
+  ! Solve the problem
+   minimize(TotalCost)
+   if getprobstat<>XPRS_OPT then
+     writeln("No solution")
+     exit(1)
+   else
+     writeln("Solution: Total cost=", getobjval, " (fixed:", FixedCost.sol, 
+       " variable:", VarCost.sol, ")")
+     forall(i in PROVIDERS, j in CONSUMERS | ifdelvr(i,j).sol>0)
+       writeln(i, " -> ", j, ": ", quant(i,j).sol)
+   end-if
+  end-procedure
+
+!********************************************************************
+
+ if ALG=1 then
+   mipapproach
+ else
+   evolutionalg
+ end-if
+end-model

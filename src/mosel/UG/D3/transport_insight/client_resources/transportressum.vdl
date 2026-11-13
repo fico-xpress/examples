@@ -1,0 +1,40 @@
+<vdl version="5">
+    <!-- 'vdl' and 'vdl-page' must always be present -->
+    <vdl-page>
+        <!-- Structural element 'section': print header text for a section -->
+        <vdl-section heading="Comparison of scenario results">
+            <vdl-row>
+                <vdl-column>
+                    <p><span vdl-text="Viewing "></span><span vdl-text="=scenarios.length"></span><span vdl-text=" scenario(s)."></span></p>
+                </vdl-column>
+            </vdl-row>
+            <vdl-row>
+                <!-- Display the objective value -->
+                <vdl-column heading="Total Cost">
+                    <table class="insight-table table-main table-condensed">
+                        <thead>
+                            <tr>
+                                <th vdl-repeat="=s in scenarios" vdl-text="=s.props.name"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td vdl-repeat="=s in scenarios" vdl-text="=insight.Formatter.formatNumber(s.entities.MincostSol.value, 
+  '#,###.00')"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </vdl-column>
+            </vdl-row>
+            <vdl-row>
+                <!-- Display 'flow' solution values using the default table format,
+                     enabling pagewise display with 10 entries per page -->
+                <vdl-column size="12" heading="Quantities transported">
+                    <vdl-table page-mode="paged" page-size="10">
+                        <vdl-table-column entity="flow" heading="=s.props.name" vdl-repeat="=s,i in scenarios" scenario="=i"></vdl-table-column>
+                    </vdl-table>
+                </vdl-column>
+            </vdl-row>
+        </vdl-section>
+    </vdl-page>
+</vdl>

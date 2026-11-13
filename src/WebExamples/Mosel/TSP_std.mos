@@ -1,0 +1,252 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file TSP_std.mos
+   ````````````````
+   -- Advanced optimization tasks (solution loading, callbacks, cuts) --
+
+   (c) 2019-2026 Fair Isaac Corporation
+       author: S.Heipcke
+*******************************************************!)
+model M
+  uses "mmxprs", "mmsystem", "mmsheet", "mmetc"
+
+  parameters
+    DATA_FILE_PREFIX = "00"
+    TOL=10E-10
+  end-parameters
+  writeln("#E:IMPORT")
+
+  forward procedure print_sol
+
+  forward public procedure cb_preintsol(isheur : boolean, cutoff : real)
+  forward public function cb_optnode : boolean
+
+  writeln("#S:READ")
+  declarations
+    CITIES: range                  ! Set of cities
+    X,Y: array(CITIES) of real
+  end-declarations
+
+  initializations from "mmsheet.csv:skiph;" + DATA_FILE_PREFIX + "_H_TSP_cities.csv"
+    [X, Y] as "[]"
+  end-initializations
+
+  declarations
+    NCITIES=getsize(CITIES)
+
+    DIST: array(CITIES,CITIES) of integer  ! Distance between cities
+    NEXTC: array(CITIES) of integer         ! Next city after i in the solution
+
+    fly: array(CITIES,CITIES) of mpvar     ! 1 if flight from i to j
+
+    INITTOURS = 1..10
+    InitTours : array(INITTOURS) of mpsol
+  end-declarations
+
+  declarations
+    CITYORDER = 1..NCITIES + 1
+    TOURS: array(INITTOURS, CITYORDER) of integer
+  end-declarations
+
+  diskdata(ETC_DENSE, DATA_FILE_PREFIX + "_H_TSP_tours.csv", TOURS)
+  writeln("#E:READ")
+
+  writeln("#S:PROC")
+  forall(t in INITTOURS, i in CITIES)
+      setsol(InitTours(t),fly(TOURS(t, i),TOURS(t, i + 1)),1)
+
+  forall(i,j in CITIES | i<>j)
+    DIST(i,j):=ceil(sqrt((X(i)-X(j))^2 + (Y(i)-Y(j))^2))
+
+  ! Objective: total distance
+  TotalDist:= sum(i,j in CITIES | i<>j) DIST(i,j)*fly(i,j)
+
+  ! Visit every city once
+  forall(i in CITIES) sum(j in CITIES | i<>j) fly(i,j) = 1
+  forall(j in CITIES) sum(i in CITIES | i<>j) fly(i,j) = 1
+
+  forall(i,j in CITIES | i<>j) fly(i,j) is_binary
+
+  ! Set a callback to check heuristic solutions
+  setcallback(XPRS_CB_PREINTSOL, "cb_preintsol")
+
+  ! Set a callback to create subtour elimination constraints for integer solutions
+  setcallback(XPRS_CB_OPTNODE, "cb_optnode")
+
+  ! Disable symmetry detection
+  setparam("XPRS_SYMMETRY", 0)
+
+  setparam("XPRS_VERBOSE", false)
+  setparam("XPRS_TIMELIMIT", 100) ! set a time limit
+
+  loadprob(TotalDist)
+
+  forall(t in INITTOURS)
+    addmipsol("InitTour_" + t, InitTours(t))
+
+  minimize(TotalDist)
+
+  assert(getparam("XPRS_MIPSOLS") > 0)
+  writeln("#E:PROC")
+
+  writeln("#S:TEST")
+  print_sol
+  writeln("#E:TEST")
+
+
+  !-----------------------------------------------------------------
+  ! Callback function triggered when the Optimizer has a new integer
+  ! solution
+  !
+  ! We use this function to reject any heuristic solutions that
+  ! contain subtours.
+  public procedure cb_preintsol(isheur : boolean, cutoff : real)
+    declarations
+      iCity: integer
+      nCitiesVisited: integer
+    end-declarations
+
+    ! Get the tour(s)
+    forall(i in CITIES)
+      forall(j in CITIES)
+        if(getsol(fly(i,j))>=1-TOL) then
+          NEXTC(i):=j
+          break
+        end-if
+
+    ! Verify that we have a complete tour
+    nCitiesVisited := 1;
+    iCity := 1
+    while (NEXTC(iCity) <> 1) do
+      iCity := NEXTC(iCity)
+      nCitiesVisited += 1
+    end-do
+
+    if (nCitiesVisited < NCITIES) then
+      if isheur then
+        rejectintsol
+      else
+        writeln("INVALID INTEGER SOLUTION!!!")
+      end-if
+    end-if
+
+  end-procedure
+
+  !-----------------------------------------------------------------
+  ! Callback function triggered when a node relaxation has been
+  ! solved to optimality and the Optimizer is about to branch or
+  ! declare the node integer feasible.
+  !
+  ! If the node is about to be declared integer feasible, we need
+  ! to check for subtours and add at least one violated subtour
+  ! elimination constraint.
+  public function cb_optnode: boolean
+    declarations
+      SUBTOUR: set of integer
+      VISITEDCITIES: set of integer
+      iCity: integer
+      MipInfeas: integer
+      ncut:integer
+      CutRange: range                        ! Counter for cuts
+      cut: array(CutRange) of linctr         ! Cuts
+      cutid: array(CutRange) of integer      ! Cut type identification
+      type: array(CutRange) of integer       ! Cut constraint type
+    end-declarations
+
+    returned:=false                     ! Call this function once per node
+
+    MipInfeas := getparam("XPRS_MIPINFEAS");
+    if (MipInfeas = 0) then
+      ! There are no fractionals left in the current node solution.
+      ! Create a sub-tour elimination constraints if we do not
+      ! have a complete tour.
+      ncut:= 0
+
+      forall(i in CITIES)
+        forall(j in CITIES)
+          if(getsol(fly(i,j))>=1-TOL) then
+            NEXTC(i):=j
+            break
+          end-if
+
+      VISITEDCITIES := {}
+      forall (iFirstCity in CITIES)
+        if not iFirstCity in VISITEDCITIES then
+          SUBTOUR := {}
+          iCity := iFirstCity
+          while (iCity not in SUBTOUR) do
+          SUBTOUR += {iCity}
+          iCity := NEXTC(iCity)
+          end-do
+
+          if (getsize(SUBTOUR) < NCITIES) then
+            ! Create the sub-tour elimination cut(s)
+            cutid(ncut):= 0
+            type(ncut):= CT_LEQ
+            cut(ncut):= sum(i in SUBTOUR) fly(i,NEXTC(i)) - (getsize(SUBTOUR) - 1)
+            ncut+=1
+            ! Optional: Also exclude the inverse subtour
+            cutid(ncut):= 0
+            type(ncut):= CT_LEQ
+            cut(ncut):= sum(i in SUBTOUR) fly(NEXTC(i),i) - (getsize(SUBTOUR) - 1)
+            ncut+=1!)
+            ! Optional: Add a stronger subtour elimination cut
+            cutid(ncut):= 0
+            type(ncut):= CT_GEQ
+            cut(ncut) := sum(i in SUBTOUR, j in (CITIES)-SUBTOUR) fly(i,j) - 1
+            ncut+=1
+          end-if
+          VISITEDCITIES += SUBTOUR
+        end-if
+
+      ! Add cuts to the problem
+      if(ncut>0) then
+        addcuts(cutid, type, cut);
+        num_cuts_added+=ncut
+      end-if
+
+    end-if      ! MIPINFEAS
+
+  end-function
+
+  !-----------------------------------------------------------------
+
+  ! Print the current solution
+  procedure print_sol
+    declarations
+      ALLCITIES: set of integer
+      CalcDistance: real
+    end-declarations
+
+    ! Get the final tour
+    forall(i in CITIES)
+      forall(j in CITIES)
+        if(getsol(fly(i,j))>=1-TOL) then
+          NEXTC(i):=j
+          break
+        end-if
+
+    ! Recalculate the length of the tour
+    CalcDistance := sum(i in 1..NCITIES) DIST(i, NEXTC(i))
+
+    writeln("Total distance: ", CalcDistance)
+    ALLCITIES:={}
+    forall(i in CITIES) do
+      if(i not in ALLCITIES) then
+        write(i)
+        first:=i
+        repeat
+          ALLCITIES+={first}
+          write(" - ", NEXTC(first))
+          first:=NEXTC(first)
+        until first=i
+        writeln
+      end-if
+    end-do
+  end-procedure
+
+  !-----------------------------------------------------------------
+
+end-model

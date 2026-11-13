@@ -1,0 +1,94 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file jobseq.mos
+   ```````````````
+   Job shop production planning.
+   Single machine sequencing subproblem for jobshopasd.mos
+
+   *** Not intended to be run standalone - run from jobshopasp.mos ***
+   
+   (c) 2013 Fair Isaac Corporation
+       author: S. Heipcke, Jan. 2013
+*******************************************************!)
+
+model "Sequencing"
+ uses "mmxprs", "mmjobs"
+
+ parameters
+  MACH = 1                     ! Subproblem identifier
+  NBJOBS = 10                  ! Number of jobs
+  NBRES = 10                   ! Number of resources
+  DATAFILE = "mt10.dat" 
+  MAXTHRD = 2                  ! Max number of parallel threads for one inst.
+ end-parameters 
+
+ declarations
+  JOBS = 1..NBJOBS                           ! Set of jobs
+  TASKS = 1..NBRES                           ! Set of tasks (one per machine)
+  RESOURCES = 0..NBRES-1                     ! Set of resources
+  DUR: array(JOBS,TASKS) of integer          ! Durations of tasks
+  RESIND: array(RESOURCES,JOBS) of integer   ! Task index per resource
+  MAXDUR: array(RESOURCES) of integer
+ end-declarations
+
+ initializations from DATAFILE
+  DUR RESIND MAXDUR
+ end-initializations 
+
+ declarations   
+  makespan: mpvar                            ! Schedule completion time
+  rank: array(JOBS,JOBS) of mpvar            ! =1 if job j at position k
+  jcomp,tstart: array(JOBS) of mpvar         ! Start time of job at position k
+  NOSOL=2                                    ! "No sol found" event
+  NEWSOL=3                                   ! "Solution found" event
+ end-declarations
+
+  ! One job per position
+  forall(k in JOBS) sum(j in JOBS) rank(j,k) = 1
+
+  ! One position per job 
+  forall(j in JOBS) sum(k in JOBS) rank(j,k) = 1
+
+  ! Sequence of jobs
+  forall(k in 1..NBJOBS-1)
+     tstart(k+1) >= 
+       tstart(k) + sum(j in JOBS) DUR(j,RESIND(MACH,j))*rank(j,k)
+
+  ! Start times (release date = min total duration for preceding tasks)
+  forall(j in JOBS) REL(j):= sum(t in 1..RESIND(MACH,j)-1) DUR(j,t)
+  forall(j in JOBS) DURSUCC(j):= sum(t in RESIND(MACH,j)+1..NBRES) DUR(j,t)
+
+  forall(k in JOBS) tstart(k) >= sum(j in JOBS) REL(j)*rank(j,k)
+
+  ! Completion times
+  forall(k in JOBS) jcomp(k) = 
+     tstart(k) + sum(j in JOBS) (DUR(j,RESIND(MACH,j))+DURSUCC(j))*rank(j,k)
+
+  forall(j,k in JOBS) rank(j,k) is_binary 
+ 
+  ! Objective function: minimize latest completion time
+  forall(k in JOBS) makespan >= jcomp(k)
+
+  ! Solving
+  setparam("XPRS_THREADS", MAXTHRD)     ! Limit the number of threads
+  minimize(makespan)                    ! Solve the problem
+
+  ! Solution reporting
+  if getprobstat=XPRS_OPT then
+   ! writeln_("*** Machine ", MACH, ": ", getobjval)
+    forall(j in JOBS) pos(j):= round(sum(k in JOBS) k*rank(j,k).sol)
+
+    initializations to "bin:shmem:sol"+MACH
+     pos
+     evaluation of getobjval as "Makespan"
+    end-initializations
+ 
+    ! Send "solution found" signal  
+    send(NEWSOL, getobjval) 
+  else
+    send(NOSOL, 0)
+  end-if
+
+end-model 

@@ -1,0 +1,13 @@
+model `Plenty of errors'  
+ declarations
+  small, large: mpvar
+ end-declarations
+
+ Profit=   5*small + 20*large
+ Boxwood:=   small + 3*large <= 200
+ Lathe:=   3*small + 2*large <= 160
+
+ maximize(Profit)
+
+ writeln("Best profit is ", getobjval
+end-model

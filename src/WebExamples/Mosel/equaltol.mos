@@ -1,0 +1,51 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file equaltol.mos
+   `````````````````
+   Show the effect of the equality tolerance in Mosel.
+       
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2002, rev. Feb. 2022
+*******************************************************!)
+
+model "equality tolerance"
+ uses "mmsystem"
+
+ declarations
+  a,b,r,s: real
+  DEFZEROTOL: real
+ end-declarations 
+
+ a:=0.0000011
+ b:=0.000002
+ r:=1
+ s:=1.00000004
+
+! setparam("realfmt", "%.14f")        ! Set real number printing format
+
+      ! Disable use of the 'zerotol' setting for the display of real numbers
+ setparam("txtztol", false)
+
+ DEFZEROTOL:= getparam('zerotol')    ! Retrieve the default zero tolerance
+ writeln("Default equality tolerance:", DEFZEROTOL)
+
+! **** Effect of different zero tolerance settings
+ forall(ztol in [DEFZEROTOL, 1e-7, 1e-5]) do
+   writeln("\nChanging tolerance to ", ztol)
+   setparam("zerotol", ztol)
+
+  ! Equality comparisons: tolerance applies
+   writeln("a=", a, " is different from b=", b, ": ", a<>b)
+   writeln("r=", r, " and s=", s, " are equal: ", r=s)
+
+  ! Inequality comparison: tolerance also applies
+   writeln("a=", a, " is smaller than  b=", b, ": ", a<b)
+
+  ! Comparison between constants: tolerance also applies
+   writeln("1 and 1.00000004 are equal: ", 1=1.00000004)
+ 
+ end-do
+
+end-model

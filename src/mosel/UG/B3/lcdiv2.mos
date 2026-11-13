@@ -1,0 +1,36 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file lcdiv2.mos 
+   ``````````````` 
+   Recursive function calls.
+ 
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2001, rev. Jun. 2022
+*******************************************************!)
+
+model Lcdiv2
+
+ function lcdiv(a,b:integer):integer
+   if a=b then
+     returned:=a
+   elif a>b then
+     returned:=lcdiv(b,a-b)
+   else
+     returned:=lcdiv(a,b-a)
+   end-if   
+ end-function
+
+ declarations
+   A,B: integer
+ end-declarations
+
+ write("Enter two integer numbers:\n  A: ")
+ readln(A)
+ write("  B: ")
+ readln(B)
+
+ writeln("Largest common divisor: ", lcdiv(A,B))
+
+end-model

@@ -1,0 +1,43 @@
+(!*********************************************************
+   Mosel Python Example Problems
+   =============================
+
+   file io_example.mos
+   ```````````````````
+   Python I/O driver example for the initialization of
+   data to and from Python.
+
+   !!! This example requires an installation of Python 3, see
+   !!! chapter 'python3' of the 'Mosel Language Reference' for
+   !!! compatible versions and setup instructions.
+
+  (c) 2018 Fair Isaac Corporation
+      author: J.Müller
+*********************************************************!)
+model "Python I/O example"
+  options noimplicit
+
+  uses "python3"
+
+  declarations
+    I = 1..4
+    A: dynamic array(I) of integer
+  end-declarations
+
+  A(1) := 1*2; A(3) := 3*2
+
+  initializations to "python:"
+    I as 'MyRange'
+    A
+  end-initializations
+
+  pyrun("io_example.py")
+  delcell(A) ! Delete existing elements from array A.
+
+  initializations from "python:"
+    A
+  end-initializations
+
+  writeln("Values initialized from Python:")
+  writeln("  A   = ", A)
+end-model

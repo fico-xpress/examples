@@ -1,0 +1,59 @@
+(!*********************************************************
+   Mosel Python Example Problems
+   =============================
+
+   file invert_matrix.mos
+   ``````````````````````
+   Invert a Mosel matrix in Python using pandas and NumPy.
+
+   !!! This example requires an installation of Python 3, see
+   !!! chapter 'python3' of the 'Mosel Language Reference' for
+   !!! compatible versions and setup instructions.
+
+  (c) 2018 Fair Isaac Corporation
+      author: J. Müller
+*********************************************************!)
+model "invert_matrix"
+  options noimplicit
+
+  uses "python3"
+  uses "mmjobs"
+
+  ! Input data
+  declarations
+    I, J: range
+    A, A_inverse: array(I, J) of real
+  end-declarations
+
+  procedure show_matrix(B: array(I: range, J: range) of real)
+    forall (i in I) do
+      forall (j in J) do
+        write(B(i, j), " ")
+      end-do
+      writeln
+    end-do
+  end-procedure
+
+  writeln("Run Python script that defines invert_matrix function.")
+  writeln("Python DSO version:     ", getdsoprop("python3", PROP_VERSION))
+  pyinitpandas
+  pyrun("invert_matrix.py")
+
+  I := 0..2
+  J := 0..2
+  A :: [1,0,3,
+        0,1,2,
+        0,0,1]
+
+  writeln("Mosel matrix A:")
+  show_matrix(A)
+
+  ! Optional: Delete old values from result matrix before calling function.
+  delcell(A_inverse)
+
+  writeln("Invert matrix with NumPy.")
+  pycall("invert_matrix", A_inverse, A)
+
+  writeln("Matrix A_inverse:")
+  show_matrix(A_inverse)
+end-model

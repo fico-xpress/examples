@@ -1,0 +1,150 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file eulerkn.mos
+   ````````````````
+   Euler knight problem.
+   Finding a tour on a chess-board for a knight figure, 
+   such that the knight moves through every cell exactly 
+   once and returns to its origin.
+
+   Model formulation for 8x8 chessboard:
+   We number the cells of the chessboard from 0 to 63 (64 cells)
+   
+      A  B  C  D  E  F  G  H
+     +--+--+--+--+--+--+--+--+
+   8 |0 |1 |2 |3 |4 |5 |6 |7 |
+     +--+--+--+--+--+--+--+--+
+   7 |8 |9 |10|11|12|13|14|15|
+     +--+--+--+--+--+--+--+--+
+   6 |16|17|18|19|20|21|22|23|
+     +--+--+--+--+--+--+--+--+
+   5 |24|25|26|27|28|29|30|31|
+     +--+--+--+--+--+--+--+--+
+   4 |32|33|34|35|36|37|38|39|
+     +--+--+--+--+--+--+--+--+
+   3 |40|41|42|43|44|45|46|47|
+     +--+--+--+--+--+--+--+--+
+   2 |48|49|50|51|52|53|54|55|
+     +--+--+--+--+--+--+--+--+
+   1 |56|57|58|59|60|61|62|63|
+     +--+--+--+--+--+--+--+--+
+  
+   The path that the knight will follow is represented by 64 variables "pos" 
+   that can take values from 0 to 63.
+   For example, pos[12] = 45 means that the 12th cell visited by the knight 
+   is the cell F:3
+  
+   Constraint 1: each cell is visited only once.
+   ---------------------------------------------
+   We simply post an all_different constraint on all the path variables
+  
+   Constraint 2: the path of the knight must follow the chess rules.
+   -----------------------------------------------------------------
+  
+   The knight (Kn) can move to the crossed cells (xx):
+   
+   +--+--+--+--+--+
+   |  |xx|  |xx|  |
+   +--+--+--+--+--+
+   |xx|  |  |  |xx|
+   +--+--+--+--+--+
+   |  |  |Kn|  |  |
+   +--+--+--+--+--+
+   |xx|  |  |  |xx|
+   +--+--+--+--+--+
+   |  |xx|  |xx|  |
+   +--+--+--+--+--+
+  
+   If the knight is in the cell numbered c, it is authorized to move to the 
+   following cells:
+    c + 1 - 16  [One cell right, two cells up  ]
+    c - 1 - 16  [One cell left, two cells up   ]
+    c + 1 + 16  [One cell right, two cells down]
+    c - 1 + 16  [One cell left, two cells down ]
+    c + 2 - 8   [Two cells right, one cell up  ]
+    c - 2 - 8   [Two cells left, one cell up   ]
+    c + 2 + 8   [Two cells right, one cell down]
+    c - 2 + 8   [Two cells left, one cell down ]
+  
+   This constraint is represented by a generalized binary constraint,
+   the function valid_knight_move defined in the model provides the 
+   evaluation for pairs of values.
+
+   *** This model cannot be run with a Community Licence 
+       for the default data instance ***
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+       Creation: 2005, rev. Sep 2018       
+*****************************************************************!)
+
+model "Euler Knight Moves"
+ uses "kalis"
+
+ parameters
+  S = 8                                   ! Number of rows/columns
+  NBSOL = 1                               ! Number of solutions sought 
+ end-parameters
+ 
+ forward procedure print_solution(sol: integer)
+ forward public function valid_knight_move(a:integer, b:integer): boolean
+
+ N:= S * S                                ! Total number of cells
+ setparam("KALIS_DEFAULT_LB", 0)
+ setparam("KALIS_DEFAULT_UB", N-1)
+
+ declarations
+  PATH = 1..N                            ! Cells on the chessboard
+  pos: array(PATH) of cpvar              ! Cell at position p in the tour
+ end-declarations
+
+! Fix the start position
+ pos(1) = 0
+
+! Each cell is visited once
+ all_different(pos, KALIS_GEN_ARC_CONSISTENCY)
+
+! The path of the knight obeys the chess rules for valid knight moves
+ forall(i in 1..N-1)
+  generic_binary_constraint(pos(i), pos(i+1), "valid_knight_move")
+ generic_binary_constraint(pos(N), pos(1), "valid_knight_move")
+
+! Setting enumeration parameters
+ cp_set_branching(probe_assign_var(KALIS_SMALLEST_MIN, KALIS_MAX_TO_MIN,
+                                   pos, 14))
+
+! Search for up to NBSOL solutions
+ solct:= 0
+ while (solct<NBSOL and cp_find_next_sol) do
+  solct+=1
+  cp_show_stats
+  print_solution(solct)
+ end-do
+
+
+! **** Test whether the move from position a to b is admissible ****
+ public function valid_knight_move(a:integer, b:integer): boolean
+  declarations
+   xa,ya,xb,yb,delta_x,delta_y: integer
+  end-declarations
+
+  xa := a div S
+  ya := a mod S
+  xb := b div S
+  yb := b mod S
+  delta_x := abs(xa-xb)
+  delta_y := abs(ya-yb)
+  returned := (delta_x<=2) and (delta_y<=2) and (delta_x+delta_y=3)
+ end-function
+
+!****************************************************************
+! Solution printing
+ procedure print_solution(sol: integer)
+  writeln("Solution ", sol, ":")
+  forall(i in PATH)
+   write(getval(pos(i)), if(i mod 10 = 0, "\n ", ""), " -> ")
+  writeln("0")
+ end-procedure
+
+end-model

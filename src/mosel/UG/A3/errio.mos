@@ -1,0 +1,87 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   =================================
+
+   file errio.mos
+   ``````````````
+   Handling I/O errors during "initializations".
+   
+  (c) 2011 Fair Isaac Corporation
+      author: Y.Colombani, Aug. 2011, rev. May 2015
+*******************************************************!)
+
+model "IO error handling"
+ uses 'mmsystem'
+
+ parameters
+  toread="errio.dat"
+ end-parameters
+
+ declarations
+  a,b,c:dynamic array(range) of integer
+ end-declarations
+
+!******** Display counting information for a label ********
+ procedure dispcnt(l:string)
+  if getreadcnt(l)<1 then
+   writeln("label '", l, "' has not been initialised")
+  else
+   writeln(getreadcnt(l), " item(s) read for label '", l, "'")
+  end-if
+ end-procedure
+!**********************************************************
+
+! Check whether the file we want to access exists
+ if bittest(getfstat(toread),SYS_TYP)<>SYS_REG then
+  writeln("File '", toread, "' does not exist or is not a regular file")
+  exit(1)
+ end-if
+
+! Read input data with modified I/O controls to obtain info about what is read
+ setparam("ioctrl", true)       ! Enable IO control by the model
+ setparam("readcnt", true)      ! Enable per label counting (see 'getreadcnt')
+
+ fopen("null:", F_ERROR)        ! Optional: Disable error stream 
+
+ initialisations from toread
+  a b c
+ end-initialisations
+ 
+! Revert to default settings of controls
+ setparam("readcnt", false)     
+ setparam("ioctrl", false)
+ 
+ fclose(F_ERROR)                ! Stop error redirection (re-enable default)
+
+! Check for errors during reading 
+! - Since we have enabled "ioctrl" the model does not stop when an error occurs
+!   during the initialization of data, it is therefore necessary to perform 
+!   our own test of the "iostatus".
+! - If the error stream has been redirected to 'null' no error message gets
+!   displayed by Mosel, without the redirection you should see a message. 
+ iostatus:=getparam("iostatus")
+ if iostatus<>0 then
+  writeln("Read failed")
+  writeln("Total number of items read :", getparam("nbread"))
+  dispcnt("a")
+  dispcnt("b")
+  dispcnt("c")
+ end-if
+
+end-model
+
+
+With file 'errio.dat' as follows:
+a:[(1) 1]
+c:[(2) 2 (10) 5]
+
+Output is:
+>exe errio
+Mosel: E-33: Initialization from file `errio.dat' failed for: `b'.
+read failed
+Total number of items read :3
+1 item(s) read for label 'a'
+label 'b' has not been initialised
+2 item(s) read for label 'c'
+Returned value: 0
+

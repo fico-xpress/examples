@@ -1,0 +1,25 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file rtparams.mos
+   `````````````````
+   Model with different runtime parameter types;
+   can be run as submodel from models 'runrtpar*.mos'.
+       
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, May 2006
+*******************************************************!)
+
+model "Runtime parameters"
+ uses "mmjobs"
+ parameters
+  PARAM1 = 0
+  PARAM2 = 0.5
+  PARAM3 = ''
+  PARAM4 = false
+ end-parameters
+
+ wait(round(5*random))
+ writeln(PARAM1, "  ", PARAM2, "  ", PARAM3, "  ", PARAM4)
+end-model 

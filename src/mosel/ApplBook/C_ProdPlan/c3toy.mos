@@ -1,0 +1,81 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file c3toy.mos
+   ``````````````
+   Planning the production of toy lorrys
+
+   A company produces two types of large toy lorry (trucks).
+   Each toy has 13 components. A subset of items can be assembled
+   by the company or subcontracted. Given the demand is the
+   same for both toys, how much should the company buy or
+   subcontract to meet demand and minimize cost?
+
+   Index sets are not fixed and are instead initialized from
+   the data file when reading the array data. The index sets of dense
+   arrays are automatically finalized by Mosel. As a consequence,
+   the arrays of decision variables 'produce' and 'buy' that are 
+   declared in the same declarations block and are first accessed after 
+   data has been initialized (when their index sets are known and
+   have been finalized) will be created automatically without any
+   need for an explicit call of the function 'create'.
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Mar. 2002, re. Mar. 2022
+*******************************************************!)
+
+model "C-3 Toy production"
+ uses "mmxprs", "mmsystem"
+
+ declarations   
+  ITEMS: set of string                 ! Set of all products
+  FINAL: set of string                 ! Set of final products
+  ASMBL: set of string                 ! Set of assembled products
+  PREPROD: set of string               ! Set of preproducts
+
+  CAP: array(ASMBL) of integer         ! Capacity of assembly lines
+  DEM: array(FINAL) of integer         ! Demand of lorrys
+  CPROD: array(ASMBL) of real          ! Assembly costs
+  CBUY: array(ITEMS) of real           ! Purchase costs
+  REQ: array(ASMBL,PREPROD) of integer ! Items req. for assembling a product
+
+  produce: array(ASMBL) of mpvar       ! Quantity of items produced
+  buy: array(PREPROD) of mpvar         ! Quantity of items bought 
+ end-declarations
+
+ initializations from 'c3toy.dat'
+  DEM CBUY REQ
+  [CPROD, CAP] as 'ASSEMBLY'
+ end-initializations
+
+! Objective: total costs
+ Cost:= sum(p in PREPROD) CBUY(p)*buy(p) + 
+         sum(p in ASMBL) CPROD(p)*produce(p)
+
+! Satisfy demands
+ forall(p in FINAL) produce(p) >= DEM(p)
+
+! Assembly balance
+ forall(p in PREPROD) buy(p) + if(p in ASMBL, produce(p), 0) >= 
+                       sum(q in ASMBL) REQ(q,p)*produce(q)
+
+! Limits on assembly capacity
+ forall(p in ASMBL) produce(p) <= CAP(p)
+
+ forall(p in PREPROD) buy(p) is_integer
+ forall(p in ASMBL) produce(p) is_integer
+
+! Solve the problem
+ minimize(Cost)
+ 
+! Solution printing
+ writeln("Total cost: ",getobjval)
+ writeln("Buy:")
+ forall(p in PREPROD)
+  writeln(formattext("  %-18s: %5g", p, getsol(buy(p)))) 
+ writeln("Produce:")
+ forall(p in ASMBL)
+  writeln(formattext("  %-18s: %5g", p, getsol(produce(p)))) 
+
+end-model

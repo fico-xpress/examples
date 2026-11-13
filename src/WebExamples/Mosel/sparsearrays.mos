@@ -1,0 +1,70 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file sparsearrays.mos
+   `````````````````````
+   Comparing speed of dynamic and hashmap arrays
+   for different cases of enumeration
+       
+   (c) 2018 Fair Isaac Corporation
+       author: S. Heipcke, Sep. 2018
+*******************************************************!)
+
+model "dynamic vs hashmap"
+  uses "mmsystem"
+
+  declarations
+    R1 = 1..2000
+    R2 = 1..500
+    R3 = 1..500
+    D,D2: dynamic array(R1,R2,R3) of real
+    H,H2: hashmap array(R1,R2,R3) of real
+  end-declarations
+
+ ! **** Initialize arrays with random data ****
+  function randint(vmin,vmax: integer): integer
+    if vmax<vmin then
+      setmatherr("upper bound is smaller than lower bound")
+      return
+    end-if
+    returned:= round((vmax-vmin)*random)+vmin
+  end-function
+
+  setrandseed(17)
+  starttime:=gettime
+  r2min:=R2.first; r2max:=R2.last; r3min:=R3.first; r3max:=R3.last
+  forall(i1 in R1,k in 1..100) do
+    j2:=randint(r2min,r2max); j3:=randint(r3min,r3max)
+    D(i1,j2,j3):=i1;H(i1,j2,j3):=i1
+  end-do
+  forall(i1 in R1) do
+    j2:=randint(r2min,r2max); j3:=randint(r3min,r3max)
+    D2(i1,j2,j3):=i1; H2(i1,j2,j3):=i1
+  end-do
+  writeln(gettime-starttime, " Data input: D size=", D.size,", H size=", H.size,
+    ", D2 size=", D2.size,", H2 size=", H2.size)
+ 
+
+ ! **** Enumeration with 'exists' in suitable (linear) order ****
+ ! **** (dynamic faster than hashmap) ****
+  starttime:=gettime
+  a:=count(i1 in R1, i2 in R2, i3 in R3 | exists(D(i1,i2,i3)))
+  writeln(gettime-starttime, " Enum lin D (", a, ")")
+
+  starttime:=gettime
+  a:=count(i1 in R1, i2 in R2, i3 in R3 | exists(H(i1,i2,i3)))
+  writeln(gettime-starttime, " Enum lin H (", a, ")")
+
+ ! **** Enumeration in unsuitable order (inversed order of sets) ****
+ ! **** (hashmap faster than dynamic) ****
+  starttime:=gettime
+  a:=count(i3 in R3, i2 in R2, i1 in R1 | exists(D2(i1,i2,i3))) 
+  writeln(gettime-starttime, " Enum inv D2 (", a, ")")
+
+  starttime:=gettime
+  a:=count(i3 in R3, i2 in R2, i1 in R1 | exists(H2(i1,i2,i3))) 
+  writeln(gettime-starttime, " Enum inv H2 (", a, ")")
+
+
+end-model

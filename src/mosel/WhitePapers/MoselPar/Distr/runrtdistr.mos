@@ -1,0 +1,43 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file runrtdistr.mos
+   ```````````````````
+   Running a model on a remote machine,
+   passing runtime parameters to the submodel.
+
+   Before running this model, you need to set up the 
+   NODENAME with a machine name/address of your local network.
+   The node that is used needs to have the same version of
+   Xpress installed and suitably licensed, and the server 
+   "xprmsrv" must have been started on this machine.
+       
+   (c) 2010 Fair Isaac Corporation
+       author: S. Heipcke, May 2010
+*******************************************************!)
+
+model "Run model rtparams remotely"
+ uses "mmjobs"
+
+ declarations
+  modPar: Model
+  mosInst: Mosel
+ end-declarations
+                                   ! Compile the model file
+ if compile("rtparams.mos")<>0 then exit(1); end-if
+
+       !!! Use the name or IP address of a machine in
+       !!! your local network, or "" for current node
+ NODENAME:= ""
+                                   ! Open connection to a remote node:
+ if connect(mosInst, NODENAME)<>0 then exit(2); end-if
+                                   ! Load the bim file into the remote instance
+ load(mosInst, modPar, "rmt:[-1]rtparams.bim") 
+                                   ! Start model execution
+ run(modPar, "PARAM1=" + 2 + ",PARAM2=" + 3.4 + 
+             ",PARAM3='a string'" + ",PARAM4=" + true)
+ wait                              ! Wait for model termination
+ dropnextevent                     ! Ignore termination event message
+
+end-model 

@@ -1,0 +1,21 @@
+SHARES: treasury1 treasury2 treasury3 treasury4 treasury5 hardware1 hardware2 hardware3 hardware4 hardware5 theater1 theater2 theater3 theater4 theater5 telecom1 telecom2 telecom3 telecom4 telecom5 brewery1 brewery2 brewery3 brewery4 brewery5 highways1 highways2 highways3 highways4 highways5 cars1 cars2 cars3 cars4 cars5 bank1 bank2 bank3 bank4 bank5 software1 software2 software3 software4 software5 electronics1 electronics2 electronics3 electronics4 electronics5;
+REGIONS: EU NA APAC;
+TYPES: bonds technology entertainment telecom food construction manufacturing finance;
+
+RISK: 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 40 41 42 43 44 45 46 47 48 49;
+RET: 5.29 2.8 3.59 6.97 3.3 10.26 10.13 11.59 13.37 13.13 17.37 26.35 24.95 32.28 21.04 6.57 11.99 17.54 13.07 9.03 11.11 5.97 7.23 10.65 5.2 9.36 8.94 8.65 12.77 10.98 6.35 10.49 7.18 3.81 3.56 7.94 6.23 5.55 8.3 6.97 34.08 36.22 34.4 45.07 24.07 24.3 12.52 15.71 28.66 13.81;
+
+LOC:
+ 0 9 16 18 27 29 32 38 39 40 43 45 46 47;
+ 1 5 6 7 13 15 20 22 26 28 31 33 37;
+ 3 4 8 10 11 14 17 19 21 23 30 34 35 36 48 49;
+
+SEC:
+ 0 1 2 3 4;
+ 5 6 7 8 9 40 41 42 43 44 45 46 47 48 49;
+ 10 11 12 13 14;
+ 15 16 17 18 19;
+ 20 21 22 23 24;
+ 25 26 27 28 29;
+ 30 31 32 33 34;
+ 35 36 37 38 39;

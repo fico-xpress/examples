@@ -1,0 +1,88 @@
+(!*******************************************************
+  * Mosel Example Problems                              *
+  * ======================                              *
+  *                                                     *
+  * file qsort.mos                                      *
+  * ``````````````                                      *
+  * Example for the use of the Mosel language           *
+  * (Sort an array of numbers into numerical order)     *
+  *                                                     *
+  * Implements Quicksort:                               *
+  * After selecting a partitioning value v the original *
+  * array is partitioned into two subarrays by pairwise *
+  * exchange of elements. At the end of a round of      *
+  * partitioning, all elements in the left subarray are *
+  * less or equal the partitioning value, all elements  *
+  * in the right subarray are greater or equal v.       *
+  * The process is then repeated to the left and right  *
+  * subarrays independently, and so on.                 *
+  *                                                     *
+  * (c) 2008 Fair Isaac Corporation                     *
+  *     author: Y. Colombani, 2001                      *
+  *******************************************************!)
+
+model "Quick Sort"             ! Start a new model
+uses "mmsystem"
+
+parameters
+ LIM=50
+end-parameters
+
+                               ! Declare a procedure that is defined later
+forward procedure qsort(L:array(range) of integer)
+
+declarations
+ T:array(1..LIM) of integer
+end-declarations
+
+                               ! Generate randomly an array of numbers
+ forall(i in 1..LIM) T(i):=round(.5+random*LIM)
+ writeln(T)
+ stime:=gettime
+
+ qsort(T)                       ! Sort the array
+
+ stime:=gettime-stime
+ writeln(T)                     ! Print the sorted array
+ writeln(LIM," elements sorted in ",stime,"s")
+
+!***********************************************************************
+! Swap the positions of two numbers in an array
+!*********************************************************************** 
+ procedure swap(L:array(range) of integer,i,j:integer)
+  k:=L(i)
+  L(i):=L(j)
+  L(j):=k
+ end-procedure
+
+!***********************************************************************
+! Sorting routine:
+!  - determine a partitioning value
+!  - partition the array into two subarrays:
+!    put all numbers smaller than the partitioning value into the left,
+!    all numbers larger than the partitioning value into the right array
+!  - recursively sort the two subarrays
+!***********************************************************************
+ procedure qsort(L:array(range) of integer,s,e:integer)
+  v:=L((s+e) div 2)
+  i:=s; j:=e
+  repeat
+   while(L(i)<v) i+=1
+   while(L(j)>v) j-=1
+   if i<j  then
+    swap(L,i,j)
+    i+=1; j-=1
+   end-if
+  until i>=j
+  if j<e and s<j then qsort(L,s,j); end-if
+  if i>s and i<e then qsort(L,i,e); end-if
+ end-procedure
+
+!***********************************************************************
+! Start of the sorting process 
+!***********************************************************************
+ procedure qsort(L:array(r:range) of integer)
+  qsort(L,r.first,r.last)
+ end-procedure
+
+end-model

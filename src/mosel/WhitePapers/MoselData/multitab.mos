@@ -1,0 +1,120 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file multitab.mos
+   `````````````````
+   Reading an array from several data tables.
+   Output parts of an array into several tables.
+   - Using 'initializations from' with odbc I/O driver -
+       
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2006, rev. May 2017
+*******************************************************!)
+
+model "Multiple data sources"
+ uses "mmodbc", "mmsystem"
+
+ declarations
+  CUST: set of integer
+  PERIOD: range
+  INCOME,INCOME1,INCOME2,INCOME3: dynamic array(CUST,PERIOD) of real
+ end-declarations
+
+ initializations from "multitab.dat"
+  INCOME as "COLDAT1"
+  INCOME as "COLDAT2"
+  INCOME as "COLDAT3"
+ end-initializations
+
+ writeln(INCOME)
+
+ setparam("SQLverbose", true)
+
+! Different ways of reading the data from a spreadsheet or database
+! CNCT:= 'mmodbc.odbc:multitab.xls'
+
+ CNCT:= 'mmodbc.odbc:multitab.mdb'
+
+! CNCT:= 'mmodbc.odbc:multitab.sqlite'
+! CNCT:= 'mmodbc.odbc:DSN=sqlite;DATABASE=multitab.sqlite'
+
+! Method 1: Data in columns, with CUST index value included
+ initializations from CNCT
+  INCOME1 as 'COLDAT1'
+  INCOME1 as 'COLDAT2'
+  INCOME1 as 'COLDAT3'
+ end-initializations
+
+ writeln("1: ", INCOME1)
+ 
+! Method 2: Data in columns, without CUST index value
+
+ procedure readcol(cust:integer, table:string)
+  declarations
+   TEMP: array(PERIOD) of real
+  end-declarations
+ 
+  initializations from CNCT
+   TEMP as table
+  end-initializations
+  forall(p in PERIOD) INCOME2(cust,p):=TEMP(p)
+ end-procedure
+ 
+ forall(c in CUST) readcol(c, "COLDAT"+c+"A") 
+ writeln("2: ", INCOME2)
+ 
+! Method 3: Data in rows, without CUST index value
+
+ procedure readrow(cust:integer, table:string)
+  declarations
+   TEMP: array(1..2,PERIOD) of real
+  end-declarations
+
+  initializations from CNCT
+   TEMP as 'noindex;'+table
+  end-initializations
+  forall(p in PERIOD) INCOME3(cust,p):=TEMP(2,p)
+ end-procedure
+ 
+ finalize(PERIOD)                       ! The index sets must be known+fixed
+ forall(c in CUST) readrow(c, "ROWDAT"+c) 
+ writeln("3: ", INCOME3)
+
+
+! ******** Output an array into several tables ********
+
+ forall(c in CUST)
+  initializations to "multitabout.dat"
+   evaluation of array(c1=c,p in PERIOD) INCOME1(c1,p) as "COLDAT"+c
+  end-initializations
+
+! Create the tables for data output
+ fcopy('multitab.mdb','multitabout.mdb')
+ CNCTOUT:= 'multitabout.mdb'
+! CNCTOUT:= 'multitabout.sqlite'
+ SQLconnect(CNCTOUT)
+ forall(c in CUST) do
+  SQLexecute("drop table COLDAT"+c)
+  SQLexecute("create table COLDAT"+c+" (CUST integer,PERIOD integer,INCOME float)")
+  SQLexecute("drop table COLDAT"+c+"A")
+  SQLexecute("create table COLDAT"+c+"A (PERIOD integer,INCOME float)")
+ end-do
+ SQLdisconnect
+
+! Method 1: Data in columns, with CUST index value included
+ CNCTOUT:= 'mmodbc.odbc:'+CNCTOUT
+ forall(c in CUST) do
+  initializations to CNCTOUT
+   evaluation of array(c1=c,p in PERIOD) INCOME1(c1,p) as "COLDAT"+c
+  end-initializations
+ end-do
+
+! Method 2: Data in columns, without CUST index value
+ forall(c in CUST) do
+  initializations to CNCTOUT
+   evaluation of array(p in PERIOD) INCOME1(c,p) as "COLDAT"+c+"A"
+  end-initializations
+ end-do
+
+end-model

@@ -1,0 +1,45 @@
+(!******************************************************
+   Mosel Matlab Example Problems
+   =============================
+
+   file foliomat.mos
+   `````````````````````
+   Modeling a small LP problem 
+   to perform portfolio optimization.
+   
+  (c) 2014 Fair Isaac Corporation
+      author: L.Bertacco, Apr. 2014
+*******************************************************!)
+
+model "Portfolio optimization with LP - MATLAB"
+ uses "mmxprs"
+
+ declarations
+  SHARES: range
+  RISK: set of integer             
+  NA: set of integer               
+  RET: array(SHARES) of real       
+  frac: array(SHARES) of mpvar   
+  simplexiter: integer
+ end-declarations
+
+ initializations from "matlab.mws:"
+   RISK NA RET
+ end-initializations 
+ 
+ Return:= sum(s in SHARES) RET(s)*frac(s) 
+ sum(s in RISK) frac(s) <= 1/3
+ sum(s in NA) frac(s) >= 0.5
+ sum(s in SHARES) frac(s) = 1
+ forall(s in SHARES) frac(s) <= 0.3
+ maximize(Return)
+ simplexiter:=getparam("XPRS_simplexiter")
+
+ initializations to "matlab.mws:"
+  simplexiter
+  evaluation of getobjval as "objval"
+  evaluation of array(s in SHARES) frac(s).sol as "frac"
+ end-initializations 
+ exit(getprobstat)
+
+end-model 

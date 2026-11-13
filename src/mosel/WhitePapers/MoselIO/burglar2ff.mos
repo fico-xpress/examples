@@ -1,0 +1,56 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file burglar2ff.mos
+   ```````````````````
+   Data read from free format file.
+   Duplicate output to free format file + on screen.
+   
+   (c) 2013 Fair Isaac Corporation
+       author: S. Heipcke, Mar. 2013
+*******************************************************!)
+
+model Burglar2ff
+ uses "mmxprs"
+ 
+ declarations
+  WTMAX = 102                    ! Maximum weight allowed
+  ITEMS: set of string           ! Index set for items
+  VALUE: array(ITEMS) of real    ! Value of items
+  WEIGHT: array(ITEMS) of real   ! Weight of items
+  j: string
+ end-declarations
+
+ fopen("burglarff.dat", F_INPUT) ! Open file for reading
+ while (not iseof) do            ! Read up to end-of-file
+   fskipline("!")                ! Skip lines starting with '!'
+   readln(j, " [v=", VALUE(j), ", w=", WEIGHT(j), "]")
+   if getparam("nbread") < 6 then
+     writeln("Error reading data for index '", j, "'")
+   end-if  
+ end-do
+ fclose(F_INPUT)                 ! Close the input file
+
+ declarations
+  take: array(ITEMS) of mpvar    ! 1 if we take item i; 0 otherwise
+ end-declarations
+
+! Objective: maximize total value
+ MaxVal:= sum(i in ITEMS) VALUE(i)*take(i) 
+
+! Weight restriction
+ sum(i in ITEMS) WEIGHT(i)*take(i) <= WTMAX
+
+! All variables are 0/1
+ forall(i in ITEMS) take(i) is_binary  
+
+ maximize(MaxVal)                 ! Solve the MIP-problem
+
+! Print out the solution and redirect it to a file
+ fopen("tee:burglarsol.txt&", F_OUTPUT+F_APPEND)
+ writeln("Solution:\n Objective: ", getobjval)
+ forall(i in ITEMS)  writeln(" take(", i, "): ", getsol(take(i)))
+ fclose(F_OUTPUT)
+ 
+end-model

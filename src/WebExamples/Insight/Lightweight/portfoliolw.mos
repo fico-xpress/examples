@@ -1,0 +1,175 @@
+(!
+  Xpress Insight Portfolio Optimization example
+  -- Implementation of lightweight execution mode via partial
+     updates of Insight scenario data (selection of entities
+     in subroutines insightpopulate and insightcapture) --
+ 
+  (c) 2024 Fair Isaac Corporation
+!)
+model "Portfolio Optimization - Lightweight (Mosel)"
+  version 1.0.0
+
+  options noimplicit
+
+  uses "mminsight"
+  uses "mmxprs"
+
+  declarations
+    ! Constant
+    DATAFILE = "shares.csv"
+  end-declarations
+
+  ! Declaration of the scenario data model for input and results
+  public declarations
+    ! Input entities
+    !@insight.manage input
+    !@insight.alias Maximum investment into high-risk values
+    MaxHighRisk: real
+
+    !@insight.manage input
+    !@insight.alias Maximum investment per share
+    MaxPerShare: real
+
+    !@insight.manage input
+    !@insight.alias Minimum investment into North-American values
+    MinNorthAmerica: real
+
+    !@insight.manage input
+    !@insight.alias Shares
+    ShareIds: set of string
+
+    ! Input and result entities indexed over ShareIds
+    !@insight.manage input
+    !@insight.alias Expected Return on Investment
+    !@insight.format $ 0.00
+    Shares_Return: array(ShareIds) of real
+
+    !@insight.manage input
+    !@insight.alias High-risk value
+    Shares_HighRisk: array(ShareIds) of boolean
+
+    !@insight.manage input
+    !@insight.alias Issued in North America
+    Shares_NorthAmerica: array(ShareIds) of boolean
+
+    !@insight.manage result
+    !@insight.alias Investment per share
+    !@insight.format 0.0%
+    Shares_fraction: array(ShareIds) of mpvar
+
+    ! Result entities
+    !@insight.manage result
+    !@insight.alias Total expected return on investment
+    TotalReturn: linctr
+
+    ! New result entities
+    !@insight.manage result
+    !@insight.alias Average return of high-risk shares
+    ReturnHighRisk: real
+
+    !@insight.manage result
+    !@insight.alias Average return of low-risk shares
+    ReturnLowRisk: real
+  end-declarations
+
+  !@doc.descr Calculate the average value of an array subject to a filter.
+  !@doc.info The array entries from the array in the first argument are selected via the value associated with the corresponding index in a second array.
+  function calcavg(retarr: array(r:set of string) of real, 
+                   riskarr: array(set of string) of boolean, 
+                   value: boolean): real
+    declarations
+      SumReturn: real
+      cnt: integer
+    end-declarations
+
+    cnt:= 0
+    SumReturn:= sum(cnt as counter, s in r | riskarr(s) = value) retarr(s)
+    returned := SumReturn/cnt
+  end-function
+
+  !@doc.descr Handler for the standard LOAD execution mode
+  !@doc.info Load input data and initialize all input entities.
+  !@insight.execmodes.LOAD
+  public procedure loaddata
+    writeln("Loading data.")
+    MaxHighRisk := 0.33
+    MaxPerShare := 0.25
+    MinNorthAmerica := 0.45
+
+    initializations from "mmsheet.csv:skiph;" + DATAFILE
+      [Shares_Return, Shares_HighRisk, Shares_NorthAmerica] as '[A:D]'
+    end-initializations
+
+    writeln("Loading finished.")
+  end-procedure
+
+  !@insight.execmodes.CUSTOM_RUN
+  !@doc.descr Custom run execution mode.
+  public procedure customrun
+    writeln("Executing custom run mode.")
+    ! Populate selected input entities with scenario data
+    insightpopulate(['Shares_Return','Shares_HighRisk'])
+
+    ReturnHighRisk := calcavg(Shares_Return,Shares_HighRisk,true)
+    ReturnLowRisk := calcavg(Shares_Return,Shares_HighRisk,false)
+
+    ! Write back results for the listed entities to the Insight scenario data
+    insightcapture(['ReturnHighRisk','ReturnLowRisk'])
+
+    writeln("Custom run mode finished.")
+  end-procedure
+
+  !@doc.descr Handler for the standard RUN execution mode
+  !@doc.info Create and solve model, then initialize all result entities.
+  !@insight.execmodes.RUN
+  !@clearinput false
+  public procedure solvemodel
+    declarations
+      LimitHighRisk, LimitNorthAmerica: linctr
+    end-declarations
+
+    ! If running in Insight, this call will initialize all input entities with scenario data
+    insightpopulate
+
+    ! Objective: expected total return
+    TotalReturn := sum(s in ShareIds) Shares_Return(s) * Shares_fraction(s)
+
+    ! Limit the percentage of high-risk values
+    LimitHighRisk :=
+      sum(s in ShareIds | Shares_HighRisk(s)) Shares_fraction(s) <= MaxHighRisk
+
+    ! Minimum amount of North-American values
+    LimitNorthAmerica :=
+      sum(s in ShareIds | Shares_NorthAmerica(s)) Shares_fraction(s) >= MinNorthAmerica
+
+    ! Spend all the capital
+    sum(s in ShareIds) Shares_fraction(s) = 1
+
+    ! Upper bounds on the investment per share
+    forall(s in ShareIds) do
+      Shares_fraction(s) <= MaxPerShare
+    end-do
+
+    writeln('Starting optimization.')
+
+    ! Solve optimization problem
+    setparam("XPRS_THREADS", 1)
+    insightmaximize(TotalReturn)
+
+    ! If running in Insight, write result data back to the Insight scenario data
+    insightcapture(['Shares_fraction','TotalReturn'])
+
+    writeln('Optimization finished.')
+  end-procedure
+
+  !@doc.descr Handler for when the model is executed outside of Insight
+  !@insight.execmodes.NONE
+  public procedure standalone
+      loaddata
+      solvemodel
+      customrun
+  end-procedure
+
+  ! Invoke the handler procedure for the current execution mode
+  insightdispatch
+end-model

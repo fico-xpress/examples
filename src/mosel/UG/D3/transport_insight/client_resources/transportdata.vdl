@@ -1,0 +1,61 @@
+<vdl version="5">
+  <vdl-page>    <!-- 'vdl' and 'vdl-page' tags must always be present -->
+
+    <!-- 'header' element: container for any vdl elements that are not part 
+         of the page layout -->
+    <vdl-header>
+      <vdl-action-group name="runModel">
+        <vdl-action-execute mode="RUN"></vdl-action-execute>
+      </vdl-action-group>
+    </vdl-header>
+
+    <!-- Structural element 'section': print header text for a section -->
+    <vdl-section heading="Transportation data input">
+
+      <!-- Structural element 'row': arrange contents in rows -->
+      <vdl-row>
+        <!-- A form contains one or several input elements -->
+        <vdl-column size="4">
+          <vdl-form>
+            <!-- 'Run' button to launch optimization -->
+            <vdl-button vdl-event="click:actions.runModel" 
+                        label="Run optimization"></vdl-button>
+          </vdl-form>
+        </vdl-column> 
+        <vdl-column size="4">
+          <vdl-form>
+            <!-- Input field for the fuel cost -->
+            <vdl-field entity="FUELCOST" label-size="8" size="4"/>
+          </vdl-form>
+        </vdl-column> 
+      </vdl-row>
+
+      <vdl-row>
+        <!-- Several columns within a 'row' for display side-by-side,
+	     dividing up the total row width of 12 via 'size' setting
+             on each column. -->
+        <vdl-column size="4" heading="Plant data">
+	  <!-- Display the plant data input values, default table format -->
+          <vdl-table>
+             <vdl-table-column entity="PLANTCAP" editable="true"/>
+             <vdl-table-column entity="PLANTCOST" editable="true"/>
+          </vdl-table>
+        </vdl-column> 
+        <vdl-column size="4" heading="Customer demands">
+          <!-- Display the demand input values, default table format -->
+          <vdl-table>
+            <vdl-table-column entity="DEMAND" editable="true"/>  
+          </vdl-table>
+        </vdl-column> 
+        <vdl-column size="4" heading="Transportation routes">
+          <!-- Display the route input values, default table format,
+               enabling pagewise display with 8 entries per page -->
+          <vdl-table page-mode="paged" page-size="8"> 
+            <vdl-table-column entity="DISTANCE" editable="true"/>
+            <vdl-table-column entity="TRANSCAP" editable="true"/>
+          </vdl-table>
+        </vdl-column>
+      </vdl-row>
+    </vdl-section>
+  </vdl-page>
+</vdl>

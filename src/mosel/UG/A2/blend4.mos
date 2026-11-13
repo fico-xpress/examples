@@ -1,0 +1,67 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file blend4.mos
+   ```````````````
+   Reading data from a database.
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2002, rev. Sep. 2014
+*******************************************************!)
+
+model "Blend 4" 
+ uses  "mmodbc", "mmxprs" 
+
+ declarations
+  REV = 125                      ! Unit revenue of product
+  MINGRADE = 4                   ! Minimum permitted grade of product
+  MAXGRADE = 5                   ! Maximum permitted grade of product
+  ORES = 1..2                    ! Range of ores
+
+  COST: array(ORES) of real      ! Unit cost of ores
+  AVAIL: array(ORES) of real     ! Availability of ores
+  GRADE: array(ORES) of real     ! Grade of ores (measured per unit of mass)
+
+  use: array(ORES) of mpvar      ! Quantities of ores used
+ end-declarations
+
+! Read data from the SQLite database blend.sqlite
+ initializations from "mmodbc.odbc:blend.sqlite"
+  [COST,AVAIL,GRADE] as "MyTable"
+ end-initializations
+
+(! Alternatively:
+! Read data from the SQLite database blend.sqlite
+ SQLconnect('blend.sqlite')
+
+! Read data from the mysql database blend
+! SQLconnect('DSN=mysql; DB=blend')
+
+! Test connection status
+ if not getparam("SQLsuccess") then
+  writeln("Database connection failed")
+  exit(1)
+ end-if
+
+ SQLexecute("select * from MyTable ", [COST,AVAIL,GRADE])
+ SQLdisconnect
+!)
+
+! Objective: maximize total profit
+ Profit:= sum(o in ORES) (REV-COST(o))* use(o)
+
+! Lower and upper bounds on ore quality
+ sum(o in ORES) (GRADE(o)-MINGRADE)*use(o) >= 0
+ sum(o in ORES) (MAXGRADE-GRADE(o))*use(o) >= 0
+
+! Set upper bounds on variables
+ forall(o in ORES) use(o) <= AVAIL(o)
+
+ maximize(Profit)                 ! Solve the LP-problem
+
+ ! Print out the solution
+ writeln("Solution:\n Objective: ", getobjval)
+ forall(o in ORES)  writeln(" use(" + o + "): ", getsol(use(o)))
+
+end-model

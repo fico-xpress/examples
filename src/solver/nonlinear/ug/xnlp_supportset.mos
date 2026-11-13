@@ -1,0 +1,66 @@
+! XNLP example demonstrating the type of solutions returned by solvers
+! 
+! This examples solves simple optimzation problems with different solvers, 
+! demonstrating the fundamental properites of the solutions returned.
+!
+! This example demonstrates a particular non-linear optimization concept as related
+! to Xpress NonLinear.
+! The version of the example is for Xpress 7.5.
+!
+!  (c) 2013-2026 Fair Isaac Corporation
+!       author: Zsolt Csizmadia
+model mmxnlp_nlp_duals
+uses "mmxnlp"; 
+
+! Scaling parameter for problem size. Please note, there is a quadratic response 
+! in terms of complexity
+parameters
+	 N = 10
+end-parameters
+
+declarations
+ R = 1..N	
+ x : array(R) of mpvar 
+end-declarations
+
+!setparam("xnlp_verbose",true)
+
+sum( i in R) (x(i)) >= N
+
+! Minimize using the simplex method
+minimize(XPRS_PRI, sum( i in R) (x(i)))
+writeln("A simplex solution to an LP:")
+forall(i in R) write(getsol(x(i)), " ")
+writeln
+
+! And compare to a barrier solution without crossover
+setparam("XPRS_CROSSOVER",0)
+setparam("XPRS_PRESOLVE",0)
+minimize(XPRS_BAR, sum( i in R) (x(i)))
+writeln("The same with the barrier:")
+forall(i in R) write(getsol(x(i)), " ")
+writeln
+
+writeln
+writeln
+! The very same phenomena with quadratic problems:
+writeln("The same experiment over a convex quadratic optimization problem:")
+writeln
+! Minimize using the simplex method
+minimize(XPRS_PRI, sum( i in 1..ceil(N/2)) (x(i)) + sum( i in ceil(N/2)..N) (x(i)^2) )
+writeln("A simplex solution to an QP:")
+forall(i in R) write(getsol(x(i)), " ")
+writeln
+
+! And compare to a barrier solution without crossover
+setparam("XPRS_CROSSOVER",0)
+setparam("XPRS_PRESOLVE",0)
+minimize(XPRS_BAR, sum( i in 1..ceil(N/2)) (x(i)) + sum( i in ceil(N/2)..N) (x(i)^2) )
+writeln("The same with the barrier:")
+forall(i in R) write(getsol(x(i)), " ")
+writeln
+! Notice that for the quadratic part, the quadratic objetcive itself has served
+! as an equalizer
+
+end-model
+

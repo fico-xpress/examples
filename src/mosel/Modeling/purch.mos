@@ -1,0 +1,129 @@
+(!*******************************************************
+  * Mosel Example Problems                              *
+  * ======================                              *
+  *                                                     *
+  * file purch.mos                                      *
+  * ``````````````                                      *
+  * Example for the use of the Mosel language           *
+  * (Purchasing problem. Using SOS-2.)                  *
+  *                                                     *
+  * (c) 2008 Fair Isaac Corporation                     *
+  *     author: S. Heipcke, 2001, rev. Feb. 2010        *
+  *******************************************************!)
+(! The formulation of this model is tricky because the discounts are 
+   all-quantity, so the graph of cost against quantity purchased is
+   discontinuous.
+   To maintain sanity in the special ordered set formulation, we must
+   coarsen the discontinuity by stopping purchases just at the break 
+   point.
+!)
+
+model Purchase                  ! Start a new model
+
+uses "mmxprs"                   ! Load the optimizer library
+
+declarations
+ NBS,NBR: integer               ! Problem parameters
+end-declarations
+
+initializations from 'Data/purch.dat'
+ NBS as "Nb suppliers"
+ NBR as "Nb price breaks"
+end-initializations
+
+declarations
+ RS=1..NBS                ! Range of suppliers
+ RB=1..NBR                ! Range of price breaks
+ NB2=2*NBR
+ RB2=1..NB2
+ delta = 0.10                   ! Base coarsening factor
+ 
+ UC: array(RS,RB) of real       ! Unit cost
+ BR: array(RS,RB) of real       ! Breakpoints (quantities at which unit cost changes)
+ X: array(RS,RB2) of real       ! Coarsened break points
+ C: array(RS,RB2) of real       ! Total cost at break points
+ DELTA: array(RB2) of real      ! Coarsening factors
+ MAXPERC: array(RS) of real     ! Maximum percentages for each supplier
+ REQ: real                      ! Total quantity required
+
+ x: array(RS) of mpvar          ! Quantity to purchase from supplier s
+ lam: array(RS,RB2) of mpvar    ! Weights at breakpoint k for supplier s
+end-declarations
+
+                                ! Read data from file
+initializations from 'Data/purch.dat'
+ UC BR MAXPERC REQ
+end-initializations
+
+                                ! Recursively define coarsening factors
+ DELTA(1):= 0
+ DELTA(2):= -delta
+ forall(b in 3..NB2) DELTA(b):= -DELTA(b-1)
+
+! Pick out the data from the tables into which they have just been read.
+ forall(s in RS) do
+  C(s,1):= 0                    ! First total cost and (new) breakpoint
+  X(s,1):= 0                    ! are (0,0). Rest calculated:
+ end-do
+ forall(s in RS, b in 2..NB2) do
+  C(s,b):= UC(s,(b+1) div 2) * BR(s,b div 2) ! Unit price*quantity
+  X(s,b):= BR(s,b div 2) + DELTA(b)          ! Coarsened grids
+ end-do
+
+                                ! Objective: sum of costs*weights
+ MinCost:= sum(s in RS,b in RB2) C(s,b) * lam(s,b)
+
+                                ! Define x and also order the lam variables 
+                                ! by breakpoint quantities
+ forall(s in RS) DefX(s):= sum(b in RB2) X(s,b) * lam(s,b) = x(s)
+
+                                ! The convexity row (lam sum to 1)
+ forall(s in RS) Conv(s):= sum(b in RB2) lam(s,b) = 1.0
+
+                                ! The minimum quantity that must be bought
+ MustBuy:= sum(s in RS) x(s) >= REQ
+
+                                ! No more than the maximum percentage 
+                                ! from each supplier
+ forall(s in RS) x(s) <= MAXPERC(s)*REQ/100.0
+
+! Define the lam as SOS2 as we can linearly interpolate between the
+! breakpoints. 
+ forall(s in RS)  
+  makesos2(union(b in RB2) {lam(s,b)}, sum(b in RB2) X(s,b)*lam(s,b))
+
+! Alternative formulation:
+!   The weight coefficients X (as in the DefX constraints), are all 
+!   augmented by delta since Mosel does not accept 0-valued weights
+!   with `is_sos2'.
+! forall(s in RS) SetLam(s):= sum(b in RB2) (X(s,b)+delta) * lam(s,b) is_sos2
+  
+ minimize(MinCost)              ! Solve the MIP-problem
+
+                                ! Print out the solution
+ writeln("Solution:\n Objective: ", getobjval)
+ forall(s in RS) do
+  write(" x(",s,"):", x(s).sol, "  ( = ")
+  forall(b in RB2 | lam(s,b).sol>0)
+   write(X(s,b)," * lam(",s,",",b,"):", lam(s,b).sol, "; ")   
+  writeln(")")
+ end-do
+ 
+end-model
+
+Background:
+
+There are three suppliers of a good, and they have quoted various prices for
+various quantities of product. We want to buy at least total cost, yet not
+buy too much from any one supplier. Each supplier offers decreasing prices
+for increased lot size, and these are all-item prices.
+
+For example :
+
+Supplier Max %age   Price 0-100       Price 101-200   Price 200+
+Bob            40     9.2    100        9    200        7   1000
+                       ^      ^
+                    price    breakpoint
+
+i.e. if you buy 150 items from Bob, the total cost is 9*150.
+

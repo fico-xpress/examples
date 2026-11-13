@@ -1,0 +1,77 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file pwlinsos2.mos
+   ``````````````````
+   Modeling a piecewise linear function:
+   SOS-2 formulation  
+   - Example discussed in mipformref whitepaper -
+
+   (c) 2009 Fair Isaac Corporation
+       author: S. Heipcke, Feb. 2009, rev. July 2020
+*******************************************************!)
+
+model "Piecewise linear S2"
+ uses "mmxprs"
+ 
+ declarations
+  NB = 3                                ! Number of values
+  BREAKS = 1..NB                        ! Set of original break points
+  BREAKS2 = 1..2*NB                     ! Set of duplicated break points
+  VALUE: array(BREAKS) of real          ! Coefficient value at break points
+  B: array(0..NB) of real               ! Break points (X coordinates)
+  delta = 0.10                          ! Coarsening factor
+  BC: array(BREAKS2) of real            ! Coarsened break points
+  VC: array(BREAKS2) of real            ! Value at coarsened break points
+
+  x, fx: mpvar                          ! The actual decision variables x and y
+  b: array(BREAKS2) of mpvar            ! Indicators of value bands
+ end-declarations
+ 
+ B:: [0, 50, 120, 200]
+ VALUE:: [ 1, 1.5, 2]
+
+
+ forall(i in BREAKS) do
+  BC(2*i-1):=if(i=1, B(0), B(i-1)+delta)
+  BC(2*i)  :=B(i)-delta
+  VC(2*i-1):=VALUE(i)*BC(2*i-1)
+  VC(2*i)  :=VALUE(i)*BC(2*i)
+ end-do
+ 
+! Definition of x
+ Defx:= x = sum(i in BREAKS2) BC(i)*b(i)
+
+! Resulting function value f(x):
+ fx = sum(i in BREAKS2) VC(i)*b(i)  
+
+
+! Define the SOS2 to interpolate linearly between the breakpoints. 
+! The weights are the coefficients X of the DefX constraints, 
+! all augmented by delta since Mosel does not accept 0-valued weights.
+
+ sum(i in BREAKS2) (BC(i)+delta)*b(i) is_sos2
+
+(! Alternatively: use the following if there is a 0-valued coefficient BC(i):
+ makesos2(union(i in BREAKS2) {b(i)}, Defx)
+!) 
+
+
+! Convexity row 
+ sum(i in BREAKS2) b(i) = 1
+
+
+ 
+! **** Example of objective function: minimize 'fx' ****
+! (possible interpretation: cost function associated with x)
+
+! Add a bound on x to get a somewhat more meaningful model
+ x >= 150
+ 
+ minimize(fx)
+ 
+ writeln("Solution: ", getobjval)
+ writeln("fx=", fx.sol, ", x=", x.sol)
+
+end-model

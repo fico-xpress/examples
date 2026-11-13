@@ -1,0 +1,90 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file multiout2.mos
+   ``````````````````
+   Output several data arrays into a single table.
+   - Using SQL commands -
+       
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2002, rev. Aug. 2023
+*******************************************************!)
+
+model "Output multiple data columns (2)"
+ uses "mmetc" , "mmodbc"
+ options keepassert
+
+ declarations
+  PRODUCTS: set of string
+  MACH: range
+  COST: dynamic array(PRODUCTS,MACH) of real
+  DUR: dynamic array(PRODUCTS,MACH) of integer
+  Tables: list of string
+ end-declarations
+
+! Read data
+ initializations from "multiout.dat"
+  COST DUR
+ end-initializations
+
+! **** Writing data to text files ****
+! Write out data in Mosel format: add data to the input file
+ initializations to "multiout.dat"
+  [COST,DUR] as "CombData"
+ end-initializations
+
+! Write out data in diskdata format
+ diskdata(ETC_OUT+ETC_SPARSE, "multiodd.dat", [COST,DUR])
+
+! **** Writing data to databases ****
+! Write data to the Access database multicol.mdb
+! SQLconnect('DSN=MS Access Database;DBQ=C:/xpress/examples/mosel/WhitePapers/MoselData/multicol.mdb')
+ SQLconnect('multicol.mdb')
+ assert(getparam("SQLsuccess"))
+
+ setparam("SQLverbose",true)
+ setparam("SQLdebug",true)
+
+ SQLtables(Tables)
+ if findfirst(Tables, "CombData")>0 then SQLexecute("drop table CombData"); end-if
+ SQLexecute("create table CombData (Products varchar(10), Mach integer, Cost double, Duration integer)")
+ assert(getparam("SQLsuccess"))
+ SQLexecute("insert into CombData(Products, Mach, Cost, Duration) values (?,?,?,?)", [COST,DUR])
+ assert(getparam("SQLsuccess"))
+
+ SQLdisconnect
+
+! Write data to the mysql database multicol (not provided)
+! SQLconnect('DSN=mysql;DB=multicol')
+
+! Write data to the SQLite database multicol
+! SQLconnect('DSN=sqlite;DATABASE=multicol')
+ SQLconnect('multicol.sqlite')
+
+ assert(getparam("SQLsuccess"))
+ setparam("SQLverbose",true)
+
+ Tables:=[]; SQLtables(Tables)
+ if findfirst(Tables, "CombData")>0 then SQLexecute("drop table CombData"); end-if
+ SQLexecute("create table CombData (Products varchar(10), Mach integer, Cost double, Duration integer)")
+ assert(getparam("SQLsuccess"))
+ SQLexecute("insert into CombData(Products, Mach, Cost, Duration) values (?,?,?,?)", [COST,DUR])
+ assert(getparam("SQLsuccess"))
+
+ SQLdisconnect
+
+! Write data to the Excel spreadsheet multicol.xls  
+! (this assumes that the range 'CombData' has been created previously):
+! SQLconnect('DSN=Excel Files;DBQ=C:/xpress/examples/mosel/WhitePapers/MoselData/multicol.xls')
+(!
+ SQLconnect('multicol.xls')
+ assert(getparam("SQLsuccess"))
+ setparam("SQLverbose",true)
+
+ SQLexecute("insert into CombData (Products, Mach, Cost, Duration) values (?,?,?,?)", [COST,DUR])
+ assert(getparam("SQLsuccess"))
+
+ SQLdisconnect
+!)
+end-model

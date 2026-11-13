@@ -1,0 +1,46 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file threedimarr4.mos
+   `````````````````````
+   Reading 3-dimensional arrays.
+   - Using OCI statements -
+       
+   (c) 2014 Fair Isaac Corporation
+       author: S. Heipcke, Jan. 2014, rev. Aug. 2023
+*******************************************************!)
+
+model "ThreeDimArr (OCI)"
+ uses "mmoci", "mmsystem"
+
+ parameters
+  DB="myname/mypassword@dbname"     ! Login to Oracle database (not provided)
+  CNCT="mmoci.oci:debug;"+DB
+ end-parameters
+
+ declarations
+  I: range
+  J: set of string
+  K = 1..5	              ! The last index set must be defined in the model
+  A: dynamic array(I,J,K) of real
+  Idx3: text
+ end-declarations
+
+ setparam("OCIdebug",true)
+ OCIlogon(DB)
+ if not getparam("OCIsuccess"): setioerr("Database connection failed")
+ 
+ setparam("OCIndxcol", false) ! Partially indexed data
+
+ forall(k in K) Idx3+= (", Index3_"+k )
+ OCIexecute("select Index1, Index2" + Idx3 + " from Tab_23", A)
+ OCIlogoff
+
+ writeln("A: ")
+ forall(i in I, j in J, k in K | exists(A(i,j,k)))
+  writeln("A(", i, ",", j, ",", k, "): ", A(i,j,k))
+ 
+end-model
+
+

@@ -1,0 +1,34 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file runtestsub.mos
+   ```````````````````
+   Running a model from another Mosel model,
+   waiting for the submodel termination.
+       
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, May 2006
+*******************************************************!)
+
+model "Run model testsub"
+ uses "mmjobs"
+
+ declarations
+  modSub: Model
+ end-declarations
+                                   ! Compile the model file
+ if compile("testsub.mos")<>0 then exit(1); end-if
+ load(modSub, "testsub.bim")       ! Load the bim file
+
+! Uncomment one of the following lines to redirect the submodel output
+! setdefstream(modSub, F_OUTPUT, "testout.txt") ! Output to file
+! setdefstream(modSub, F_OUTPUT, "tee:testout.txt&")  
+                                                ! Output to file and on screen
+! setdefstream(modSub, F_OUTPUT, "null:")       ! Disable all output
+
+ run(modSub)                       ! Start model execution
+ wait                              ! Wait for model termination
+ dropnextevent                     ! Ignore termination event message
+
+end-model 

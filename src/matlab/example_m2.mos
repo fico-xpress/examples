@@ -1,0 +1,17 @@
+(!******************************************************
+   Mosel Matlab Example Problems
+   =============================
+
+   file example_m2.mos
+   `````````````````````
+   Printing a MATLAB string variable 
+   
+  (c) 2014 Fair Isaac Corporation
+      author: L.Bertacco, Apr. 2014
+*******************************************************!)
+
+model "example_m2" 
+ uses "mmsystem";
+ fcopy("matlab.mws:message", "")
+ writeln
+end-model

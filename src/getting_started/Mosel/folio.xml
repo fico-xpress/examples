@@ -1,0 +1,12 @@
+<portfolio>
+ <share name="treasury" ret="5" dev="0.1" country="Canada" region="NA" risk="low" /> 
+ <share name="hardware" ret="17" dev="19" country="USA" region="NA" risk="high" /> 
+ <share name="theater" ret="26" dev="28" country="USA" region="NA" risk="high" /> 
+ <share name="telecom"  ret="12" dev="22" country="USA" region="NA" risk="high" />
+ <share name="brewery"  ret="8" dev="4" country="UK" region="Europe" risk="low" />
+ <share name="highways" ret="9" dev="3.5" country="UK" region="Europe" risk="low" /> 
+ <share name="cars"  ret="7" dev="5" country="Germany" region="Europe" risk="low" />
+ <share name="bank" ret="6" dev="0.5" country="Luxemburg" region="Europe" risk="low" /> 
+ <share name="software" ret="31" dev="25" country="India" region="Asia" risk="high" /> 
+ <share name="electronics" ret="21" dev="16" country="Japan" region="Asia" risk="high" />
+</portfolio>

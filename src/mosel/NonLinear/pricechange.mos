@@ -1,0 +1,122 @@
+(!*********************************************************************
+   Mosel NL examples
+   =================
+   file pricechange.mos
+   ````````````````````
+   Five dealers in adjacent stalls at a market were selling apples
+   of identical quality, so they had to keep their prices equal. At the
+   end of the day every dealer had sold a different number of apples, 
+   yet all had taken in the same total.
+   How much did they charge and how much did they take in, assuming
+   that all prices were integer values?  
+   Note: The problem is possible only if the price was changed during
+   the course of the day. We minimize the number of price changes.
+
+   Based on AMPL model pchange.mod by M.J.Chlond
+   Reference: M. Kraitchik, Mathematical Recreations (p. 33-35), Dover
+
+   (c) 2013 Fair Issac Corporation
+       author: S. Heipcke, Mar. 2013, rev. Dec. 2017
+*********************************************************************!)
+  
+model "pricechange"
+ uses "mmxnlp", "mmsystem"
+
+ parameters
+   NP = 4                               ! Maximum number of price changes
+   MAXPRICE = 10                        ! Highest permissible price
+ end-parameters  
+
+ forward procedure print_sol
+
+ declarations
+  DEALERS: set of string                ! Dealers
+  PRICES = 1..NP                        ! Prices
+  NSOLD: array(DEALERS) of real         ! Total number sold by each dealer
+  sell: array(DEALERS,PRICES) of mpvar  ! Number sold by dealer i at price j
+  price: array(PRICES) of mpvar	        ! Price j (i.e. first and second prices)
+  pchange: array(PRICES) of mpvar       ! 1 iff price j and j+1 are different
+  totalrev: mpvar                       ! Total revenu per dealer
+ end-declarations
+
+ NSOLD:: (["Mr.Brown","Mrs.White","Mr.Black","Mr.Grey","Ms.Violet"])[10, 25, 30, 15, 35]
+   !  More difficult: [10, 25, 30, 12, 35]  
+   !  Easy: [10, 25, 30, 15, 35]
+ finalize(DEALERS)
+
+ forall(i in DEALERS,p in PRICES) do
+  sell(i,p)<=NSOLD(i)
+  sell(i,p) is_integer
+ end-do
+
+ forall(p in PRICES) do
+  price(p)>=1
+  price(p)<=MAXPRICE
+  price(p) is_integer
+  pchange(p) is_binary
+ end-do
+
+! Quantities sold 
+ forall(i in DEALERS) NSOLD(i) = sum(p in PRICES) sell(i,p)
+
+! All dealers take in the same 
+ forall(i in DEALERS)
+  sum(p in PRICES) (price(p)*sell(i,p)) = totalrev
+
+! Direction of price changes (symmetry breaking)
+ price(2) >= price(1)+1
+
+! Counter the number of price changes 
+ forall(p in PRICES | p>1) price(p) >= price(p-1)+pchange(p)
+ forall(p in PRICES | p>1) price(p)-price(p-1) <= MAXPRICE*pchange(p)
+
+! Solve the problem
+ setparam("xnlp_verbose",true) 
+
+! Obj 1: Minimize total span of prices
+ MaxDiff:= price(NP)-price(1)
+
+! Obj2 : Minimize number of price changes 
+ TotalChanges:= sum(p in PRICES | p>1) pchange(p)
+
+! Solve the problem for the different objectives
+ minimize(MaxDiff)
+ print_sol
+
+ minimize(TotalChanges)
+ print_sol
+
+! Obj3 + 4 : Minimize + maximize total revenue per dealer
+ minimize(totalrev)
+ print_sol
+
+ maximize(totalrev)
+ print_sol
+
+!**************** Solution printing ****************
+ procedure print_sol
+  nlstat:=getparam("XNLP_STATUS")
+  if nlstat<>XNLP_STATUS_LOCALLY_OPTIMAL and nlstat<>XNLP_STATUS_OPTIMAL then
+   writeln("No solution found.")
+  else   
+   writeln("Number of price changes: ", TotalChanges.sol)
+   writeln("Amplitude of prices: ", MaxDiff.sol)
+   writeln("Total revenue per dealer: ", totalrev.sol)
+   writeln("Quantities sold: ")
+   writeln(" "*(21+round(TotalChanges.sol)), "Quantity at prices")
+   write("Dealer      TotalQty")
+   forall(p in PRICES | p=1 or pchange(p).sol>0) 
+     write(strfmt(price(p).sol,5),"/kg")
+   writeln("\n", "-"*(22+(round(TotalChanges.sol)+1)*8))
+   forall(i in DEALERS) do
+    write(strfmt(i,-9), strfmt(NSOLD(i),9), "  ")
+    forall(p in PRICES | p=1 or pchange(p).sol>0)
+     write(strfmt(sum(q in PRICES | price(q).sol=price(p).sol) 
+      round(sell(i,q).sol),8))
+    writeln
+   end-do   
+   writeln("-"*(22+(round(TotalChanges.sol)+1)*8))
+  end-if
+ end-procedure
+
+end-model

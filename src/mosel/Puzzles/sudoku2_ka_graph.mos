@@ -1,0 +1,239 @@
+(!****************************************************************
+   CP example problems
+   ===================
+
+   file sudoku2_ka_graph.mos
+   `````````````````````````
+   Sudoku puzzle - data read from file.
+   -- Graphical display of the effects of constraint propagation --
+
+   *** This model cannot be run with a Community Licence
+       for the provided data instance ***
+
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Aug. 2005, rev. Sep. 2020
+*****************************************************************!)
+
+model "sudoku (Kalis)"
+  uses "kalis", "mmsystem", "mmsvg"
+
+  parameters
+    DATAFILE = "sudokug290705.dat"
+    ALG=2             ! Propagation algorithm choice: values 1 or 2
+    COMPLETE=true     ! Whether to use complete data set
+    MAXSOL=10         ! Limit the number of solutions (usually for incomplete data sets)
+  end-parameters
+
+  forward procedure printsolution(numsol: integer)
+  forward public procedure drawdomainscb
+  forward procedure drawdomains
+  forward procedure drawdomains(type: string, num:integer)
+
+ ! Configuration settings
+  PROPALG:= if(ALG=1, KALIS_FORWARD_CHECKING, KALIS_GEN_ARC_CONSISTENCY)
+                                           ! Choice of propagation algorithm
+  svgsetreffreq(5)                         ! Graph refresh frequency (per second)
+  ifpause:=false                           ! Switch off interactive mode
+
+!**************************** Model formulation ****************************
+
+  setparam("kalis_default_lb", 1); setparam("kalis_default_ub", 9)
+                                     ! Default variable bounds
+  declarations
+    XS = {'A','B','C','D','E','F','G','H','I'}
+    N = XS.size
+    YS = 1..9
+    M = YS.size
+    VALUE: dynamic array(XS,YS) of integer  ! Initial board configuration
+    v: array(XS,YS) of cpvar                ! Decision variables
+    lastv: array(XS,YS) of cpreversible     ! Backtrackable values for saving states
+  end-declarations
+
+  initializations from "Data/"+DATAFILE
+    VALUE
+  end-initializations
+
+ ! Fix variables to the given values
+  if COMPLETE then
+    forall(x in XS, y in YS | exists(VALUE(x,y))) v(x,y) = VALUE(x,y)
+   else
+    ! Incomplete fixing:
+     ct:=0
+     forall(ct as counter, x in XS, y in YS | exists(VALUE(x,y))) if ct>1 then v(x,y) = VALUE(x,y); end-if
+  end-if
+  drawdomains("",0)
+
+  starttime:=gettime
+
+ ! All-different values in rows
+  ct:=0
+  forall(y in YS, ct as counter) do
+    all_different( union(x in XS) {v(x,y)}, PROPALG)
+    drawdomains("r",ct)
+  end-do
+
+! All-different values in columns
+ ct:=0
+ forall(x in XS, ct as counter) do
+   all_different(union(y in YS) {v(x,y)}, PROPALG)
+   drawdomains("c", ct)
+ end-do
+
+ ! All-different values in 3x3 squares
+  forall(i in 0..2) do
+    all_different(union(x in {'A','B','C'}, y in {1+3*i,2+3*i,3+3*i}) {v(x,y)}, PROPALG)
+    drawdomains("s", i*3+1)
+    all_different(union(x in {'D','E','F'}, y in {1+3*i,2+3*i,3+3*i}) {v(x,y)}, PROPALG)
+    drawdomains("s", i*3+2)
+    all_different(union(x in {'G','H','I'}, y in {1+3*i,2+3*i,3+3*i}) {v(x,y)}, PROPALG)
+    drawdomains("s", i*3+3)
+  end-do
+
+  cp_set_node_callback("drawdomainscb")
+
+  forall(x in XS,y in YS)
+    set_reversible_attributes(lastv(x,y), if(is_fixed(v(x,y)),v(x,y).lb,0))
+
+  ifpause:=false   ! Switch on interactive mode
+
+ ! Solve the problem
+  solct:= 0; svgrefresh
+  while (cp_find_next_sol and not svgclosing and solct<MAXSOL) do
+    solct+=1
+    printsolution(solct)
+    drawdomainscb
+  end-do
+  drawdomains("",0)
+
+  cp_show_stats
+  if solct<MAXSOL then
+    writeln("Number of solutions: ", solct)
+  else
+     writeln("Maximum number of solutions (", MAXSOL, ") reached.")
+  end-if
+  writeln("Total time: ", gettime-starttime)
+
+ ! Wait for display window to close
+  svgwaitclose("Close browser window to terminate model execution.")
+
+!**************************** Subroutines ****************************
+
+! **** Solution printing
+  procedure printsolution(numsol: integer)
+    writeln("Solution ", numsol)
+    write("   "); forall(x in XS) write(x," "); writeln
+    forall(y in YS) do
+      write(y, ": ")
+      forall(x in XS) write(v(x,y).sol," ")
+      writeln
+    end-do
+    returned:=true
+  end-procedure
+
+! **** Match Sudoku coordinates conventions (origin in upper left corner)
+! **** with SVG conventions (origin in lower left corner)
+  function posy(y: real): real
+    returned:=M+1-y
+  end-function
+
+! **** Drawing status in SVG format ****
+  public procedure drawdomains
+
+  ! Draw the board
+    svgaddgroup("B", "Board", SVG_BLACK)
+    forall(i in 1..N+1) do
+      svgaddline(i-0.4, 0.6, i-0.4, N+0.6)
+      if (i-1) mod 3 = 0 then svgsetstyle(svggetlastobj, SVG_STROKEWIDTH,3); end-if
+    end-do
+    forall(j in 1..M+1) do
+      svgaddline(0.6, j-0.4, M+0.6, j-0.4)
+      if (j-1) mod 3 = 0 then svgsetstyle(svggetlastobj, SVG_STROKEWIDTH,3); end-if
+    end-do
+    svgaddrectangle(0.6, 0.6, N, M)
+    svgsetstyle(svggetlastobj, SVG_STROKEWIDTH,3)
+
+  ! Draw the values
+    svgaddgroup("S", "Solution "+solct)
+    svgsetstyle(SVG_FONTSIZE,"x-large")
+    svgaddgroup("V", "Values")
+    svgsetstyle(SVG_FONTSIZE,"xx-small")
+    svgsetstyle(SVG_FILL,SVG_WHITE)
+    svgsetstyle(SVG_FILLOPACITY,1)
+
+    forall(y in YS) do
+      xct:=0
+      forall(x in XS, xct as counter)
+        if is_fixed(v(x,y)) then
+          svgaddtext("S", xct-0.1,posy(y+0.1), text(getlb(v(x,y))))
+        else
+          sz:=v(x,y).size
+          svgaddrectangle("V",xct-0.4,posy(y+0.4),1,1)
+          svgsetstyle(svggetlastobj,SVG_FILL,SVG_GREY)
+          svgsetstyle(svggetlastobj,SVG_FILLOPACITY,sz*0.05-0.05) 
+          svgsetstyle(svggetlastobj,SVG_STROKEWIDTH,0)
+          forall(i in 1..9 | contains(v(x,y),i)) do
+            xpos:=xct-0.25+((i-1)mod 3)*0.25
+            ypos:=posy(y-0.25+((i-1) div 3)*0.25)
+  (!          svgaddrectangle("V",xpos-0.03,ypos-0.01,0.22,0.22)
+            svgsetstyle(svggetlastobj,SVG_STROKEWIDTH,0)  !)
+            svgaddtext("V", xpos,ypos, text(i))
+          end-do
+        end-if
+    end-do
+
+    svgsetgraphviewbox(0,0, N+3, M+3)
+    svgsetgraphscale(35)
+    svgrefresh
+    if ifpause then svgpause; end-if   ! Whether to pause at every iteration
+    sleep(250)                         ! 250 milliseconds display duration
+  end-procedure
+
+  public procedure drawdomainscb
+   ! Interrupt loop if window is closed
+    if svgclosing then return; end-if
+    svgerase                          ! Delete previous graph
+
+   ! Draw the recently fixed cells
+    svgaddgroup("A", "Last fixed cells", SVG_GOLD)
+    svgsetstyle(SVG_FILL,SVG_CURRENT)
+    svgsetstyle(SVG_FILLOPACITY,0.25)
+    xct:=0
+    forall(x in XS, xct as counter)
+      forall(y in YS | is_fixed(v(x,y)))
+        if lastv(x,y).val <> v(x,y).lb then
+          svgaddrectangle("A", xct-0.4, posy(y+0.4), 1, 1)
+          lastv(x,y).val:=v(x,y).lb
+        end-if
+
+    drawdomains
+  end-procedure
+
+  procedure drawdomains(type: string, num:integer)
+   ! Interrupt loop if window is closed
+    if svgclosing then return; end-if
+    svgerase                          ! Delete previous graph
+
+   ! Draw the constraint
+    if type<>"" then
+      svgaddgroup("A", "Active constraint", SVG_GOLD)
+      svgsetstyle(SVG_FILL,SVG_CURRENT)
+      svgsetstyle(SVG_FILLOPACITY,0.2)
+    end-if
+    case type of
+    'c': do
+        forall(j in 1..M) svgaddrectangle("A", num-0.4, posy(j+0.4), 1, 1)
+      end-do
+    'r': do
+        forall(j in 1..N) svgaddrectangle("A", j-0.4, posy(num+0.4), 1, 1)
+      end-do
+    's': do
+        xval:=(num-1) mod 3
+        yval:=(num-1) div 3
+        forall(i in (xval*3+1)..(xval+1)*3, j in (yval*3+1)..(yval+1)*3)
+          svgaddrectangle("A", i-0.4, posy(j+0.4), 1, 1)
+      end-do
+    end-case
+
+    drawdomains
+  end-procedure
+end-model

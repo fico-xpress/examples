@@ -1,0 +1,86 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file b5paint4_ka.mos
+   ```````````````````
+   Planning of paint production
+   - Alternative formulation using disjunctions  
+     between tasks -
+   
+   *** This model cannot be run with a Community Licence 
+       for the provided data instance ***
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+       rev. Apr. 2022 
+*******************************************************!)
+
+model "B-5 Paint production (CP)"
+ uses "kalis", "mmsystem"
+ 
+ declarations   
+  NJ = 5                             ! Number of paint batches (=jobs)
+  JOBS=1..NJ
+
+  DUR: array(JOBS) of integer        ! Durations of jobs
+  CLEAN: array(JOBS,JOBS) of integer ! Cleaning times between jobs
+
+  task: array(JOBS) of cptask
+  res: cpresource
+
+  firstjob,lastjob,cleanlf,finish: cpvar
+  L: cpvarlist
+  cycleTime: cpvar                   ! Objective variable
+ end-declarations
+
+ initializations from 'Data/b5paint.dat'
+  DUR CLEAN 
+ end-initializations
+ 
+! Setting up the resource (formulation of the disjunction of tasks)
+ set_resource_attributes(res, KALIS_UNARY_RESOURCE, 1)
+  
+! Setting up the tasks 
+ forall(j in JOBS) getstart(task(j)) >= 1                     ! Start times
+ forall(j in JOBS) set_task_attributes(task(j), DUR(j), res)  ! Dur.s + disj.
+ forall(j,k in JOBS) setsetuptime(task(j), task(k), CLEAN(j,k), CLEAN(k,j)) 
+                                     ! Cleaning times between batches
+
+! Cleaning time at end of cycle (between last and first jobs)
+ setdomain(firstjob, JOBS); setdomain(lastjob, JOBS)
+ firstjob <> lastjob
+ forall(j in JOBS) equiv(getend(task(j))=getmakespan, lastjob=j)
+ forall(j in JOBS) equiv(getstart(task(j))=1, firstjob=j)
+ cleanlf = element(CLEAN, lastjob, firstjob)
+
+ forall(j in JOBS) L += getend(task(j))
+ finish = maximum(L)
+
+! Objective: minimize the duration of a production cycle
+ cycleTime = finish - 1 + cleanlf
+  
+! Solve the problem
+ if cp_schedule(cycleTime) = 0 then
+  writeln("Problem is infeasible")
+  exit(1)
+ end-if
+ cp_show_stats
+
+! Solution printing
+ declarations
+  SUCC: array(JOBS) of integer
+ end-declarations
+
+ forall(j in JOBS)
+  forall(k in JOBS)
+   if getsol(getstart(task(k))) = getsol(getend(task(j)))+CLEAN(j,k) then
+    SUCC(j):= k
+    break
+   end-if 
+ writeln("Minimum cycle time: ", getsol(cycleTime))
+ writeln("Sequence of batches:\nBatch Start Duration Cleaning")
+ forall(k in JOBS)
+  writeln(formattext("  %d%7d%8d%9d", k, getsol(task(k).start), DUR(k), 
+          if(SUCC(k)>0, CLEAN(k,SUCC(k)), cleanlf.sol)))
+
+end-model

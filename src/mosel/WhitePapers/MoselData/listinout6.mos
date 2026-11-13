@@ -1,0 +1,54 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file listinout6.mos
+   ```````````````````
+   Reading/writing lists from/to spreadsheets.
+   - Using 'initializations from' with the csv driver -
+   
+   (c) 2012 Fair Isaac Corporation
+       author: S. Heipcke, Dec. 2012
+*******************************************************!)
+
+model "List handling (CSV)"
+ uses "mmsheet"
+
+ parameters
+  CSTR_IN= 'mmsheet.csv:listdata.csv'
+  CSTR_OUT= 'mmsheet.csv:listdataout.csv'
+ end-parameters
+ 
+ declarations
+  LI: list of integer
+  A: integer
+  LS,LS2: list of string
+ end-declarations
+
+ initializations from CSTR_IN
+  LI as "[B4:I4]"
+  A as "[K4]"
+  LS as "[L4:P4]"
+ end-initializations 
+
+! Display the lists
+ writeln("LI: ", LI)
+ writeln("A: ", A, ", LS: ", LS)
+
+! Reverse the list LI
+ reverse(LI)
+
+! Append some text to every entry of LS
+ LS2:= sum(l in LS) [l+" "+A]
+
+! Display the modified lists
+ writeln("LI: ", LI)
+ writeln("LS2: ", LS2)
+
+ initializations to CSTR_OUT
+  LI as "[B3:I3]"
+  LS2 as "[K3:O3]"                 ! Output into a row
+  LS2 as "grow;[K6]"               ! Output into a column
+ end-initializations
+
+end-model

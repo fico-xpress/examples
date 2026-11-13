@@ -1,0 +1,70 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file pwlinsos1.mos
+   ``````````````````
+   Modeling a piecewise linear function:
+   SOS-1 formulation  
+   - Example discussed in mipformref whitepaper -
+
+   (c) 2009 Fair Isaac Corporation
+       author: S. Heipcke, Feb. 2009, rev. July 2020
+*******************************************************!)
+
+model "Piecewise linear S1"
+ uses "mmxprs"
+ 
+ declarations
+  NB = 3                                ! Number of values
+  BREAKS = 1..NB                        ! Set of break points
+  VALUE: array(BREAKS) of real          ! Coefficient value at break points
+  x, fx: mpvar                          ! The actual decision variables x and y
+  xp: array(BREAKS) of mpvar            ! Parts of 'x'
+  b: array(BREAKS) of mpvar             ! Indicators of price bands
+  B: array(0..NB) of real               ! Break points (X coordinates)
+ end-declarations
+ 
+ B:: [0, 50, 120, 200]
+ VALUE:: [ 1, 1.5, 2]
+ 
+
+! Definition of x
+ x = sum(i in BREAKS) xp(i)
+ Defx:= sum(i in BREAKS) B(i)*b(i)
+
+! Resulting function value f(x):
+ fx = sum(i in BREAKS) VALUE(i)*xp(i)  
+
+
+ forall(i in BREAKS) b(i) is_binary
+
+(! Alternatively:
+ sum(i in BREAKS) B(i)*b(i) is_sos1
+! must use the following if there is a 0-valued coefficient B(i):
+! makesos1(union(i in BREAKS) {b(i)}, Defx)
+!) 
+
+
+! Lower and upper bounds on quantities
+ forall(i in BREAKS) do
+  B(i-1)*b(i) <= xp(i);  xp(i) <= B(i)*b(i)
+ end-do
+
+! The value of x lies in exactly one interval
+ sum(i in BREAKS) b(i) = 1
+
+ 
+! **** Example of objective function: minimize 'fx' ****
+! (possible interpretation: cost function associated with x)
+
+! Add a bound on x to get a somewhat more meaningful model
+ x >= 150
+ 
+ minimize(fx)
+ 
+ writeln("Solution: ", getobjval)
+ writeln("fx=", fx.sol, ", x=", x.sol)
+forall(i in BREAKS) writeln(xp(i).sol)
+
+end-model

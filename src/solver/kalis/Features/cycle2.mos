@@ -1,0 +1,241 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file cycle2.mos
+   ```````````````
+   Cycle constraint example, solving a small TSP problem.
+   - Specifying callback routines by name -
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+       Creation: 2005, rev. Sep. 2018
+*****************************************************************!)
+
+model "TSP"
+ uses "kalis"
+
+ parameters
+  S = 14  ! Number of cities to visit  
+ end-parameters
+ 
+ declarations 
+  TC : array(0..3*S) of integer 
+ end-declarations
+
+ ! TSP DATA
+ TC :: [
+  1 , 1647,  9610,
+  2 , 1647,  9444,
+  3 , 2009,  9254,
+  4 , 2239,  9337,
+  5 , 2523,  9724,
+  6 , 2200,  9605,
+  7 , 2047,  9702,
+  8 , 1720,  9629,
+  9 , 1630,  9738,
+  10, 1405,  9812,
+  11, 1653,  9738,
+  12, 2152,  9559,
+  13, 1941,  9713,
+  14, 2009,  9455]
+ 
+ forward public procedure print_solution
+ forward public function bestregret(Vars: cpvarlist): integer
+ forward public function bestneighbor(x: cpvar): integer
+
+ setparam("KALIS_DEFAULT_LB", 0)
+ setparam("KALIS_DEFAULT_UB", S-1)
+
+ declarations
+  CITIES = 0..S-1                  ! Set of cities        
+  succ: array(CITIES) of cpvar     ! Array of successor variables
+  prev: array(CITIES) of cpvar     ! Array of predecessor variables
+ end-declarations
+ 
+ setparam("KALIS_DEFAULT_UB", 10000)
+ 
+ declarations
+  dist_matrix: array(CITIES,CITIES) of integer  ! Distance matrix
+  totaldist: cpvar                 ! Total distance of the tour
+  succpred: cpvarlist              ! Variable list for branching
+ end-declarations
+
+ ! Setting the variable names
+ forall(p in CITIES) do
+  setname(succ(p),"succ("+p+")")
+  setname(prev(p),"prev("+p+")")    
+ end-do
+ 
+ ! Add succesors and predecessors to succpred list for branching
+ forall(p in CITIES) succpred += succ(p)        
+ forall(p in CITIES) succpred += prev(p)
+ 
+ ! Build the distance matrix
+ forall(p1,p2 in CITIES | p1<>p2)
+   dist_matrix(p1,p2) :=  round(sqrt((TC(3*p2+1) - TC(3*p1+1)) *
+    (TC(3*p2+1) - TC(3*p1+1)) + (TC(3*p2+2) - TC(3*p1+2)) * 
+    (TC(3*p2+2) - TC(3*p1+2))))
+ 
+ ! Set the name of the distance variable
+ setname(totaldist, "total_distance")
+ 
+ ! Posting the cycle constraint
+ cycle(succ, prev, totaldist, dist_matrix)
+
+ ! Print all solutions found
+ cp_set_solution_callback("print_solution")
+ 
+ ! Set the branching strategy
+ cp_set_branching(assign_and_forbid("bestregret", "bestneighbor", 
+                  succpred)) 
+ setparam("KALIS_MAX_COMPUTATION_TIME", 10)
+
+ ! Find the optimal tour
+ if cp_minimize(totaldist) then
+  if getparam("KALIS_SEARCH_LIMIT")=KALIS_SLIM_BY_TIME then
+   writeln("Search time limit reached")
+  else 
+   writeln("Done!")
+  end-if 
+ end-if
+ 
+ 
+!---------------------------------------------------------------
+! **** Solution printing ****
+ public procedure print_solution
+  writeln("TOUR LENGTH = ", getsol(totaldist))    
+  
+  thispos:=getsol(succ(0))
+  nextpos:=getsol(succ(thispos))     
+  write("  Tour: ", thispos)
+  while (nextpos <> getsol(succ(0))) do  
+    write(" -> ", nextpos)
+    thispos:=nextpos
+    nextpos:=getsol(succ(thispos))   
+  end-do
+  writeln
+ end-procedure
+ 
+!---------------------------------------------------------------
+! **** Variable choice ****
+ public function bestregret(Vars: cpvarlist): integer
+  
+ ! Get the number of elements of "Vars"
+  listsize:= getsize(Vars)   
+  minindex := 0
+  mindist := 0
+
+ ! Set on uninstantiated variables
+  forall(i in 1..listsize) do
+    if not is_fixed(getvar(Vars,i)) then         
+      if i <= S then
+        bestn := getlb(getvar(Vars,i))
+        v:=bestn
+        mval:=dist_matrix(i-1,v)
+        while (v < getub(getvar(Vars,i))) do
+          v:=getnext(getvar(Vars,i),v)
+          if dist_matrix(i-1,v)<=mval then
+            mval:=dist_matrix(i-1,v)
+            bestn:=v
+          end-if 
+        end-do
+        sbestn := getlb(getvar(Vars,i))
+        mval2:= 10000000
+        v:=sbestn
+        if (dist_matrix(i-1,v)<=mval2 and v <> bestn) then
+          mval2:=dist_matrix(i-1,v)
+          sbestn:=v
+        end-if 
+        while (v < getub(getvar(Vars,i))) do
+          v:=getnext(getvar(Vars,i),v)
+          if (dist_matrix(i-1,v)<=mval2 and v <> bestn) then
+            mval2:=dist_matrix(i-1,v)
+            sbestn:=v
+          end-if 
+        end-do
+
+      else
+
+        bestn := getlb(getvar(Vars,i))
+        v:=bestn
+        mval:=dist_matrix(v,i-S-1)
+        while (v < getub(getvar(Vars,i))) do
+          v:=getnext(getvar(Vars,i),v)
+          if dist_matrix(v,i-S-1)<=mval then
+            mval:=dist_matrix(v,i-S-1)
+            bestn:=v
+          end-if 
+        end-do
+        sbestn := getlb(getvar(Vars,i))
+        mval2:= 10000000
+        v:=sbestn
+        if (dist_matrix(v,i-S-1)<=mval2 and v <> bestn) then
+          mval2:=dist_matrix(v,i-S-1)
+          sbestn:=v
+        end-if 
+        while (v < getub(getvar(Vars,i))) do
+          v:=getnext(getvar(Vars,i),v)
+          if (dist_matrix(v,i-S-1)<=mval2 and v <> bestn) then
+            mval2:=dist_matrix(v,i-S-1)
+            sbestn:=v
+          end-if 
+        end-do     
+      end-if
+     
+      dsize := getsize(getvar(Vars,i))
+      rank := integer(10000/ dsize +(mval2 - mval))
+      if mindist<= rank then
+        mindist := rank
+        minindex := i
+      end-if  
+
+    end-if    
+  end-do
+ 
+  returned := minindex
+  
+ end-function
+ 
+!---------------------------------------------------------------
+! **** Value choice: choose value resulting in smallest distance 
+ public function bestneighbor(x: cpvar): integer
+ 
+  issucc := false
+  idx := -1
+  forall (i in CITIES)
+    if (is_same(succ(i),x)) then
+      idx:= i
+      issucc := true
+    end-if
+  forall (i in CITIES)
+    if (is_same(prev(i),x)) then
+      idx:= i
+    end-if
+
+  if issucc then
+    returned:= getlb(x)
+    v:=getlb(x)
+    mval:=dist_matrix(idx,v)
+    while (v < getub(x)) do
+      v:=getnext(x,v)
+      if dist_matrix(idx,v)<=mval then
+        mval:=dist_matrix(idx,v)
+        returned:=v
+      end-if
+    end-do  
+  else 
+    returned:= getlb(x)
+    v:=getlb(x)
+    mval:=dist_matrix(v,idx)
+    while (v < getub(x)) do
+      v:=getnext(x,v)
+      if dist_matrix(v,idx)<=mval then
+        mval:=dist_matrix(v,idx)
+        returned:=v
+      end-if
+     end-do  
+  end-if
+
+ end-function
+ 
+end-model

@@ -1,0 +1,77 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file d2ship.mos
+   ```````````````
+   Choice of wheat load for a ship
+   
+   A shipper has 7 clients that wish to ship wheat. Each has
+   varying quantities of lots, size of lots, shipping price,
+   and transport costs. How can the shipper maximize profit?
+   
+   Three incrementally defined problems are solved in series. 
+   Each introduces a new constraint while still maximizing profit.
+   Procedure "printsol" is used to print the different 
+   solutions depending on which problem is solved.
+      
+   (c) 2008-2022 Fair Isaac Corporation
+       author: S. Heipcke, Mar. 2002, rev. Mar. 2022
+*******************************************************!)
+
+model "D-2 Ship loading"
+ uses "mmxprs"
+
+ forward procedure printsol(num:integer)
+
+ declarations   
+  CLIENTS = 1..7                    ! Set of clients
+
+  AVAIL: array(CLIENTS) of integer  ! Number of lots per client
+  SIZE: array(CLIENTS) of integer   ! Lot sizes
+  PRICE: array(CLIENTS) of integer  ! Prices charged to clients
+  COST: array(CLIENTS) of integer   ! Cost per client
+  PROF: array(CLIENTS) of integer   ! Profit per client
+  CAP: integer                      ! Capacity of the ship
+ 
+  loadqty: array(CLIENTS) of mpvar  ! Lots taken from clients
+ end-declarations
+
+ initializations from 'd2ship.dat'
+  AVAIL SIZE PRICE COST CAP
+ end-initializations
+
+ forall(c in CLIENTS) PROF(c):= PRICE(c) - COST(c)*SIZE(c)
+
+ Profit:= sum(c in CLIENTS) PROF(c)*loadqty(c)
+
+! Limit on the capacity of the ship
+ sum(c in CLIENTS) SIZE(c)*loadqty(c) <= CAP
+
+! Problem 1: unlimited availability of lots at clients
+ maximize(Profit)
+ printsol(1)
+
+! Problem 2: limits on availability of lots at clients
+ forall(c in CLIENTS) loadqty(c) <= AVAIL(c)
+
+ maximize(Profit)
+ printsol(2)
+
+! Problem 3: lots must be integer
+ forall(c in CLIENTS) loadqty(c) is_integer
+
+ maximize(Profit)
+ printsol(3)
+ 
+!-----------------------------------------------------------------
+
+! Solution printing
+ procedure printsol(num:integer)
+  writeln("Problem ", num, ": profit: ", getobjval)
+  forall(c in CLIENTS) 
+   write( if(getsol(loadqty(c))>0 , " " + c + ":" + getsol(loadqty(c)), ""))
+  writeln
+ end-procedure
+ 
+end-model

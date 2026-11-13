@@ -1,0 +1,82 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file k4even_ka.mos
+   ```````````````
+   Placing a given number of chips on a 4x4 grid 
+   such that every row and every column contains
+   an even number of chips.
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, March 2005, rev. Jan. 2018
+*******************************************************!)
+
+model "K-4 Even (CP)"
+ uses "kalis"
+
+ forward procedure test_return(result: boolean)
+
+ setparam("KALIS_DEFAULT_LB", 0)
+
+ declarations
+  NPOS = 4
+  POS = 1..NPOS                       ! Positions in a row/column
+  NCHIP = 10                          ! Number of chips
+    
+  place: array(POS,POS) of cpvar      ! 1 if chip at the position, 0 otherwise
+  row, column: array(POS) of cpvar    ! Chips per row/column
+ end-declarations
+
+! Creation of variables
+ forall(r,c in POS) place(r,c) <= 1
+ VALUES:= union(p in POS | isodd(p)) {p}
+ forall(r in POS) do
+  row(r) <= NPOS
+  forall(v in VALUES) row(r) <> v
+ end-do 
+ forall(c in POS) do
+  column(c) <= NPOS
+  forall(v in VALUES) column(c) <> v
+ end-do
+
+! Total number of chips
+ NumChip:= sum(r,c in POS) place(r,c) = NCHIP
+ test_return(cp_post(NumChip))
+
+! Even number of chips in all rows and columns
+ forall(r in POS) do
+  PR(r):= sum(c in POS) place(r,c) = row(r)
+  test_return(cp_post(PR(r)))
+ end-do
+ forall(c in POS) do
+  PC(c):= sum(r in POS) place(r,c) = column(c)
+  test_return(cp_post(PC(c)))
+ end-do
+
+! Define enumeration 
+ cp_set_branching(assign_and_forbid(KALIS_SMALLEST_MAX, KALIS_MAX_TO_MIN,
+                                    place))
+
+! Solve the problem 
+ if not(cp_find_next_sol) then
+  writeln("Problem is infeasible")
+  exit(1)
+ end-if 
+ 
+! Solution printing
+ forall(r in POS) do
+  forall(c in POS) write( if(getsol(place(r,c))>0, "X ", ". ") )
+  writeln
+ end-do
+
+!***********************************************************************
+! Error handling
+ procedure test_return(result: boolean)
+  if not(result) then
+   writeln("Problem is infeasible")
+   exit(1)
+  end-if
+ end-procedure
+  
+end-model

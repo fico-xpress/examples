@@ -1,0 +1,59 @@
+msgid ""
+msgstr ""
+"Language: fr\n"
+"Content-Type: text/plain; charset=ISO8859-1\n"
+
+msgid "This is the %s day of the week\n"
+msgstr "C'est le %s jour de la semaine\n"
+
+msgid "Today is %s\n"
+msgstr "Aujourd'hui " "nous sommes %s\n"
+
+msgid "fifth"
+msgstr "cinquième"
+
+msgid "first"
+msgstr "premier"
+
+msgid "fourth"
+msgstr "quatrième"
+
+msgid "friday"
+msgstr "vendredi"
+
+msgid "monday"
+msgstr "lundi"
+
+msgid "no"
+msgstr "non"
+
+msgid "saturday"
+msgstr "samedi"
+
+msgid "second"
+msgstr "deuxième"
+
+msgid "seventh"
+msgstr "septième"
+
+msgid "sixth"
+msgstr "sixième"
+
+msgid "sunday"
+msgstr "dimanche"
+
+msgid "third"
+msgstr "troisième"
+
+msgid "thursday"
+msgstr "jeudi"
+
+msgid "tuesday"
+msgstr "mardi"
+
+msgid "wednesday"
+msgstr "mercredi"
+
+msgid "yes"
+msgstr "oui"
+

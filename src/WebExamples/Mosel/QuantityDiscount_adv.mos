@@ -1,0 +1,51 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file QuantityDiscount_adv.mos 
+   `````````````````````````````
+   Improved version of model 'QuantityDiscount_std.mos'.
+   -- Multiple cases within a loop --
+ 
+   (c) 2019-2026 Fair Isaac Corporation
+       author: S.Heipcke
+*******************************************************!)
+model "Quantity Discount" 
+
+    uses "mmsheet","mmsystem"
+
+    parameters
+        DATA_FILE_PREFIX = "00"
+    end-parameters
+    writeln("#E:IMPORT")
+
+    writeln("#S:READ")
+    declarations
+        P: range
+        V: array(P) of integer    
+        W: array(P) of real
+        S: real
+        A: array(0..50) of real
+    end-declarations
+
+    initializations from "mmetc.diskdata:"
+        V as "sparse,skiph," + DATA_FILE_PREFIX + "_H_QuantityDiscount_V.csv"
+    end-initializations
+    writeln("#E:READ")
+
+    writeln("#S:PROC")
+    A(0):=1.50; A(1):=1.45;
+    forall(i in 2..5) A(i):=1.30; forall(i in 6..50) A(i):=1.25
+ 
+    ! Local definition to replace multiple access to same array element
+    forall(p in P,vp=V(p))
+      W(p):=if(vp<=50, A(vp), 1.20)
+
+    S := sum(p in P) V(p) * W(p)
+    writeln("#E:PROC")
+
+    writeln("#S:TEST")
+    setparam("realfmt", "%.2f")
+    writeln(S)
+    writeln("#E:TEST")
+end-model

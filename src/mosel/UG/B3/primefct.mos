@@ -1,0 +1,55 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file primefct.mos 
+   `````````````````
+   Working with sets. Function returning a set.
+ 
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Nov. 2005
+*******************************************************!)
+
+model "Prime (fct)"
+ parameters
+  LIMIT=100                     ! Search for prime numbers in 2..LIMIT
+ end-parameters
+
+ forward function calc_prime(l: integer): set of integer
+
+ declarations
+  P: set of integer             ! Set of prime numbers
+ end-declarations
+ 
+ writeln("Prime numbers between 2 and ", LIMIT, ":")
+
+ P:= calc_prime(LIMIT)          ! Calculate prime numbers
+
+ writeln(P)
+ writeln(" (", getsize(P), " prime numbers.)")
+
+
+!*****************************************************************
+
+ function calc_prime(l: integer): set of integer
+  declarations
+   SNumbers: set of integer     ! Set of numbers to be checked
+   SPrime: set of integer       ! Set of prime numbers
+  end-declarations
+
+  SNumbers:={2..LIMIT} 
+
+  n:=2
+  repeat
+    while (not(n in SNumbers)) n+=1
+    SPrime += {n}               ! n is a prime number
+    i:=n
+    while (i<=LIMIT) do         ! Remove n and all its multiples
+      SNumbers-= {i}
+      i+=n
+    end-do
+  until SNumbers={}    
+  returned:= SPrime
+ end-function
+ 
+end-model

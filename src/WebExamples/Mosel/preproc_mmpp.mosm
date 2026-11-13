@@ -1,0 +1,40 @@
+(!****************************************************** 
+   Mosel Preprocessor Examples
+   ===========================
+
+   file preproc_mmpp.mos
+   `````````````````````
+   Example of using preprocessor definitions within a Mosel model
+
+   This file must be processed through the Mosel preprocessor with
+     mosel exe -mDA=1 -mDDEBUG preproc_mmpp.mosm
+
+   Alternatively, produce a file preproc.mos to be run as usual 
+   with Mosel via
+     mmpp -DA=1 -DDEBUG -o preproc.mos preproc_mmpp.mosm
+
+   (c) 2026 Fair Isaac Corporation
+       author: S. Heipcke, July 2026
+*******************************************************!)
+model "preprocess via mmpp"
+
+$if $defined(A)
+ writeln("A defined")
+$end(if)
+$if $A=1
+ writeln("A is 1")
+$elif $A>1
+ writeln("A > 1")
+$else
+ writeln("A is not defined or A < 1")
+$end(if)
+
+!writeln("Uncommenting this line produces a syntax error",,)
+
+$if $defined(DEBUG)
+ writeln_("This is a debug message.")
+$end(if)
+
+ writeln_("Terminating.")
+
+end-model

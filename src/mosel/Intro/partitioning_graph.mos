@@ -1,0 +1,124 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file partitioning.mos
+   `````````````````````
+   TYPE:         Partitioning problem
+   DIFFICULTY:   4
+   FEATURES:     MIP problem, algorithm for data preprocessing; file 
+                 inclusion, 3 nested/recursive procedures, working with 
+                 sets, `if-then', `forall-do', `exists', `finalize',
+                 graphical representation of results
+   DESCRIPTION:  In a country far away, the party of the duke Sark Mevo has 
+                 finally beaten the ruling coalition headed by the princess 
+                 Reguel Tekris. Mevo wishes to consolidate his position in 
+                 the capital, the fourteen quarters of which need to be 
+                 grouped to electoral districts. The forecast number of 
+                 favorable votes for Mevo and the total number of electors 
+                 per quarter are known. All electors must vote and the 
+                 winner needs to have the absolute majority. A valid 
+                 electoral district is formed by several adjacent quarters 
+                 and must have between 30,000 and 100,000 voters. Electoral 
+                 districts consisting of a single quarter are permitted if 
+                 it has at least 50,000 voters. Nevertheless, Mevo may not 
+                 decently define an electoral district solely with quarter 
+                 10, since this contains his residence.
+                 Determine a partitioning into five electoral districts 
+                 that maximizes the number of seats for Mevo. Should this 
+                 cause any difficulties, try a partitioning into six 
+                 districts.     
+   FURTHER INFO: `Applications of optimization with Xpress-MP', 
+                 Section 15.3 `Rigging elections'
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2002, rev. Sep. 2017
+*******************************************************!)
+
+model "Rigging elections"
+ uses "mmxprs", "mmsvg"
+
+ parameters
+  REQD = 6                            ! Required number of districts 
+ end-parameters
+
+ declarations
+  QUARTERS = 1..14                    ! Number of quarters
+  RDIST: range                        ! Set of election districts
+  
+  MAJ: array(RDIST) of integer        ! 1 if majority of votes, 0 otherwise
+  DISTR: array(RDIST,QUARTERS) of integer  ! 1 if quarter is in district, 
+                                           ! 0 otherwise
+ end-declarations
+
+ include "partition_calc.mos"
+
+ declarations
+  choose: array(RDIST) of mpvar      ! 1 if district chosen, 0 otherwise
+ end-declarations
+
+! Objective: number of votes
+ Votes:= sum(d in RDIST) MAJ(d)*choose(d)
+
+! Partitioning
+ forall(q in QUARTERS) Partition(q):= sum(d in RDIST) DISTR(d,q)*choose(d) = 1
+ 
+! Desired number of districts 
+ NumDist:= sum(d in RDIST) choose(d) = REQD
+
+ forall(d in RDIST) choose(d) is_binary
+
+! Solve the problem
+ maximize(Votes)
+ 
+! Solution printing
+ if(getprobstat<>XPRS_OPT) then
+  writeln("Problem is infeasible")
+ else 
+  writeln("Total number of votes: ", getobjval)
+  forall(r in RDIST) if getsol(choose(r))>0 then
+   write(r, ": ")
+   forall(q in QUARTERS) write(if(DISTR(r,q)>0, " "+q, ""))
+   writeln(" (", MAJ(r), ")") 
+  end-if
+ end-if
+
+! Solution drawing
+ declarations
+  X,Y: array(QUARTERS) of integer        ! x-y-coordinates of quarters
+ end-declarations
+ 
+ initializations from 'partitioning.dat'
+  [X,Y] as 'POS'
+ end-initializations
+
+ svgsetgraphviewbox(0, 0, max(q in QUARTERS) X(q)+10, max(q in QUARTERS) Y(q)+10)
+ svgsetgraphscale(2)
+
+ svgaddgroup("Neighbor", "Neighboring quarters", SVG_BLACK)
+ svgaddgroup("Fav", "Favorable votes", SVG_GREEN)
+ svgaddgroup("Unfav", "Unfavorable votes", SVG_RED)
+ forall(q in QUARTERS) do
+  svgaddpoint("Neighbor", X(q), Y(q))
+  forall(p in QUARTERS | exists(NEIGHB(q,p))) 
+   svgaddline("Neighbor", X(q), Y(q), X(NEIGHB(q,p)), Y(NEIGHB(q,p)))
+  svgaddtext(if(VOTES(q)/POP(q)>0.5, "Fav", "Unfav"), 
+               X(q)+1, Y(q)+1, string(q))
+ end-do
+
+ if(getprobstat=XPRS_OPT) then
+  forall(r in RDIST) 
+   if getsol(choose(r))>0 then
+    first:= min(q in QUARTERS | DISTR(r,q)>0) q
+    forall(q in QUARTERS | q>first and DISTR(r,q)>0) do
+     svgaddline(if(MAJ(r)=1, "Fav", "Unfav"), 
+                 X(first), Y(first), X(q), Y(q))
+     first:=q
+    end-do 
+   end-if
+ end-if
+ 
+ svgsave("partitioning.svg")
+ svgrefresh
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+end-model

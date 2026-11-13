@@ -1,0 +1,146 @@
+(!*******************************************************
+  * Mosel Example Problems                              *
+  * ======================                              *
+  *                                                     *
+  * file recurse.mos                                    *
+  * ````````````````                                    *
+  * Example for the use of the Mosel language           *
+  * (Financial application of Recursion, that is        *
+  *  Non-linear programming)                            *  
+  *                                                     *
+  *  The problem is to solve                            *
+  *     net(t) = Payments(t)  - interest(t)             *
+  *     balance(t) = balance(t-1) - net(t)              *
+  *     interest(t) = (92/365) * balance(t) *           *
+  *                                   interest_rate     *
+  *  where                                              *
+  *     balance(0) = 0                                  *
+  *     balance(T) = 0                                  *
+  *     for interest_rate                               *
+  *                                                     *
+  *  The problem is that we have the T products:        *
+  *     balance(t) * interest_rate                      *
+  *  which cannot be modelled just by LP.               *
+  *                                                     *
+  * (c) 2008 Fair Isaac Corporation                     *
+  *     author: S. Heipcke, 2001, rev. Jun. 2022        *
+  *******************************************************!)
+
+model Fin_nlp                       ! Start a new model
+
+uses "mmxprs"                       ! Load the optimizer library
+
+forward procedure solverec          ! Declare a procedure defined later
+
+declarations
+ T=6                                ! Time horizon
+ RT=1..T                            ! Range of time periods
+ P,R,V: array(RT) of real           ! Payments
+ B: array(RT) of real               ! An INITIAL GUESS as to balances b(t)
+ X: real                            ! An INITIAL GUESS as to interest rate x
+
+ interest: array(RT) of mpvar       ! Interest
+ net: array(RT) of mpvar            ! Net
+ balance: array(RT) of mpvar        ! Balance
+ x: mpvar                           ! Interest rate
+ dx: mpvar                          ! Change to x
+ eplus, eminus: array(RT) of mpvar       ! + and - deviations
+end-declarations
+
+ X:= 0.00
+ B:: [1, 1, 1, 1, 1, 1]
+ P:: [-1000, 0, 0, 0, 0, 0]
+ R:: [206.6, 206.6, 206.6, 206.6, 206.6, 0]
+ V:: [-2.95, 0, 0, 0, 0, 0]
+
+                                    ! net = payments - interest
+ forall(t in RT) Net(t):=  net(t) = (P(t)+R(t)+V(t)) - interest(t)
+
+                                    ! Money balance across periods
+ forall(t in RT) Bal(t):= balance(t) = if(t>1, balance(t-1), 0) - net(t)
+
+!       interest = (92/365)*( balance * interest_rate)
+! i.e.  interest(t) = (92/365)*( balance(t-1)  * x )
+!       interest(t) = (92/365)*( balance(t-1)  * ( X + dx ) )
+!       interest(t) = (92/365)*( balance(t-1)*X + (B(t-1)+db(t-1))*dx )
+!       interest(t) = (92/365)*( balance(t-1)*X + B(t-1)*dx )   (approx)
+!       Use penalty variables (eplus and eminus) to ensure feasibility:
+ forall(t in 2..T) 
+  Interest(t):= 
+   -(365/92)*interest(t) + X*balance(t-1) + B(t-1)*dx + eplus(t) - eminus(t) = 0
+                          
+ Def:= X + dx = x                    ! Define the interest rate: x = X + dx
+                                     
+ Feas:= sum(t in RT) (eplus(t)+eminus(t))  ! Objective: get feasible
+
+ interest(1) = 0                     ! Initial interest is zero
+ forall (t in RT) net(t) is_free
+ forall (t in 1..T-1) balance(t) is_free
+ balance(T) = 0                      ! Final balance is zero
+ dx is_free
+
+ minimize(Feas)                      ! Solve the LP-problem
+
+ solverec                            ! Recursion loop
+ 
+                                     ! Print the solution
+ writeln("\nThe interest rate is ", x.sol)
+ write(strfmt("t",5), strfmt(" ",4))
+ forall(t in RT) write(strfmt(t,5), strfmt(" ",3))
+ write("\nBalances ")
+ setparam("realfmt", "%8.2f")
+ forall(t in RT)  write(balance(t).sol)
+ write("\nInterest ")
+ forall(t in RT)  write(interest(t).sol)
+ writeln
+
+ 
+!************************************************************************
+!  Recursion loop: we recurse on X and the b(t)'s.
+!    The 'B(t-1)' in rows interest(t) get the prior value of b(t-1)
+!    The 'X' in rows interest(t) get the prior value of x
+!    The 'X' in row def gets the prior value of x
+!    We say we have converged when the change in dx is less than 1.0E-6
+!************************************************************************
+procedure solverec
+
+ declarations
+  TOLERANCE=0.000001                  ! Convergence tolerance
+  variation: real                     ! Variation of x
+  BC: array(RT) of real
+  bas: basis
+ end-declarations
+
+  setparam("zerotol", TOLERANCE)      ! Set Mosel comparison tolerance
+  variation:=1.0
+  ct:=0
+
+  while(variation>0) do
+    savebasis(bas)                    ! Save the current basis
+    ct+=1
+    forall(t in 2..T) 
+      BC(t-1):= balance(t-1).sol      ! Get solution values for balance(t)'s
+    XC:= x.sol                        ! and x
+    write("Round ", ct, " x:", x.sol, " (variation:", variation,"), ")
+    writeln("Simplex iterations: ", getparam("XPRS_SIMPLEXITER"))
+
+    forall(t in 2..T) do              ! Update coefficients
+      Interest(t)+= (BC(t-1)-B(t-1))*dx
+      B(t-1):=BC(t-1)
+      Interest(t)+= (XC-X)*balance(t-1)
+    end-do
+    Def+= XC-X  
+    X:=XC
+    oldxval:=XC                       ! Store solution value of x
+
+    loadprob(Feas)                    ! Reload the problem into the optimizer
+    loadbasis(bas)                    ! Reload previous basis
+    minimize(Feas)                    ! Re-solve the LP-problem 
+
+    variation:= abs(x.sol-oldxval)    ! Change in dx
+  end-do
+ 
+end-procedure 
+
+end-model
+

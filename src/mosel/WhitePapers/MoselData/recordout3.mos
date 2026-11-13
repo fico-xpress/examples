@@ -1,0 +1,85 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file recordout3.mos
+   ```````````````````
+   Writing out records to
+   spreadsheets or databases via ODBC.
+   - Using 'initializations to' with the excel driver -
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Nov. 2007, rev. Feb. 2019
+*******************************************************!)
+
+model "Record output (Excel)"
+ uses "mmsheet", "mmsystem"
+
+ parameters
+  CSTR = 'mmsheet.excel:recorddata.xls'
+  CSTR2 = 'mmsheet.excel:skiph;recordout.xls'
+ end-parameters
+ 
+ declarations
+  PRODUCTS: set of string
+  MACH: range
+  ProdRec = record
+   Cost: real
+   Duration: integer
+  end-record 
+  PDATA: dynamic array(PRODUCTS,MACH) of ProdRec
+
+  R = 1..9
+  AllDataRec = record
+   Product: string
+   Mach: integer
+   Cost: real
+   Duration: integer
+  end-record 
+  ALLDATA: array(R) of AllDataRec
+ end-declarations
+
+! **** Reading data from a text file
+ initializations from "recorddata.dat"
+  PDATA as "ProdData"
+  ALLDATA as "AllData"
+ end-initializations
+
+! **** Writing out into a spreadsheet with named ranges ****
+
+! Write out complete records
+! (This assumes that the output tables have been created previously.)
+! ATTENTION: results from previous runs must be removed previously.
+
+! Driver options: noindex - dense data
+ initializations to CSTR
+  PDATA as "ProdDataOut"
+  ALLDATA as "noindex;AllDataOut"
+ end-initializations
+
+! Write out selected record fields
+ initializations to CSTR
+  PDATA(Cost) as "CostOut"
+  ALLDATA(Product,Mach,Duration) as "noindex;DurationOut"
+ end-initializations
+
+
+! **** Writing out into a simple spreadsheet without named ranges
+
+! The mmsheet.excel driver cannot create files so we copy a template file
+! to be used as output destination (output file from previous runs is replaced)
+ fcopy("recordout_templ.xls", "recordout.xls")
+ if getsysstat<>0 then writeln("Copying failed"); exit(1); end-if
+
+! Column ranges for output can be specified in various ways
+ initializations to CSTR2
+ ! Output complete records
+  PDATA as "grow;[A:D]"
+  ALLDATA as "noindex;grow;[F:I]"
+
+ ! Output selected record fields
+  PDATA(Cost) as "grow;[R1C11:R1C13]"
+  ALLDATA(Product,Mach,Duration) as "noindex;grow;[R1C15:R1C17]"
+ end-initializations
+
+end-model

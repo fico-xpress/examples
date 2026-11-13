@@ -1,0 +1,59 @@
+<!--
+  Xpress Insight - Portfolio optimization example from 'Getting Started' guide 
+  Copyright (c) 2025-2026 Fair Isaac Corporation. All rights reserved.
+-->
+<vdl version="5">
+    <vdl-page>    <!-- 'vdl' and 'vdl-page' must always be present -->
+        <!-- Structural element 'section': print header text for a section -->
+        <vdl-section heading="Comparison of scenario results">
+            <vdl-row>
+                <vdl-column>
+                    <p><span vdl-text="Viewing "></span><span vdl-text="=scenarios.length"></span><span vdl-text=" scenario(s)."></span></p>
+                </vdl-column>
+            </vdl-row>
+            <vdl-row>
+                <!-- Display the solution values of constraints -->
+                <vdl-column heading="Constraints and objective" size="6">
+                    <vdl-table>
+                        <vdl-table-column set="CTRS"></vdl-table-column>
+                        <vdl-table-column entity="CtrSolSum" heading="='Results ' + s.props.name" vdl-repeat="=s,i in scenarios" scenario="=i"></vdl-table-column>
+                    </vdl-table>
+                </vdl-column>
+		<!-- Display the 'frac' solution values -->
+                <vdl-column heading="Portfolio composition" size="6">
+                    <vdl-table>
+                        <vdl-table-column entity="frac" heading="=s.props.name" vdl-repeat="=s,i in scenarios" scenario="=i"></vdl-table-column>
+                    </vdl-table>
+                </vdl-column>
+
+            </vdl-row>
+            <vdl-row>
+                <!-- Display the objective values in a bar chart -->
+                <vdl-column heading="Expected total return" size="6">
+                    <vdl-chart>
+                        <vdl-preload entities="CtrSolSum" scenarios="all"></vdl-preload>
+                        <script>
+                            function getData(scenarios) {
+                                return scenarios.map(function(s) {
+                                    return [s.props().name, s.entities.CtrSolSum()('Total return').value];
+                                });
+                            }
+                        </script>
+                        <vdl-chart-series data="=getData(scenarios)"></vdl-chart-series>
+<!-- Alternative formulation using a new array 'TotalReturn'        
+          <vdl-preload entities="TotalReturn" scenarios="all"></vdl-preload>
+          <script>
+          function getData(scenarios) {
+            return scenarios.map(function (s) {
+              return [s.props().name, s.entities.TotalReturn().value];
+            });
+          }
+          </script>
+          <vdl-chart-series data="=getData(scenarios)"></vdl-chart-series>
+-->
+                    </vdl-chart>
+                </vdl-column>
+            </vdl-row>
+        </vdl-section>
+    </vdl-page>
+</vdl>

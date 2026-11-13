@@ -1,0 +1,47 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file duoexc_out.mos 
+   ``````````````````` 
+   Writing data to Excel spreadsheets using the 
+   excel IO driver.
+ 
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2007, rev. Dec. 2012
+*******************************************************!)
+
+model "Duo output (Excel)"
+ uses "mmsheet"
+
+ parameters
+  CNCT = 'data.xls'
+ end-parameters
+
+ declarations
+  A: array(-1..1,5..7) of real
+ end-declarations
+
+ A :: [ 2,  4,  6,
+       12, 14, 16,
+       22, 24, 26]
+
+! Use an initializations block with the excel driver:
+! data writing always starts at the same point, that is, results from 
+! previous runs will be overwritten
+! Options: skiph - skip the header line (first line of specified range)
+!          grow  - start line of output range is selected, grow on demand
+ initializations to "mmsheet.excel:" + CNCT
+  A as 'skiph;grow;MyOutTable1'
+ end-initializations
+(!
+! Alternatively:
+ initializations to "mmsheet.excel:" + CNCT
+  A as 'grow;MyOutTable3'
+ end-initializations 
+! Or: 
+ initializations to "mmsheet.excel:" + CNCT
+  A as '[Sheet1$F3:H11]'
+ end-initializations
+!)
+end-model

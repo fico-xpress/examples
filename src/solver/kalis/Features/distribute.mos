@@ -1,0 +1,55 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file distribute.mos
+   ```````````````````
+   Distribute and occurrence constraints.
+   A movie theatre director has to decide in which location each
+   of his 8 employees should be posted. Each of the four locations
+   has a given personnel requirement.
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+       Creation: 2005, rev. 2007
+*****************************************************************!)
+
+model "Distribute example"
+ uses "kalis"
+  
+ declarations
+  PERS = {"David","Andrew","Leslie","Jason","Oliver","Michael",
+          "Jane","Marilyn"}          ! Set of personnel
+  LOC = 1..4                         ! Set of locations
+  REQ: array(LOC) of integer         ! No. of pers. req. per loc.
+  place: array(PERS) of cpvar        ! Workplace for each peson
+ end-declarations
+
+! Initialize data
+ REQ:: [3, 2, 2, 1]
+
+! Each variable has a lower bound of 1 (Ticket office) and 
+!  an upper bound of 4 (Cloakroom)
+ forall(p in PERS) do
+  setname(place(p), "workplace("+p+")")
+  1 <= place(p); place(p) <= 4  
+ end-do
+
+! Creation of a resource constraint of for every location
+ forall(d in LOC) occurrence(d, place) = REQ(d) 
+
+! Elegant way to declare theses constraints, 
+! moreover achieving stronger prunning (using global 
+! cardinality constraint)
+ distribute(place, LOC, REQ)
+
+! Solve the problem
+ if not cp_find_next_sol then
+  writeln("Problem is infeasible")
+  exit(1)
+ end-if 
+
+! Solution printout 
+ writeln(place)  
+ 
+end-model
+

@@ -1,0 +1,108 @@
+(!******************************************************
+   Mosel R Example Problems
+   ========================
+
+   file flightdelay.mos
+   ````````````````````
+   Perform logistic regression on flight delay data
+   -- Graphical output via R --
+  
+   !!! This example requires an installation of R, see the
+   !!! chapter 'R' of the 'Mosel Language Reference' for
+   !!! compatible versions and setup instructions
+   
+  (c) 2015 Fair Isaac Corporation
+      author: L.Varghese, Jul. 2015
+*******************************************************!)
+model flightdelay
+  uses "mmsystem"
+  uses "r"
+  
+  parameters
+    GRDEVICE = "png" ! Set to 'png', 'pdf' or '' to change the type of document
+  end-parameters
+  
+  ! Input data
+  declarations
+    Flights: range                        ! Flight index
+    Carrier: array(Flights) of string     ! Carrier Code: AA,B6,DL,US,UA,VX
+    Delay: array(Flights) of integer      ! Whether flight was delayed or not: 1,0
+    Weekday: array(Flights) of integer    ! Weekday: 1=Monday,7=Sunday
+    Departure: array(Flights) of integer  ! Departure Hour: 0-23
+    Arrival: array(Flights) of integer    ! Arrival Hour: 0-23
+    ArrvRegion: array(Flights) of string  ! Arrival Region: NE,SE,SW,W,M,ISL
+
+    ! Misc
+    t: text
+  end-declarations
+  
+  ! Read data from csv file
+  initializations from "mmsheet.csv:flightdelay.csv"
+    [Carrier,Delay,Weekday,Departure,Arrival,ArrvRegion] as "[A2:G7902](#1,#2,#3,#4,#5,#6,#7)"
+  end-initializations
+  
+  ! Print out R errorstream
+  setparam("Rverbose", true)
+  
+  ! Set up R dataframe
+  Rset("carrier",Carrier)
+  Reval('MyData <- data.frame(carrier=carrier)')
+  Rset('MyData$delay',Delay)
+  Rset('MyData$weekday',Weekday)
+  Rset('MyData$departure',Departure)
+  Rset('MyData$arrival',Arrival)
+  Rset('MyData$arrvregion',ArrvRegion)
+  
+  ! Print 5 rows of the dataframe
+  writeln("Printing 5 rows of input data:")
+  Rprint('head(MyData,n=5)')
+  writeln
+  
+  ! Print summary stats of each column
+  writeln("Summary statistics of input data")
+  Rprint('summary(MyData)')
+  writeln
+  
+  ! Set weekday, departure and arrival to factor variables 
+  Reval('MyData$weekday <- factor(MyData$weekday);MyData$departure <- factor(MyData$departure);MyData$arrival <- factor(MyData$arrival)')
+  
+  ! Run a logistic regression on delay
+  Reval('mylogit <- glm(delay ~ carrier + weekday + departure + arrvregion, data = MyData, family = "binomial")')  
+  ! Print summary statistics of the model
+  writeln("Summary Statistics for the Logistic Regression")
+  Rprint('summary(mylogit)')
+  
+  !**** Plot Sensitivity and Specificity for different  
+  !**** cutoff values of probability  
+  Reval('library(graphics)')             ! Load R graphics library
+  Reval('library(grDevices)')            ! Load graphical device library
+  
+  Reval('s = seq(.01,.99,length=1000)')  ! Create % y axis
+  Reval('stats = matrix(0,1000,2)')      ! Create a 1000x2 matrix
+  
+  ! Calculate specificity and sensitivity for each cutoff point
+  Reval('for(i in 1:1000){
+   predDelay = (mylogit$fit > s[i])
+   w = which(MyData$delay == 1)
+   sensitivity = mean(predDelay[w] == 1)
+   specificity = mean(predDelay[-w] == 0)
+   temp = t(as.matrix(c(sensitivity, specificity)))
+   colnames(temp) = c("sensitivity", "specificity")
+   stats[i,] = temp
+  }')
+  
+  ! Plot the graph
+  if (GRDEVICE.size>0) then
+    Reval(GRDEVICE+'("flightdelay.'+GRDEVICE+'")') ! Open graphical file
+  end-if
+  Reval('plot(s,stats[,1],xlab="% Cutoff",ylab="Specificity/Sensitivity",type="l",lwd=2,col=2)')
+  Reval('lines(s,stats[,2],col=3,lwd=2);box()')
+  Reval('legend(0.7,0.8,col=c(2,3),lwd=c(2,2),c("Sensitivity","Specificity"))')
+  if (GRDEVICE.size=0) then              ! Wait for user entry
+    Reval('dev.flush()')                 ! Print plots
+    writeln("Press enter to continue...")
+    dummy := readtextline(t)
+  end-if
+  Reval('dev.off()')                     ! Close graphics device
+  
+end-model

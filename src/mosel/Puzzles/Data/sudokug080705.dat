@@ -1,0 +1,13 @@
+! Data set from "The Guardian", 8 July, 2005. http://www.guardian.co.uk/sudoku
+
+VALUE: [
+ ('D' 1) 8  ('G' 1) 5
+ ('C' 2) 4  ('H' 2) 6
+ ('B' 3) 1  ('E' 3) 9  ('I' 3) 7  
+ ('A' 4) 6  ('D' 4) 1  ('H' 4) 8  
+ ('C' 5) 7  ('G' 5) 3
+ ('B' 6) 2  ('F' 6) 5  ('I' 6) 4
+ ('A' 7) 5  ('E' 7) 7  ('H' 7) 1
+ ('B' 8) 3  ('G' 8) 6
+ ('C' 9) 9  ('F' 9) 4
+]

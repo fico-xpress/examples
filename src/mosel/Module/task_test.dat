@@ -1,0 +1,4 @@
+! Data file for `task_test.mos'
+
+t: [(2) "two 4 1 5"
+    (4) "four 7 0 8"]

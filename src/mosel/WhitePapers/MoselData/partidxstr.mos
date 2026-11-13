@@ -1,0 +1,139 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file partidxstr.mos
+   ```````````````````
+   Reading partial-index table format with string column header 
+   for the last index for spreadsheet files in XLS, XLSX or CSV format  
+
+   The subroutine 'makelabel' provides a generic way of creating
+   the required header definition for the 'partndx' format.
+
+  (c) 2024 Fair Isaac Corporation
+      author: S.Heipcke,Y.Colombani, Jan. 2024
+*******************************************************!) 
+
+model partidxstr
+ uses "mmsystem", "mmreflect", "mmsheet"
+ 
+(!@doc.
+ @descr Constructing the header selection string for reading a partially indexed array
+ @param fname Spreadsheet file name (XLS, XLSX, or CSV format) 
+ @param rangename Name of a sheet or range (first sheet if not specified)
+ @param u Array to be populated from the specified input
+ @info The data array 'u' serves to determine the number of indices. If the array has N dimensions, it is assumed that the values of the first N-1 indices are contained in the N-1 initial columns of the data range and all other columns correspond to index values for the last dimension of the input array. 
+!)
+public function makelabel(fname:text,rangename:string,u:any):string
+ declarations
+  colnames:dynamic array(1..1,1..1000) of string  ! Due to the 'dynamic' flag this will work even if the actually selected area exceeds 1000 columns  
+  label:text
+  allcols:set of string
+  colorder:array(string) of integer
+  cr: range
+ end-declarations
+
+ initialisations from fname
+   colnames as "noindex;"+rangename
+ end-initialisations
+ if not u is array then
+   writeln("Third argument of function 'makelabel' must be an array.")
+   return
+ end-if
+ with nbdim=u.array.nbdim, ndx=u.array.index(nbdim).string do
+  allcols:=union(i in nbdim..colnames.size){string(colnames(1,i))}
+  if not allcols <= ndx then ndx+=allcols; end-if
+  cr:=1..colnames.size
+  forall(i in cr) colorder(colnames(1,i)):=i
+  label:="skiph;partndx;"+rangename+"(#1"
+  forall(c in 2..nbdim-1) label+=",#"+c
+  forall(c in ndx|c in allcols) label+=",#"+colorder(c)
+ end-do
+ returned:=string(label+')')
+end-function
+
+!*******************************************************************
+
+ procedure readpartindxl(drvfilename:string)
+  declarations
+   TabA: dynamic array(string,range,string) of real
+   TabP: dynamic array(S1:set of string,R:range,S2:set of string) of real
+   it: iterator
+  end-declarations
+
+ !**** Reading a partially indexed table with string header fields
+  fopen(drvfilename,F_INPUT)
+  initialisations from getfname(F_INPUT)
+    TabA as makelabel(getfname(F_INPUT),"[]",TabA)
+  end-initialisations
+!  fclose(F_INPUT)
+
+  writeln("Index sets:", TabA.index(1), TabA.index(2), TabA.index(3))
+ ! Enumerate the existing array entries (using an iterator since sets are not named)
+  inititer(it,TabA)
+  while (nextcell(it)) writeln(it.indices, ":", TabA(it))
+
+ !**** Reading a partially indexed table with preselection
+  S1:={"xy","Z","BB","ab"}    ! Prepopulating the index set
+  
+!  fopen(drvfilename,F_INPUT)
+! Various range specifications that result in the same selection:
+  initialisations from getfname(F_INPUT)
+    TabP as makelabel(getfname(F_INPUT),"pidxtest",TabP)  ! predef. range name
+!    TabP as makelabel(getfname(F_INPUT),"[1$A:F]",TabP)   
+!    TabP as makelabel(getfname(F_INPUT),"[A:F]",TabP)    
+  end-initialisations
+  fclose(F_INPUT)
+
+  writeln("Index sets:", S1,R,S2)
+ ! Enumerate the existing array entries
+  forall(i in S1, j in R, k in S2 | exists(TabP(i,j,k)))
+    writeln([i,j,k], ":", TabP(i,j,k))
+ end-procedure
+
+!*******************************************************************
+
+ procedure readpartindcsv
+  declarations
+   TabA: dynamic array(string,range,string) of real
+   TabP: dynamic array(S1:set of string,R:range,S2:set of string) of real
+   it: iterator
+  end-declarations
+
+ !**** Reading a partially indexed table with string header fields
+  fopen("mmsheet.csv:partidxdata.csv",F_INPUT)
+  initialisations from getfname(F_INPUT)
+    TabA as makelabel(getfname(F_INPUT),"[]",TabA)
+  end-initialisations
+!  fclose(F_INPUT)
+
+  writeln("Index sets:", TabA.index(1), TabA.index(2), TabA.index(3))
+ ! Enumerate the existing array entries (using an iterator since sets are not named)
+  inititer(it,TabA)
+  while (nextcell(it)) writeln(it.indices, ":", TabA(it))
+
+ !**** Reading a partially indexed table with preselection
+  S1:={"xy","Z","BB","ab"}    ! Prepopulating the index set
+  
+!  fopen("mmsheet.csv:partidxdata.csv",F_INPUT)
+  initialisations from getfname(F_INPUT)
+    TabP as makelabel(getfname(F_INPUT),"[A:F]",TabP)   
+  end-initialisations
+  fclose(F_INPUT)
+
+  writeln("Index sets:", S1,R,S2)
+ ! Enumerate the existing array entries
+  forall(i in S1, j in R, k in S2 | exists(TabP(i,j,k)))
+    writeln([i,j,k], ":", TabP(i,j,k))
+ end-procedure
+
+!**********************************************************
+
+ writeln("XLS:")
+ readpartindxl("mmsheet.xls:partidxdata.xls")
+ writeln("XLSX:")
+ readpartindxl("mmsheet.xlsx:partidxdata.xlsx")
+ writeln("CSV:")
+ readpartindcsv
+
+end-model

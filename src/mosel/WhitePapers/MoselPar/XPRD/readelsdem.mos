@@ -1,0 +1,41 @@
+(!*******************************************************
+   Mosel Example Problems
+   ======================
+
+   file readelsdem.mos
+   ```````````````````
+   Read the ELS demand data and write them to memory.
+
+   *** Not intended to be run standalone - run from runelsd.*  ***
+   
+   (c) 2012 Fair Isaac Corporation
+       author: S. Heipcke, Feb 2012
+  *******************************************************!)
+
+model "Read Els Demand"
+ uses "mmjobs"
+
+ parameters
+  DATAFILE = "els4.dat"
+  T = 60
+  P = 4
+  RMT = "rmt:"                         ! Files are on root node
+ end-parameters 
+ 
+ declarations
+  TIMES = 1..T                         ! Time periods
+  PRODUCTS = 1..P                      ! Set of products
+
+  DEMAND: array(PRODUCTS,TIMES) of integer  ! Demand per period
+ end-declarations
+
+ initializations from RMT+DATAFILE
+  DEMAND
+ end-initializations
+
+ initializations to "bin:"+RMT+"Demand"
+  DEMAND
+ end-initializations
+ 
+end-model
+

@@ -1,0 +1,24 @@
+#************************************
+#  MIP formulations
+# 
+#  (c) 2024 Fair Isaac Corporation
+#      author: Y. Colombani, 2003
+#************************************
+#
+# Before using this makefile remember to set the environment variable
+# XPRESSDIR to the directory where Xpress is installed on your
+# computer.
+.SUFFIXES: .cxx .cpp
+
+ALL=indicators intromip soslin soslinbcl sosquad sosquadbcl gencons
+
+all: $(ALL)
+
+.cpp:
+	$(CXX) -g -std=c++17 -I$(XPRESSDIR)/include $(CXXFLAGS) $(LDFLAGS) $<  -o $* -L$(XPRESSDIR)/lib -lxprs
+
+.cxx:
+	$(CXX) -g -I$(XPRESSDIR)/include $(CXXFLAGS) $(LDFLAGS) $<  -o $* -L$(XPRESSDIR)/lib -lxprs
+
+clean:
+	rm -f $(ALL) *.o

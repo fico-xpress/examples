@@ -1,0 +1,109 @@
+(!*********************************************************************
+   Mosel NL examples
+   =================
+   file springs_graph.mos
+   ``````````````````````
+   Find the shape of a hanging chain by minimising its potential energy
+   where each chain link is a spring that buckles under compression and 
+   each node (connection between links) has a weight hanging from it.  
+   The springs are assumed weightless.
+   SOCP problem (convex quadratic objective, convex second-order cone 
+   constraints)
+
+   Based on AMPL model springs.mod
+   Source: http://www.orfe.princeton.edu/~rvdb/ampl/nlmodels/noncute/springs/  
+   Reference: "Applications of Second-Order Cone Programming",
+   M.S. Lobo, L. Vandenberghe, S. Boyd, and H. Lebret, 1998
+ 
+   (c) 2013 Fair Issac Corporation
+       author: S. Heipcke, Sep. 2013, rev. Jun. 2023
+*********************************************************************!)
+
+model "springs"
+ uses "mmxnlp", "mmsvg"
+
+ parameters
+  N = 15	                    ! Number of chainlinks
+ ! A = (AX, AY) and B = (BX, BY) are the positions of end nodes
+  AX = 0 
+  AY = 0
+  BX = 2
+  BY = -1
+  G = 9.8                       ! Acceleration due to gravity
+  K = 100                       ! Stiffness of springs
+ end-parameters
+
+ declarations
+  RN = 0..N
+  RN1 = 1..N
+  x: array(RN) of mpvar         ! x-coordinates of endpoints of chainlinks
+  y: array(RN) of mpvar         ! y-coordinates of endpoints of chainlinks
+  MASS: array(RN) of real       ! Mass of each hanging node
+  t: array(RN1) of mpvar        ! Extension of each spring
+  LENGTH0: real                 ! Rest length of each spring
+ end-declarations
+
+! Initializing data
+ LENGTH0 := 2*sqrt((AX-BX)^2+(AY-BY)^2)/N
+ 
+! Try different settings for node weights:     
+ forall(j in RN | j>0 and j<N) MASS(j):=1     
+! forall(j in RN | j>0 and j<N) MASS(j):=2*(N-j)
+! forall(j in RN | j>0 and j<N) MASS(j):=5*j
+ MASS(0):=0; MASS(N):=0  
+
+! Decision variables
+ forall(j in RN) x(j) is_free
+ forall(j in RN) y(j) is_free
+ forall(j in RN | j>0) t(j)>=0
+
+! Objective: minimise the potential energy
+ potential_energy:= sum(j in RN) MASS(j)*G*y(j) + (K/2)*sum(j in RN1) t(j)^2
+
+! Bounds: positions of endpoints
+! Left anchor
+ x(0) = AX; y(0) = AY
+ ! Right anchor
+ x(N) = BX; y(N) =BY
+
+! Constraints: positions of chainlinks
+ forall(j in RN| j>0) 
+  Link(j):= sqrt((x(j)-x(j-1))^2+(y(j)-y(j-1))^2) <= LENGTH0+t(j);
+
+! Setting start values 
+ forall(j in RN) setinitval(x(j), (j/N)*BX+(1-j/N)*AX);
+ forall(j in RN) setinitval(y(j), (j/N)*BY+(1-j/N)*AY);
+ 
+! In this example we will use a local solver, since it can be time consuming to solve it to global optimality 
+ setparam("xprs_nlpsolver", 1)
+
+! Solving
+ setparam("XPRS_verbose", true)
+ minimise(potential_energy)
+
+! Solution reporting
+ writeln("Solution: ", getobjval)
+ forall(j in RN) 
+  writeln(j, ": (", strfmt(getsol(x(j)),10,5), ", ", 
+          strfmt(getsol(y(j)),10,5), ")")
+
+! **** Display the solution as user graph within IVE ****
+ 
+! Draw the chain links
+ svgaddgroup("S","Solution")
+ svgaddline(sum(j in RN) [x(j).sol, y(j).sol])
+! Draw the node weights
+ svgaddgroup("W","Weights")
+ svgsetstyle(SVG_STROKEWIDTH,2)
+ forall(j in RN | MASS(j)<>0)
+  svgaddarrow(x(j).sol, y(j).sol, x(j).sol, y(j).sol-1*MASS(j))
+
+! Scale the size of the displayed graph
+ svgsetgraphscale(100)
+ svgsetgraphlabels("x","y")
+
+ svgsave("springs.svg")
+ svgrefresh
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+
+end-model

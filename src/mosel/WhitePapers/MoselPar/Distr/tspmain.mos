@@ -1,0 +1,341 @@
+(!*******************************************************
+   Mosel Example Problems
+   ======================
+
+   file tspmain.mos
+   ````````````````
+   Solving the TSP problem by a series of optimization subproblems.
+
+   Main model coordinating all submodels.
+   We start one Mosel instance per specified node (entries of NODELIST).
+   We then start K model instances per Mosel instance.
+
+   This model calculates random (X,Y) coordinates, organized in
+   squares containing SN nodes each, arranged in NUMY rows.
+   The areas per optimization run are calculated upfront.
+
+   TSP algorithm:
+    round 1: solve the TSP associated with each square
+    round n: for 2 neighbouring areas from the previous run, unfix
+        the variables closest to the common border and reoptimize
+
+   Each submodel instance is sent an optimization problem (set of nodes,
+   coordinates, and possibly previous results). The results are passed
+   back via a file (located at the same place as this model,
+   no write access to remote instances is required).
+   Once the result has been displayed, the submodel is restarted
+   for a new optimization run if any are available.
+   This main model and also the submodels may run on any platform.
+
+   - Submodels running through the Mosel Distributed Framework -
+
+   *** This model cannot be run with a Community Licence 
+       for the default data instance ***
+
+   (c) 2011 Fair Isaac Corporation
+       author: S. Heipcke, Oct. 2011, rev. Aug. 2018
+  *******************************************************!)
+model "TSP (main) no XAD"
+ uses "mmjobs","mmsystem"
+
+ parameters
+    K = 2                       ! Number of submodels per Mosel instance
+    NUMNODE = 320               ! Instance size 
+    NUM = 0                     ! Model ID
+    CWIDTH =1000                ! Window height (>=NUMPX)
+    CHEIGHT =1000               ! Window width (>=NUMPX)
+    SN = 20                     ! Size of subproblems (no of nodes)
+    NUMY = 4                    ! Number of rows of squares
+    XOFF = 100                  ! Offset to left canvas border
+    BOFF = 10                   ! Offset around canvas
+    BIN = "bin:"                ! File format (binary)
+    ZIP = "zlib.deflate:"       ! File format (compression)
+    RMT = "rmt:[-1]"            ! Whether to use remote files
+    SUBMODEL = "tspsub"         ! Name of the submodel
+ end-parameters
+
+!!! Configure this list with machines in your local network, 
+!!! there must be at least 1 entry in this list.
+  NODELIST:=[""]
+
+  declarations
+    M: integer                  ! Number of remote Mosel instances
+    A: range
+    B: range
+    INODE: array(B) of string
+  end-declarations
+ 
+  forall(n in NODELIST, M as counter) INODE(M):=n
+  A:= 1..M*K
+
+  declarations
+    modPar: array(A) of Model               ! Submodels
+    moselInst: array(B) of Mosel            ! Mosel instances
+    modendct, nbrunning: integer            ! Counters
+    ev: Event                               ! Event message
+
+    SQUARE: array(Squares:range,1..4) of integer  ! Border coordinates
+    SOL: array(range) of integer            ! Solution values (route)
+
+    NODES = 1..NUMNODE                      ! Set of nodes
+    NODEX,NODEY: dynamic array(NODES) of integer  ! Dynamic to write out index
+    SNODES: array(NSq:range) of set of integer    ! Nodes per subproblem
+    LEV: array(Squares) of integer          ! Iteration round
+    SBORDER: array(Squares) of integer      ! Offset from border
+    BTYPE: array(Squares) of string         ! X:horizontal, Y:vertical neighbors
+    SQSETS: array(Squares,1..2) of set of integer ! Predecessor subproblems
+    NumProb: integer                        ! No. of original subproblems
+    PREC: array(Squares) of set of integer  ! Predecessor subproblems
+    SQSTATUS: array(Squares) of integer     ! Subproblem solve status
+
+    ToStart: set of integer                 ! Data instances to be run
+    idlemod: list of integer                ! List of free submodel instances
+    starttime: real                         ! Time measure
+  end-declarations  
+
+  starttime:=gettime
+
+!***************** Subroutines ******************
+! **** Generate the node coordinates and 
+!      determine node sets for all optimization problems ****
+ procedure generate_coordinates(seed: integer)
+  setrandseed(seed)
+  NumProb:=ceil(NUMNODE/SN)
+  NumNodes:=floor(NUMNODE/NumProb)
+
+  ! Positioning of subproblems ("squares")
+  NUMX:=ceil(NumProb/NUMY)
+  ct:=0
+  forall(x in 1..NUMX, y in 1..NUMY, ct as counter) do
+   SQUARE(ct,1):= round((x-1)*((CWIDTH-2*BOFF)/NUMX)) + BOFF
+   SQUARE(ct,2):= round(x*((CWIDTH-2*BOFF)/NUMX)) + BOFF
+   SQUARE(ct,3):= round((y-1)*((CHEIGHT-2*BOFF)/NUMY)) +BOFF
+   SQUARE(ct,4):= round(y*((CHEIGHT-2*BOFF)/NUMY)) +BOFF
+   LEV(ct):=1
+  end-do 
+
+  ! Node coordinates
+  RestNum:=NUMNODE mod NumProb
+  ct:=0; lastn:=0
+  forall(s in 1..NumProb, ct as counter) do
+   SNODES(s):=lastn+1..lastn+NumNodes+if(ct<=RestNum,1,0)
+   lastn:=lastn+NumNodes+if(ct<=RestNum,1,0)
+   forall(n in SNODES(s)) do
+    NODEX(n) := round(SQUARE(ct,1)+(SQUARE(ct,2)-SQUARE(ct,1))*random)
+    NODEY(n) := round(SQUARE(ct,3)+(SQUARE(ct,4)-SQUARE(ct,3))*random)
+   end-do
+   PREC(s):={}
+   SQSETS(s,1):={s}
+   SQSETS(s,2):={}
+  end-do
+  finalize(NSq)
+  
+  ! Initialize solution
+  forall(n in NODES) SOL(n):=n
+
+  ! Level 2
+  forall(p in 1..floor(NumProb/2)) do
+    LEV(NumProb+p):=2
+    SBORDER(NumProb+p):= SQUARE(p*2-1,4)
+    BTYPE(NumProb+p):="Y"
+    SQSETS(NumProb+p,1):={p*2-1}
+    SQSETS(NumProb+p,2):={p*2}
+    PREC(NumProb+p):={p*2-1,p*2}
+  end-do
+
+  ! Level 3
+  qs:=Squares.size
+  forall(p in 1..floor(NumProb/8)) do
+    LEV(qs+2*p-1):=3
+    SBORDER(qs+2*p-1):= SQUARE((p-1)*8+1,2)
+    BTYPE(qs+2*p-1):="X"
+    SQSETS(qs+2*p-1,1):={(p-1)*8+1,(p-1)*8+2}
+    SQSETS(qs+2*p-1,2):={(p-1)*8+5,(p-1)*8+6}
+    PREC(qs+2*p-1):={NumProb+(p-1)*4+1,NumProb+(p-1)*4+3}
+    LEV(qs+2*p):=3
+    SBORDER(qs+2*p):= SQUARE((p-1)*8+1,2)
+    BTYPE(qs+2*p):="X"
+    SQSETS(qs+2*p,1):={(p-1)*8+3,(p-1)*8+4}
+    SQSETS(qs+2*p,2):={(p-1)*8+7,p*8}
+    PREC(qs+(2*p)):={NumProb+(p-1)*4+2,NumProb+p*4}
+  end-do
+ 
+  ! Level 4
+  ps:=qs
+  qs:=Squares.size
+  forall(p in 1..floor(NumProb/8)) do
+    LEV(qs+p):=4
+    SBORDER(qs+p):= SQUARE((p-1)*8+2,4)
+    BTYPE(qs+p):="Y"
+    SQSETS(qs+p,1):={(p-1)*8+1,(p-1)*8+2,(p-1)*8+5,(p-1)*8+6}
+    SQSETS(qs+p,2):={(p-1)*8+3,(p-1)*8+4,(p-1)*8+7,p*8}
+    PREC(qs+p):={ps+2*p-1,ps+2*p}
+  end-do
+
+  ! Level 5
+  l:=3
+  repeat
+    l+=1
+    ps:=qs
+    qs:=Squares.size
+    forall(p in 1..floor(NumProb/2^l)) do
+     LEV(qs+p):=l+1
+     SBORDER(qs+p):= SQUARE(round((p-1)*2^l+2^(l-1)),2)
+     BTYPE(qs+p):="X"
+     SQSETS(qs+p,1):=union(i in round((p-1)*2^l)+1..minlist(NumProb,round((p-1)*2^l+2^(l-1)))) {i}
+     SQSETS(qs+p,2):=union(i in minlist(NumProb,round((p-1)*2^l+2^(l-1))+1)..minlist(NumProb,round(p*2^l))) {i}
+     PREC(qs+p):={ps+2*p-1,ps+2*p}
+   end-do
+  until ceil(NumProb/2^l)=1
+  finalize(Squares)
+
+  initializations to BIN+ZIP+"tspgendata"
+    Squares  NSq
+    NODEX
+    NODEY 
+    SNODES 
+    LEV 
+    SBORDER 
+    BTYPE 
+    SQSETS 
+    PREC
+    SQUARE
+  end-initializations
+ end-procedure
+
+! **** Find the next available area for (re)optimization ****
+  function get_next_square: integer
+    returned:=0
+    forall(s in Squares) do
+      if SQSTATUS(s)=0 and (and(p in PREC(s)) SQSTATUS(p)>1) then
+        SQSTATUS(s):=1
+        returned:=s
+        break
+      end-if 
+    end-do
+  end-function
+
+
+! **** Retrieve the solution from a run ****
+  procedure write_box(num: integer, ifall: boolean)
+    declarations
+      sol: array(ASet:set of integer) of integer
+      PB: integer
+      ALLA: set of integer
+    end-declarations
+
+    initializations from BIN+ZIP+"tspsol"+num
+      sol as "SOL"
+      PB
+    end-initializations
+ 
+    forall(x in ASet) SOL(x):= sol(x)
+
+    writeln("Problem ", PB, ":")
+
+  ! Subtour printout:
+    ALLA:={}
+    forall(i in ASet) do
+      if(i not in ALLA) then
+      write(i)
+      first:=i
+      repeat
+        ALLA+={first}
+        write(" - ", SOL(first))
+        first:=SOL(first)
+      until first=i
+      writeln 
+      end-if
+    end-do           
+ 
+    fdelete("tspsol"+num )
+    SQSTATUS(PB):=2
+  end-procedure
+
+
+! **** Solution algorithm ****
+  procedure solve_and_display
+ ! Start first lot of remote model executions
+   nbrunning:=0
+   idlemod:=[]
+   modendct:=0
+   forall(n in 1..minlist(M*K,NumProb)) do
+     nbrunning+=1
+     SQSTATUS(n):=1
+
+     initializations to BIN+ZIP+"tspsolinit"+n
+       SOL
+     end-initializations
+
+     run(modPar(n), "PB="+n + ",LEVEL=" + LEV(n) + ",NUM=" + n + 
+         ",BIN='" + BIN + "',RMT='" + RMT + "',ZIP='" + ZIP + "'" +
+	 ",PRINTDETAIL=false")
+   end-do
+  
+ ! Set of remaining jobs (=data instances)
+  ToStart:=union(i in minlist(M*K,NumProb)+1..getsize(Squares)) {i}
+
+ ! Wait for termination and start remaining
+   while ( modendct<getsize(Squares) ) do
+     wait
+     ev:=getnextevent
+     if getclass(ev)=EVENT_END then
+       modendct+=1 
+       num:= ev.fromuid
+       idlemod+=[num]
+       nbrunning-=1
+       write_box(num,true) 
+       newnum:=0
+       ct:=0
+       while (ToStart<>{} and newnum=0) do
+        newnum:=get_next_square
+        if (newnum>0) then
+         ToStart-={newnum}
+         num:=getfirst(idlemod)
+         cuthead(idlemod,1)
+         nbrunning+=1
+
+         initializations to BIN+ZIP+"tspsolinit"+num
+           SOL
+         end-initializations
+
+         run(modPar(num), "PB="+newnum + ",LEVEL=" + LEV(newnum) +
+             ",NUM=" + num + ",BIN='" + BIN + "',RMT='" + RMT +
+             "',ZIP='" + ZIP + "'" + ",PRINTDETAIL=false")
+        else
+	 break
+        end-if
+       end-do
+     end-if  
+ !    if nbrunning=0 then break; end-if 
+   end-do
+
+ end-procedure
+
+
+!***************** Main ******************
+
+ ! Start child nodes
+  forall(i in B)
+    if connect(moselInst(i), INODE(i))<>0 then exit(2); end-if
+
+  if compile("g",SUBMODEL+".mos")<>0 then exit(3); end-if
+  forall(j in A) do                ! Load models
+    load(moselInst(j mod M + 1), modPar(j), "rmt:[-1]"+SUBMODEL+".bim")  
+    modPar(j).uid:= j
+  end-do
+ 
+ ! Generate data
+  generate_coordinates(5)  
+
+  solve_and_display
+
+  writeln("Total elapsed time: ", gettime-starttime, "s")
+  
+ ! Cleaning up
+  forall(i in B) disconnect(moselInst(i))
+  fdelete(SUBMODEL+".bim")
+  fdelete("tspgendata")
+  forall(i in A) fdelete("tspsolinit"+i)
+  
+end-model

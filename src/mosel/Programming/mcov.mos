@@ -1,0 +1,108 @@
+(!*******************************************************
+  * Mosel Example Programs                              *
+  * ======================                              *
+  *                                                     *
+  * file mcov.mos                                       *
+  * `````````````                                       *
+  * Example for the use of the Mosel language           *
+  * (use of the Remote Invocation Protocol)             *
+  *                                                     *
+  * Implements model code coverage with Mosel           *
+  *                                                     *
+  * (c) 2016 Fair Isaac Corporation                     *
+  *     author: Y. Colombani, 2016                      *
+  *******************************************************!)
+
+model mcov
+
+uses 'mmjobs','mmsystem'
+
+parameters
+ SRC="qsort.mos"
+end-parameters
+
+forward procedure showcov
+
+declarations
+ MO:Mosel
+ M:Model
+end-declarations
+
+if connect(MO,"")<0 then
+ exit(1)
+end-if
+if compile("G",SRC,"tmp:bimfile")<>0 then
+ writeln("Compilation failed")
+ exit(1)
+end-if
+
+nid:=getid(MO)
+load(MO,M,"rmt:[-1]tmp:bimfile")
+! switch model to profile mode
+setcontrol(M,"runmode","2")
+run(M)
+
+waitfor(EVENT_END,-1,WAIT_EXACT)
+dropnextevent
+
+showcov
+
+!*******************************
+!* Decode coverage information
+!*******************************
+procedure showcov
+declarations
+ tottime:real		! total time
+ lines:array(Rlines:range) of integer ! line numbers (in file)
+ iters:array(Rlines) of integer ! nb of iterations
+ files:array(Rfiles:range) of string ! file names
+ starts:array(Rstarts:range) of integer ! line ref where the file starts
+ spc,tl:text
+ msg:list of text
+end-declarations
+
+! Request 'covres' (profiler result for code coverage)
+!  mcmd:covres@M
+! M: main model (it must have been run with the profiler)
+
+!fcopy("rmt:["+nid+"]mcmd:covres-t@1",""); exit(1)
+!options -tz: text file compressed with gzip
+initialisations from "zlib.gzip:rmt:["+nid+"]mcmd:covres-tz@1"
+ tottime
+ Rlines lines iters
+ Rfiles files
+ Rstarts starts
+end-initialisations
+
+ f:=-1
+ cl:=0
+ spc:=" "*7
+ forall(l in Rlines) do
+  if l=starts(f+1) then
+   if f>=0 then fclose(F_INPUT); end-if
+   f+=1
+   writeln
+   writeln("*"*30," File:",files(f)," ","*"*30)
+   writeln
+   fopen(files(f),F_INPUT)
+   cl:=0
+  end-if
+  dum:=readtextline(tl)
+  cl+=1
+  while(cl<lines(l)) do
+    write(spc,tl)
+    dum:=readtextline(tl)
+    cl+=1
+  end-do
+  write(textfmt(iters(l),4),"   ",tl)
+ end-do
+ fclose(F_INPUT)
+
+ write("\nRetrieving result:")
+!option -c: no counting in the result
+initialisations from "bin:rmt:["+nid+"]mcmd:profrep-c@1"
+ msg
+end-initialisations
+ forall(m in msg) write(m)
+end-procedure
+end-model

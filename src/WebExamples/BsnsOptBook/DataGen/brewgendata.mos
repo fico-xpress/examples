@@ -1,0 +1,46 @@
+! SH, FICO, Jan 2020
+! Data generation for brewery.mos
+model "gen data"
+  uses "math"
+declarations
+  RB=1..4
+  RT=1..5
+  RD=1..15
+  IL=1..7
+  IC=1..20
+  RP=1..3
+
+  CTBP: dynamic array (RP,RB) of real! Unit transport cost from brewery b
+                             ! to packaging unit p
+  CTPD: dynamic array (RT,RD,RP) of real! Unit transport cost of packtype t
+                             ! from packaging unit p to demand
+                             ! point d
+  DEMAND: dynamic array (IC,RD) of real! Final demand for commodity c
+                             !  at demand point d
+
+  DIST: array(RD,RP) of real
+end-declarations 
+
+setrandseed(3)
+forall(c in IC,d in RD)
+ if random>0.65 then
+   DEMAND(c,d):=5+round(10*random)
+ end-if
+
+forall(p in RP,b in RB) CTBP(p,b):=0.25+round2d(3*random)
+
+forall(d in RD,p in RP) DIST(d,p):=1+round(500*random)
+
+forall(t in RT) do
+  PTemp:=0.1+round2d(10*random)
+  Pfix:=0.1+round2d(random)
+  forall(d in RD,p in RP) CTPD(t,d,p):=round2d(Pfix+PTemp*0.002*DIST(d,p))
+end-do 
+
+initializations to "mmsheet.excel:brewery.xlsx"
+ DEMAND as "grow;Demand"
+ CTPD as "grow;PDCost"
+ CTBP as "grow;BPCost"
+end-initializations
+
+end-model

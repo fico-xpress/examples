@@ -1,0 +1,128 @@
+(!*******************************************************
+   Mosel Example Problems
+   ======================
+
+   file runelsd.mos
+   ````````````````
+   Run several instances of the model elsd.mos in
+   parallel and coordinate the solution update.
+   -- Distributed computing version --
+   
+   Before running this model, you need to set up the array
+   NodeNames with machine names/addresses of your local network.
+   All nodes that are used need to have the same version of
+   Xpress installed and suitably licensed, and the server 
+   "xprmsrv" must have been started on these machines.
+   
+   All files are local to the root node, no write access is
+   required at remote nodes.
+
+   *** This model cannot be run with a Community Licence 
+       for the provided data instance ***
+
+   (c) 2010 Fair Isaac Corporation
+       author: S. Heipcke, May 2010, rev. Jun. 2015
+  *******************************************************!)
+
+model "Els main"
+ uses "mmjobs", "mmsystem"
+
+ parameters
+  DATAFILE = "els.dat"
+  T = 15
+  P = 4
+ end-parameters 
+ 
+ declarations
+  RI = 1..2                                ! Set of (remote) Mosel instances
+  RM = 0..5                                ! Range of models
+  TIMES = 1..T                             ! Time periods
+  PRODUCTS = 1..P                          ! Set of products
+  solprod: array(PRODUCTS,TIMES) of real   ! Sol. values for var.s produce 
+  solsetup: array(PRODUCTS,TIMES) of real  ! Sol. values for var.s setup
+  DEMAND: array(PRODUCTS,TIMES) of integer ! Demand per period
+    
+  modELS: array(RM) of Model               ! Models
+  NEWSOL = 2                               ! Identifier for "sol. found" event
+  Msg: Event                               ! Messages sent by models
+  params: text                             ! Submodel runtime parameters
+
+  moselInst: array(RI) of Mosel            ! (Remote) Mosel instances
+  NodeNames: array(RI) of string           ! Node names for remote connections
+ end-declarations
+
+! Setting up remote connections
+! Use machine names within your local network, IP addresses, or 
+! empty string for the current node running this model
+ NodeNames :: (1..2)["", "localhost"]
+
+! Start the remote Mosel instances
+ forall(i in RI) 
+  if connect(moselInst(i), NodeNames(i))<>0 then exit(1); end-if
+
+! Compile, load, and run models M1 and M2
+ M1:= 1; M2:=3
+ res:= compile("elsd.mos")                        ! Compile locally
+ load(moselInst(1), modELS(M1), "rmt:[-1]elsd.bim")   ! Load on remote nodes
+ load(moselInst(2), modELS(M2), "rmt:[-1]elsd.bim")
+ forall(m in RM) modELS(m).uid:= m
+ setmodpar(params, "RMT", "rmt:[-1]")
+ setmodpar(params, "DATAFILE", DATAFILE)
+ setmodpar(params, "T", T); setmodpar(params, "P", P)
+                                       ! Start submodel runs
+ setmodpar(params, "ALG", M1); run(modELS(M1), params)
+ setmodpar(params, "ALG", M2); run(modELS(M2), params)
+
+ objval:= MAX_REAL
+ algsol:= -1; algopt:= -1
+
+ repeat
+  wait                                 ! Wait for the next event
+  Msg:= getnextevent                   ! Get the event
+  if getclass(Msg)=NEWSOL then         ! Get the event class
+   if getvalue(Msg) < objval then      ! Value of the event (= obj. value)
+    algsol:= Msg.fromuid               ! ID of model sending the event
+    objval:= getvalue(Msg)
+    writeln("Improved solution ", objval, " found by model ", algsol)
+    forall(m in RM | m <> algsol) send(modELS(m), NEWSOL, objval)
+   else
+    writeln("Solution ", getvalue(Msg), " found by model ", Msg.fromuid)
+   end-if
+  end-if
+ until getclass(Msg)=EVENT_END         ! A model has finished
+ 
+ algopt:= Msg.fromuid                  ! Retrieve ID of terminated model
+ forall(m in RM) stop(modELS(m))       ! Stop all running models
+
+ if algsol=-1 then
+  writeln("No solution available")
+  exit(1)
+ else                     ! Retrieve the best solution from shared memory
+  initializations from "bin:sol_"+algsol
+   solprod 
+   solsetup 
+  end-initializations
+  
+  initializations from DATAFILE
+   DEMAND
+  end-initializations
+  
+! Solution printing
+  writeln("Best solution found by model ", algsol) 
+  writeln("Optimality proven by model ", algopt) 
+  writeln("Objective value: ", objval) 
+  write("Period  setup    ")
+  forall(p in PRODUCTS) write(strfmt(p,-7))
+  forall(t in TIMES) do
+   write("\n ", strfmt(t,2), strfmt(sum(p in PRODUCTS) solsetup(p,t),8), "    ")
+   forall(p in PRODUCTS) write(strfmt(solprod(p,t),3), " (",DEMAND(p,t),")")
+  end-do
+  writeln
+ end-if
+
+
+! Cleaning up temporary files
+ forall(m in RM) fdelete("sol_"+m) 
+ fdelete("elsd.bim")
+
+end-model

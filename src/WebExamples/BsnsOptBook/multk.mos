@@ -1,0 +1,65 @@
+(!*********************************************************************
+   Mosel Example Problems
+   ======================
+
+   file multk.mos
+   ``````````````
+   Multi-knapsack problem 
+   
+     Example solution to exercise 7.4 in section 7.10 of
+     J. Kallrath: Business Optimization Using Mathematical Programming -
+     An Introduction with Case Studies and Solutions in Various Algebraic 
+     Modeling Languages. 2nd edition, Springer Nature, Cham, 2021 
+
+   author: S. Heipcke, June 2018
+
+   (c) Copyright 2020 Fair Isaac Corporation
+  
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+*********************************************************************!)
+
+model 'multk'
+  uses "mmxprs"
+
+  declarations
+    RI=1..9                   ! Set of items
+    RC=1..3                   ! Set of boards
+    W: array(RI) of real      ! Weights of items
+    P: array(RI) of real      ! Values of items
+    C: array(RC) of real      ! Weight restrictions
+    x: array(RC,RI) of mpvar  ! if component is attached to board
+  end-declarations
+
+  W::[40,10,40,30,50,50,55,25,40]
+  P::[80,20,60,40,60,60,65,25,30]
+  C::[80,90,85]
+
+ ! Objective: maximise total value
+  TotVal:=sum(i in RC,j in RI) P(j) * x(i,j)
+
+ ! Weight limits must be satisfied
+  forall(i in RC) Knap(i):= sum(j in RI) W(j) * x(i,j)<= C(i)
+
+ ! Each component can only be allocated at most once
+  forall(j in RI) Conv(j):= sum(i in RC) x(i,j)<= 1  
+
+  forall(i in RC,j in RI) x(i,j) is_binary
+
+ ! Solve the problem
+  maximize(TotVal)
+  writeln("Solution: Total value=", getobjval)
+  forall(i in RC) 
+    writeln("  Board ", i, ": ", union(j in RI | x(i,j).sol=1) {j})
+
+end-model

@@ -1,0 +1,26 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file params_test.mos
+   ````````````````````
+   Working with package parameters.
+
+   *** Compile parpkg.mos before running this model ****
+   
+   (c) 2018 Fair Isaac Corporation
+       author: Y. Colombani, May 2018
+*******************************************************!)
+model "Packages with parameters"
+ uses 'parpkg'
+
+ ! Display default parameter values
+ writeln("Default values:", 
+   " p1=", getparam("parpkg.P1"), " p2=", getparam("P2"), 
+   " p3=", getparam("parpkg.p3"), " p4=", getparam("p4"))
+
+ ! Change values
+ setparam("p1",133); setparam("parpkg.p2",-77)
+ setparam("P3","tluafed"); setparam("parpkg.P4",not getparam("parpkg.P4"))
+
+end-model

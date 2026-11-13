@@ -1,0 +1,402 @@
+(!******************************************************
+   Mosel R Example Problems
+   ========================
+
+   file energyforecast.mos
+   ```````````````````````
+   Forecast of energy demand using regression analysis
+   on historic data 
+  
+   !!! This example requires an installation of R, see the
+   !!! chapter 'R' of the 'Mosel Language Reference' for
+   !!! compatible versions and setup instructions
+
+  (c) 2015 Fair Isaac Corporation
+      author: S.Lannez, Jul. 2015, rev. Jun 2023
+*******************************************************!)
+model forecast
+  options noimplicit
+  uses "mmsheet"   ! Spreadsheet I/O
+  uses "mmsystem"
+  uses "r"         ! Load R interface
+
+  parameters
+    DATADIR=""
+
+    ! Historical data
+    HISTFILE=DATADIR+'energyforecast.dat' 
+
+    ! Install R packages on the-fly
+    R_SETUP = false
+
+    ! The peak threshold. If the ratio between
+    ! the daily demand and the previous year average
+    ! daily demand is greater than the following threshold
+    ! then the period is considered a peak period.
+    FORECAST_PEAK_THR = 2.5
+
+    ! The peak period probability threshold. If 
+    ! the predicted probability of being in a
+    ! peak period is greater than the following
+    ! threshold, then the period is considered
+    ! to be a peak period.
+    FORECAST_PEAK_PROB = 0.5
+
+  end-parameters
+
+  ! **** Historical data **** !
+
+  declarations
+    Days: set of string            ! Days
+    Years: set of integer          ! Years 
+    Periods: range                 ! Time periods
+
+    HourTypes: set of integer      ! Hour types
+    DayTypes: set of integer       ! Day types
+    WeekTypes: set of integer      ! Week types
+
+    AttrGDP: set of string         ! YearGDP attributes
+    AttrIncome: set of string      ! Income attributes
+    
+    HourDemand: dynamic array(Days,Periods) of real     ! Historical demand
+    YearGDP: dynamic array(Years,AttrGDP) of real       ! Historical YearGDP
+    YearIncome: dynamic array(Years,AttrIncome) of real ! Historical income
+
+    first,last: date               ! Start and end date of forecasting period
+  end-declarations
+
+  ! **** Return the hour type ****
+  function gethourtype(t: integer): integer
+    declarations
+      h=t/48 ! Input data has 48 time periods
+    end-declarations
+    returned := floor(h*HourTypes.size)
+  end-function
+
+  ! **** Return the week type ****
+  function getweektype(d: date): integer      
+    returned := getdaynum(date(d)) div 7
+  end-function
+
+  ! **** Return the day type ****
+  function getdaytype(d: date): integer
+    declarations
+      daynum: integer
+      Summer=91..274
+      SummerHoliday=268..274
+      WinterHoliday=84..90
+    end-declarations
+    returned := 1 ! unknown
+    daynum := getdaynum(d)
+    if daynum in Summer then ! Summer
+      if daynum in SummerHoliday then
+        returned := 2 ! Summer public holiday
+      else
+        case getweekday(d) of
+          1,2,3,4,5: returned := 0 ! Summer week
+          6,7: returned := 1 ! Summer weekend
+        end-case
+      end-if
+    else ! Winter
+      if daynum in WinterHoliday then
+        returned := 5 ! Winter public holiday
+      else
+        case getweekday(d) of
+          1,2,3,4,5: returned := 3 ! Winter week
+          6,7: returned := 4 ! Winter weekend
+        end-case
+      end-if
+    end-if 
+  end-function
+
+  ! **** Run a regression analysis of forecast the energy consumption ****
+  procedure forecast(first,last: date,predict:boolean)
+    ! Sets the parameters of the forecast
+    ! function
+    declarations
+      TimePeriods,TimePeriods2: set of string
+      
+      ! Derived data
+      PeriodAvgEnergy: dynamic array(TimePeriods2) of real ! Average daily energy of the year
+
+      ! Observed data or forecasted from external tool
+      PeriodGDP: dynamic array(TimePeriods) of real ! Current year GDP
+      PeriodIncome: dynamic array(TimePeriods) of real ! Current year income
+      
+      PeriodWeekType: dynamic array(TimePeriods,WeekTypes) of boolean ! Day type
+      PeriodDayType: dynamic array(TimePeriods,DayTypes) of boolean ! Day type
+      PeriodHourType: dynamic array(TimePeriods,HourTypes) of boolean ! Hour type
+
+      PeriodWeekTypeS: dynamic array(TimePeriods) of string ! String representation of week type
+      PeriodDayTypeS: dynamic array(TimePeriods) of string ! String representation of day type
+      PeriodHourTypeS: dynamic array(TimePeriods) of string ! String representation of hour type
+      
+      ! Observed demand
+      PeriodDemand: dynamic array(TimePeriods) of real ! baseline demand
+      PeriodPeak: dynamic array(TimePeriods) of real ! peak demand
+      PeriodIPeak: dynamic array(TimePeriods) of real ! peak period
+
+      ! Period forecast
+      PeriodDemandP: dynamic array(TimePeriods) of real ! Baseline energy demand forecast
+      PeriodPeakP: dynamic array(TimePeriods) of real ! Peak energy demand forecast
+      PeriodIPeakP: dynamic array(TimePeriods) of real ! Probability of being in a peak
+
+      ! Misc
+      id: string
+      i,y: integer
+      w: real
+      E,EOrig,EPrev,err: real     
+      Calendar: dynamic array(Years,Days,Periods) of string
+    end-declarations    
+
+    writeln('-'*60)
+    if predict then
+      writeln('Forecasting...')
+    else
+      writeln('Running regression...')
+      if R_SETUP:
+        Reval('install.packages("mlogit",repos="http://cran.r-project.org")')
+    end-if
+
+    ! Create lookup array
+    writeln("Creating calendar...")
+    forall(d in Days, p in Periods | exists(HourDemand(d,p))) do
+      Calendar(getyear(date(d)),d,p) := d+"-"+if(p>=10,""+p,"0"+p)
+    end-do
+
+    ! Compute previous year average consumed energy.
+    ! The forecast function is based on energy demand growth
+    ! and needs relative demand increase from year-to-year
+    forall(yy in Years) do
+      i := 0
+      E := sum(d in Days, p in Periods | exists(Calendar(yy-1,d,p)),i as counter) HourDemand(d,p)
+      if i>0 then
+        E := E/i
+      else
+        E := 0
+      end-if
+      forall(d in Days, p in Periods | exists(Calendar(yy,d,p))) do
+        PeriodAvgEnergy(Calendar(yy,d,p)) := E
+      end-do
+    end-do    
+
+    ! Populate the predictors used in the regression or 
+    ! during the prediction.
+    writeln("Populating predictors...")
+    forall(d in Days | date(d)>=first and date(d)<=last) do
+      y := getyear(date(d))
+      forall(p in Periods | exists(Calendar(y,d,p))) do
+        id := Calendar(y,d,p)
+
+        ! Continous input
+        PeriodGDP(id) := YearGDP(y,'YearGDPGrowthRate')
+        PeriodIncome(id) := YearIncome(y,'Income')
+
+        ! Continuous input
+        PeriodWeekType(id,getweektype(date(d))) := true
+        PeriodDayType(id,getdaytype(date(d))) := true
+        PeriodHourType(id,gethourtype(p)) := true
+        
+        ! Discrete input
+        PeriodWeekTypeS(id) := ""+getweektype(date(p))
+        PeriodDayTypeS(id) := ""+getdaytype(date(p))
+        PeriodHourTypeS(id) := ""+gethourtype(p)
+
+        ! Value to be forecasted
+        if exists(HourDemand(d,p)) then
+          w := HourDemand(d,p) / PeriodAvgEnergy(id)
+          ! We split baseline and peak forecasting
+          ! in two different models in order
+          ! to improve the quality of the prediction
+          if w>=FORECAST_PEAK_THR then
+            PeriodPeak(id) := w-FORECAST_PEAK_THR
+            PeriodIPeak(id) := 1
+          else
+            PeriodPeak(id) := 0
+            PeriodIPeak(id) := 0
+          end-if
+          PeriodDemand(id) := w
+        end-if
+      end-do
+    end-do
+
+    writeln("Loading data to R...")
+
+    ! Copy data to R
+    Rset('timeperiods',TimePeriods)
+    Reval('MyData <- data.frame(row.names=timeperiods)')
+    Rset('MyData$gdp',PeriodGDP)
+    Rset('MyData$income',PeriodIncome)
+    Rset('MyData$weektype',PeriodWeekType)
+    Rset('MyData$daytype',PeriodDayType) 
+    Rset('MyData$hourtype',PeriodHourType)
+
+    Rset('MyData$weektypestr',PeriodWeekTypeS)
+    Rset('MyData$daytypestr',PeriodDayTypeS)
+    Rset('MyData$hourtypestr',PeriodHourTypeS)
+    
+    ! Fill NAs cell with 0
+    Reval('MyData$hourtype[ is.na(MyData$hourtype) ] <- 0')
+    Reval('MyData$daytype[ is.na(MyData$daytype) ] <- 0')
+    Reval('MyData$weektype[ is.na(MyData$weektype) ] <- 0')
+
+    ! When not predicting we need to set the demand, peak
+    ! and indicator peak period in order to run the regression
+    if not predict then
+      Rset('MyData$demand',PeriodDemand)
+      Rset('MyData$peak',PeriodPeak)
+      Rset('MyData$ipeak',PeriodIPeak)
+    end-if
+    
+    ! Predict
+    if not predict then
+      ! Define our prediction model
+    
+      ! This model is more advanced and takes into account the income and
+      ! gdp of the year, the weektype, daytype and hourtype. It will generates 
+      ! a set of coefficients that can be used to forecast the demand by taking 
+      ! into account the forecasted mean temperature, gdp and annual income of 
+      ! the future periods.
+      writeln("Fitting '", TimePeriods.size, "' time periods...")
+
+      ! Fitting the peak
+      writeln("... peak indicators ...")
+      Reval('peakModelI <- glm(ipeak ~ weektypestr + daytypestr + hourtypestr, data=MyData, family="binomial")')
+      ! Uncomment to get significance of each parameter. 
+      ! This computation can take minutes.
+      ! Rprint('anova(peakModelI,test="Chisq")') ! Print predictors relevance
+
+      ! Fitting the baseline consumption
+      ! We assume baseline is a linear response of the gdp/income/peak probability
+      writeln("... baseline consumption ...")
+      Reval('demandModel <- glm(demand ~ gdp + income + weektype + daytype*hourtype, data=MyData)')
+      ! Uncomment to get significance of each parameter. 
+      ! This computation can take minutes.
+      ! Rprint('anova(demandModel,test="Chisq")') ! Print predictors relevance
+
+      ! Fitting the peak consumption
+      ! We assume peak consumption is an exponential response of the gdp/daytype/hourtype predictors
+      writeln("... peak consumption ...")
+      Reval('peakModel <- glm(peak ~ gdp + income + weektype + daytype*hourtype, data=MyData)')
+      ! Uncomment to get significance of each parameter. 
+      ! This computation can take minutes.
+      ! Rprint('anova(peakModel,test="Chisq")') ! Print predictors relevance
+
+      ! Save the forecasting model
+      ! Uncomment the following line to extract the models to
+      ! a file that can be read by R
+      ! Reval('save(demandModel, peakModel, peakModelI, file="'+DATADIR+'forecaster.Rdata")') ! Debug
+
+      ! Free some memory
+      Reval('rm(MyData)')
+    else
+      writeln("Predicting '", TimePeriods.size, "' time periods...")
+
+      ! Predicting 
+      Reval('MyData$ipeak <- predict(peakModelI, newdata = MyData, type = "response")') ! Peak hours
+      Reval('MyData$demand <- predict(demandModel, newdata = MyData)') ! Baseline
+      Reval('MyData$peak <- predict(peakModel, newdata = MyData)') ! Peak value
+
+      writeln("==== Summary ===========")
+      writeln("= Peak period forecast =")
+      Rprint('summary(MyData$ipeak)')
+
+      writeln("= Baseline demand forecast =")
+      Rprint('summary(MyData$demand)')
+
+      writeln("= Peak demand forecast =")
+      Rprint('summary(MyData$peak)')
+
+      ! Copy the data to Mosel
+      Rgetarr('mmarray(MyData,"demand")',PeriodDemandP)
+      Rgetarr('mmarray(MyData,"ipeak")',PeriodIPeakP)
+      Rgetarr('mmarray(MyData,"peak")',PeriodPeakP)
+
+      ! Clean up R environment
+      Reval('rm(MyData)')
+
+      writeln("==== Analysis ==============")
+      ! Print some summary
+      E := 0 ; EOrig := 0; EPrev := 0 ; err := 0
+      forall(t in TimePeriods) do
+        EPrev += PeriodAvgEnergy(t)
+        EOrig += PeriodDemand(t) * PeriodAvgEnergy(t)
+        E += PeriodDemandP(t) * PeriodAvgEnergy(t)
+        err += abs(PeriodDemandP(t) - PeriodDemand(t))*PeriodAvgEnergy(t)
+      end-do
+      writeln(" === Baseline forecaster === ")
+      writeln("Previous year total energy  : ",textfmt(EPrev/10e6,6,3)," TWh")
+      writeln("Original total energy       : ",textfmt(EOrig/10e6,6,3)," TWh")
+      writeln("Forecasted total energy     : ",textfmt(E/10e6,6,3)," TWh")
+      if maxlist(E,EOrig)>0 then
+        writeln("Absolute error              : ",textfmt(round(abs(E-EOrig)/10e3),6)," GWh")
+        writeln("Relative error              : ",textfmt(round(100*abs(E-EOrig)/maxlist(E,EOrig)),6)+" %")
+      end-if
+      writeln("Cumulated period error      : ",textfmt(err/10e3,6)," GWh")
+
+      E := 0 ; EOrig := 0; EPrev := 0 ; err := 0
+      forall(t in TimePeriods) do
+        EPrev += PeriodAvgEnergy(t)
+        EOrig += PeriodPeak(t) * PeriodAvgEnergy(t)
+        E += PeriodPeakP(t) * PeriodAvgEnergy(t)
+        err += abs(PeriodPeakP(t) - PeriodPeak(t))*PeriodAvgEnergy(t)
+      end-do
+      writeln(" === Peak forecaster === ")
+      writeln("Previous year total energy  : ",textfmt(EPrev/10e6,6,3)," TWh")
+      writeln("Original total energy       : ",textfmt(EOrig/10e6,6,3)," TWh")
+      writeln("Forecasted total energy     : ",textfmt(E/10e6,6,3)," TWh")
+      if maxlist(E,EOrig)>0 then
+        writeln("Absolute error              : ",textfmt(round(abs(E-EOrig)/10e3),6)," GWh")
+        writeln("Relative error              : ",textfmt(round(100*abs(E-EOrig)/maxlist(E,EOrig)),6)+" %")
+      end-if      
+      writeln("Cumulated period error      : ",textfmt(err/10e3,6)," GWh")
+
+    end-if
+
+    writeln("Done.")
+
+  end-procedure
+
+  ! ************************ Application ************************ !
+
+  ! Define the sets
+  AttrGDP := {'YearGDP','YearGDPGrowthRate'} ! Available YearGDP data
+  AttrIncome := {'Income','Population','PopulationGrowthRate','IncomeGrowthRate'} ! Available income data
+  Periods := 0..47             ! Set of time periods in a day
+  HourTypes := 0..47           ! Set of hour types
+  DayTypes := {-1,0,1,2,3,4,5} ! Set of day types
+
+  ! Helper tool to convert from data.frame to 
+  ! simple arrays
+  Reval('mmarray <- function(ar,col) { a <- cbind(ar[,col]) ; colnames(a) <- col ; rownames(a) <- rownames(ar) ; a[,col] }')
+
+  ! In this example we have historical data
+  ! for the years 2010,2011,2012,2013. We have
+  ! gdp and income forecast for 2014 and we 
+  ! want to derive the energy demand.
+  !
+  ! Note: today is the 1st of January, 2014
+  !
+  ! Load historical and forecast data.
+  ! All data before 1st of January, 2014 are considered
+  ! past data
+  initializations from HISTFILE
+    HourDemand as  "E_DEMAND"  ! HourDemand
+    YearGDP as "IND_GDP"       ! YearGDP
+    YearIncome as "IND_INCOME" ! Income
+  end-initializations       
+ 
+  ! **** Run regression (2011-2013) **** !
+
+  first := date('2011-01-01')
+  last := date('2013-12-31')
+  forecast(first,last,false)
+
+  ! **** Predict demand (2014) **** !
+
+  first := date('2014-02-01')
+  last := date('2014-04-30')
+  forecast(first,last,true)
+
+end-model
+

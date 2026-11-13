@@ -1,0 +1,177 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file producer_consumer_graph.mos
+   ````````````````````````````````
+   Resource-constrained project planning problem (construction of 
+   a house) modeled with a producer-consumer constraint.
+
+   *** This model cannot be run with a Community Licence ***  
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+       Creation: 2007, rev. Sep. 2017
+*****************************************************************!)
+model "Cumulative Scheduling"  
+ uses "kalis","mmsvg" 
+
+ forward procedure draw_solution 
+
+ setparam("KALIS_DEFAULT_LB",0)
+ setparam("KALIS_DEFAULT_UB",100)
+
+ declarations
+  ! Task indices
+  Masonry  = 1; Carpentry = 2; Roofing        = 3; Windows        = 4
+  Facade   = 5; Garden    = 6; Plumbing       = 7; Ceiling        = 8
+  Painting = 9; MovingIn = 10; InitialPayment = 11; SecondPayment = 12
+  BUILDTASKS = 1..10
+  PAYMENTS = 11..12
+  TASKS = BUILDTASKS+PAYMENTS
+  TNAMES: array(TASKS) of string
+  
+  obj:cpvar                                ! Objective variable
+  starts   : array(TASKS) of cpvar         ! Start times of the tasks  
+  ends     : array(TASKS) of cpvar         ! Completion times of the tasks  
+  durations: array(TASKS) of cpvar         ! Durations of the tasks  
+  consos   : dynamic array(TASKS) of cpvar ! Res. consumptions of the tasks   
+  sizes    : dynamic array(TASKS) of cpvar ! Consumption sizes (= conso x dur)  
+  prods    : dynamic array(TASKS) of cpvar ! Res. production of the tasks  
+  sizep    : dynamic array(TASKS) of cpvar ! Production sizes (= prod x dur)
+  Strategy : array(range) of cpbranching   ! Branching strategy  
+ end-declarations
+
+ TNAMES:: (1..12)["Masonry", "Carpentry", "Roofing", "Windows", "Facade", 
+           "Garden", "Plumbing", "Ceiling", "Painting", "MovingIn",
+	   "InitialPayment", "SecondPayment"]
+ 
+! Setting the names of the variables 
+  forall(j in TASKS) do
+    starts(j).name := TNAMES(j)+".start"
+    ends(j).name := TNAMES(j)+".end"
+    durations(j).name := TNAMES(j)+".duration"
+  end-do
+
+! Creating consumption variables
+  forall(j in BUILDTASKS) do
+    create(sizes(j))
+    sizes(j).name := TNAMES(j)+".size"
+    create(consos(j))
+    consos(j).name := TNAMES(j)+".conso"
+  end-do
+
+! Setting durations of building tasks
+ durations(Masonry)  = 7; durations(Carpentry) = 3; durations(Roofing)  = 1
+ durations(Windows)  = 1; durations(Facade)    = 2; durations(Garden)   = 1
+ durations(Plumbing) = 8; durations(Ceiling)   = 3; durations(Painting) = 2
+ durations(MovingIn) = 1
+
+! Precedence constraints among building tasks
+ starts(Carpentry) >= ends(Masonry)
+ starts(Roofing)   >= ends(Carpentry)
+ starts(Windows)   >= ends(Roofing)
+ starts(Facade)    >= ends(Roofing)
+ starts(Garden)    >= ends(Roofing)
+ starts(Plumbing)  >= ends(Masonry)
+ starts(Ceiling)   >= ends(Masonry)
+ starts(Painting)  >= ends(Ceiling)
+ starts(MovingIn)  >= ends(Windows)
+ starts(MovingIn)  >= ends(Facade)
+ starts(MovingIn)  >= ends(Garden)
+ starts(MovingIn)  >= ends(Painting)
+
+! Setting task consumptions
+ consos(Masonry)  = 7; consos(Carpentry) = 3; consos(Roofing)  = 1 
+ consos(Windows)  = 1; consos(Facade)    = 2; consos(Garden)   = 1 
+ consos(Plumbing) = 8; consos(Ceiling)   = 3; consos(Painting) = 2 
+ consos(MovingIn) = 1
+
+! Production (amount) of payment tasks
+ forall(j in PAYMENTS) do
+  create(prods(j))
+  prods(j).name := TNAMES(j)+".prod"
+  create(sizep(j))
+  sizep(j).name := TNAMES(j)+".sizep"
+ end-do
+
+! Payment data
+ prods(InitialPayment)    = 20; prods(SecondPayment)     = 9
+ durations(InitialPayment) = 1; durations(SecondPayment) = 1
+ starts(InitialPayment)    = 0; starts(SecondPayment)    = 15
+
+! Objective: makespan of the schedule
+ obj = maximum({ ends(Masonry) , ends(Carpentry), ends(Roofing), ends(Windows), ends(Facade), ends(Garden), ends(Plumbing), ends(Ceiling), ends(Painting), ends(MovingIn)})
+
+! Posting the producer_consumer constraint
+ producer_consumer(starts, ends, durations, prods, sizep, consos, sizes)
+
+! Setting the search strategy
+ Strategy(0) := assign_var(KALIS_SMALLEST_MIN, KALIS_MIN_TO_MAX, starts)
+ cp_set_branching(Strategy) 
+ 
+! Find the optimal solution
+ if cp_minimize(obj) then 
+  cp_show_sol
+  draw_solution 
+ else
+  writeln("No solution found")
+ end-if
+
+! Pretty display of the solution as an SVG user graph 
+ procedure draw_solution     
+  ind := 1
+  mkspan := 0
+  
+  RES := 1
+  HORIZON := getub(obj)
+  forall(t in 0..HORIZON) histogram(RES,t) := 0
+  svgaddgroup("TextPlot", "", SVG_BLACK)               
+
+  setrandseed(17)
+  forall(t in BUILDTASKS) do       
+    svgaddgroup("G"+TNAMES(t), TNAMES(t), svgcolor(20+round(random*200),
+                20+round(random*200), 20+round(random*200)))
+    svgsetstyle(SVG_FILL,SVG_CURRENT)
+    svgsetstyle(SVG_OPACITY,0.65)
+    startt := getsol(starts(t))
+    endt   := getsol(ends(t))
+    uset   := getsol(consos(t))
+    if mkspan < endt then
+      mkspan := endt
+    end-if
+    svgaddrectangle(startt, ind, endt-startt, uset)
+  !  svgaddtext(startt+1, ind-4, "t"+t)
+    forall(h in startt..HORIZON) histogram(RES,h) -= uset
+    ind += uset          
+  end-do
+   
+  forall(t in PAYMENTS) do              
+    svgaddgroup("P"+TNAMES(t), TNAMES(t), SVG_BLUE)
+    svgsetstyle(SVG_FILL,SVG_CURRENT)
+    svgsetstyle(SVG_FILLOPACITY,0.5)
+    startt := getsol(starts(t))
+    endt   := getsol(ends(t))
+    uset   := getsol(prods(t))
+    if mkspan < endt then
+      mkspan := endt
+    end-if
+    svgaddrectangle(startt, (RES*-20), endt-startt, uset)
+    svgaddtext(startt,RES*-21,"Payment "+t)
+    forall (h in startt..HORIZON) histogram(RES,h) += uset
+  end-do
+  svgaddtext("TextPlot", mkspan, 0, "MakeSpan = " + mkspan)
+  svgaddgroup("Money", "Money available ", SVG_RED)            
+  svgsetstyle(SVG_FILL,SVG_CURRENT)
+  svgsetstyle(SVG_FILLOPACITY,0.65)
+  svgaddpolygon(sum(h in 0..mkspan-1)[h, ((RES*-20)+histogram(RES,h)), h+1, ((RES*-20)+histogram(RES,h))]+[mkspan,RES*-20,0,RES*-20])
+ 
+  svgsetgraphscale(10)
+  svgsetgraphviewbox(0,-25*RES, mkspan+10, 25*RES+ind)
+  svgsetgraphlabels("Time","")
+
+  svgsave("prodcons.svg")
+  svgrefresh
+  svgwaitclose("Close browser window to terminate model execution.", 1)
+ end-procedure
+end-model
+

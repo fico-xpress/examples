@@ -1,0 +1,18 @@
+(!*******************************************************
+  * Mosel Example Problems                              *
+  * ======================                              *
+  *                                                     *
+  * file toolong.mos                                    *
+  * ````````````````                                    *
+  * Example for the use of the Mosel language           *
+  * (Define a very large loop)                          *
+  *                                                     *
+  * (c) 2008 Fair Isaac Corporation                     *
+  *     author: Y. Colombani, 2001                      *
+  *******************************************************!)
+
+model 'Too long loop'
+
+ forall(i in 1..10000,j in 1..10000) t:=i+j
+
+end-model

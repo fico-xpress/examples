@@ -1,0 +1,51 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file soslin.mos
+   ```````````````
+   Approximation of a nonlinear function by a SOS-2.
+   - Example discussed in mipformref whitepaper -  
+    
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2002, rev. Feb. 2022
+*******************************************************!)
+
+model "soslin"
+ uses "mmxprs"
+
+ public declarations
+  I=1..4                          ! Set of breakpoints
+  x,y: mpvar                      ! The actual decision variables x and y
+  w: array(I) of mpvar            ! Weight variables for SOS formulation
+  R,FR: array(I) of real           ! X and Y coordinates of breakpoints
+ end-declarations
+
+! These values would normally be calculated here or read in from file
+ R:: [1, 2.5, 4.5, 6.5]
+ FR::[1.5, 6, 3.5, 2.5]
+
+! Define the SOS-2 with "reference row" coefficients from R
+ Defx:= sum(i in I) R(i)*w(i) is_sos2
+ sum(i in I) w(i) = 1 
+
+! The variable and the corresponding function value we want to approximate
+ x = Defx
+ y = sum(i in I) FR(i)*w(i)
+
+! Set a bound to make the problem more interesting
+ x >= 2
+ 
+(! Uncomment to display solver problem on screen
+ setparam("XPRS_loadnames", true)
+ loadprob(y)
+ writeprob("","l")
+!)
+
+! Solve the problem
+ minimize(y)
+ 
+ writeln("Solution: ", getobjval)
+ writeln("x: ", x.sol) 
+ 
+end-model 

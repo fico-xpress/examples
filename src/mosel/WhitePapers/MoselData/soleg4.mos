@@ -1,0 +1,83 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file soleg4.mos
+   ```````````````
+   Writing out solution values to
+   an Oracle database.
+   - Using 'initializations to' and SQL statements -
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2007, rev. Aug. 2023
+*******************************************************!)
+
+model "Solution values output (4)"
+ uses "mmxprs", "mmoci"
+ options keepassert
+
+ parameters
+  DB="myname/mypassword@dbname"     ! Login to Oracle database (not provided)
+ end-parameters
+ 
+ declarations
+  R = 1..3
+  S = 1..2
+  SOL: array(R,S) of real        ! Array for solution values
+  x: array(R,S) of mpvar         ! Decision variables
+ end-declarations
+
+! Define and solve the problem
+ forall(i in R) sum(j in S) x(i,j) <= 4
+ forall(j in S) sum(i in R) x(i,j) <= 6
+ maximise( sum(i in R, j in S) (i*j)*x(i,j) )
+
+! Get solution values from LP into the array SOL
+ forall(i in R, j in S) SOL(i,j) := getsol(x(i,j)) 
+
+! **** Using 'initializations to' ****
+
+ initializations to "mmoci.oci:debug;"+DB
+  SOL as "MyOut1"
+ end-initializations
+
+! **** Using SQL statements ****
+
+ OCIlogon(DB)
+ assert(getparam("OCIsuccess"))
+ setparam("OCIdebug",true)
+
+ OCIexecute("delete from MyOut2")
+ OCIexecute("insert into MyOut2 (First, Second, Solution) values (:1,:2,:3)", SOL)
+
+(! Alternative form:
+ OCIexecute("insert into MyOut2 (First, Second, Solution) values (:1,:2,:3)", array(i in R, j in S) x(i,j).sol)
+!)
+
+! Alternatively after the first model run:
+! OCIexecute("update MyOut2 set Solution=:3 where First=:1 and Second=:2", SOL)
+
+ assert(getparam("OCIsuccess"))
+
+ OCIlogoff
+
+end-model
+
+
+**************************************************
+
+
+! Creation of output tables in an Oracle database:
+
+
+ declarations
+  tsucc: array ({false,true}) of string
+ end-declarations
+
+ tsucc(false):="failed"; tsucc(true):="succeeded"
+
+ OCIexecute("create table MyOut1 (First integer, Second integer, Solution float)")
+ writeln(" - Create MyOut1 (",tsucc(getparam("OCIsuccess")),")")
+
+ OCIexecute("create table MyOut2 (First integer, Second integer, Solution float)")
+ writeln(" - Create MyOut2 (",tsucc(getparam("OCIsuccess")),")")

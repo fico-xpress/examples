@@ -1,0 +1,298 @@
+(!*********************************************************************
+   Mosel Example Problems
+   ======================
+
+   file newsvendor.mos
+   ```````````````````  
+   Simple News Vendor Problem
+   -- Solving a small stochastic problem illustrating
+      a 2-stage stochastic program and the concept of EEV and VSS --
+   -- Also solved as scenario-based robust optimization problem --
+   
+     Example discussed in section 11.3.2.1 of
+     J. Kallrath: Business Optimization Using Mathematical Programming -
+     An Introduction with Case Studies and Solutions in Various Algebraic 
+     Modeling Languages. 2nd edition, Springer Nature, Cham, 2021 
+
+   author: S. Heipcke, May 2020
+
+   based on the GAMS implementation in newsvendor.gms
+     by J.Kallrath, T.Lohmann and M.Bussieck 2010
+
+   (c) Copyright 2020 Fair Isaac Corporation
+  
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+*********************************************************************!)
+
+model 'newsvendor'
+  uses "mmxprs", "mmrobust"
+
+  declarations
+     C=1.5                         ! Purchasing price 
+     Q=2                           ! Penalty for dropped costumers 
+     AVAILABLE=50                  ! Newspapers available 
+
+     purchased: mpvar              ! Newspapers purchased
+     y: mpvar                      ! Newspaper not delivered (unsatisfied demand)
+     Probs: set of string
+     Cost: array(Probs) of linctr          ! Objective function
+     Pur: array(Probs) of linctr           ! Purchase equation (stage 1)
+     Bal: array(Probs) of linctr           ! Balance and demand satisfaction equation (stage 2) ;
+     FixPurch: array(Probs) of linctr      ! Fixed purchase (stage 2)
+
+     newsvendor: array(Probs) of mpproblem ! Optimization problems
+
+     Scenarios: set of string              ! Set of demand scenarios
+     SDemand: array(Scenarios) of real     ! Demand scenario data
+     Prob: array(Scenarios) of real        ! Probability for scenario s
+
+     Sol: array(string,Probs,string) of real ! Objective values for scenario solutions
+     XSol: array(string,Probs) of real     ! 1st-stage decision (amount purchased) for the different settings
+  end-declarations
+
+!**************************** Input data ****************************
+! Demand scenarios
+  SDemand::(["s1","s2","s3","s4","s5"])[13, 23,25, 31, 33]
+  finalize(Scenarios)
+  Probs:= Scenarios+{""}
+
+! Use equal probabilities for all scenarios
+  forall(s in Scenarios) Prob(s):= 1 / Scenarios.size 
+
+!************************ Demand scenario subproblems ************************
+
+ ! Define and solve a subproblem for a demand scenario  
+  procedure defprob(s: string, dem: real)
+    ! Objective function (1-stage purchase cost + 2-stage recourse cost)
+      Cost(s):= C*purchased + Q*y 
+
+    ! Capacity or availability constraint
+      Pur(s):= purchased <= AVAILABLE 
+
+    ! Relaxed demand constraint (y works as relaxation variable)
+      Bal(s):= purchased + y >= dem 
+
+    ! Solve the linear problem
+      minimize(Cost(s))
+  end-procedure
+
+ ! Modify a previously defined subproblem, fixing the 'purchase' variable
+ ! and applying a new demand value, then solve the subproblem
+  procedure modifprob(s: string, dem: real, fixval: real)
+    ! Fix the 1st stage variables to the solution of the WS problem
+      FixPurch(s):= purchased = fixval 
+
+    ! Set demand to the specified value
+      Bal(s):= purchased + y >= dem 
+
+    ! Solve the linear problem
+      minimize(Cost(s))
+  end-procedure
+
+!************************************************************************** 
+
+! **** Wait-and-See scenario solution used for solving different scenarios ****
+
+! For each scenario solve the deterministic problem with demand set to demand of
+! the scenario selected (this is called the Wait-and-See scenario solution)
+  forall(s in Scenarios) do
+    with newsvendor(s) do
+      defprob(s, SDemand(s))         ! Define problem and solve as LP
+      XSol('WS',s):= purchased.sol   ! 1st stage variables of the WS solution
+      Sol('WS','',s):= getobjval     ! Scenario objective function value   
+    end-do
+  end-do
+
+  forall(s in Scenarios)
+    writeln("WS stage1 ", s, " : ",  Sol('WS','',s), " purchased: ", XSol('WS',s))
+
+! For each scenario s solve the deterministic problem with demand set to demand 
+! of the selected scenario s2 and the 1st stage variables set to the solution of 
+! the WS solution of s
+  forall(s,s2 in Scenarios) do
+   ! Re-solve a modified optimization problem
+    with newsvendor(s) do
+      modifprob(s, SDemand(s2), XSol('WS',s))     
+      Sol('WS',s,s2):= getobjval     ! Save the objective function value
+    end-do
+  end-do
+
+! WS value: average (or, expected) value of the WS scenario solutions
+   Sol('WS','','Average'):= sum(s in Scenarios) Prob(s)*Sol('WS','',s)
+
+! Average (or, expected) WS scenario value when other scenarios are inserted
+   forall(s in Scenarios)
+     Sol('WS',s,'Average'):= Prob(s)*sum(s2 in Scenarios) Sol('WS',s,s2)
+
+  forall(s in Scenarios)
+    writeln("WS Average ", s, ": ",  Sol('WS',s,'Average'))
+
+! **** Expected value solution used for solving different scenarios ****
+(! The EV problem is also called "average scenario problem" as we replace all
+   uncertain input data by their expected values (for equal probabilities this
+   gives their average values).  
+!)
+
+! We expect that the amount to purchase is the expected value of the demand
+  with newsvendor("") do
+    defprob("", (sum(s in Scenarios) SDemand(s))/Scenarios.size)
+   ! Save the results
+    XSol('EV',''):= purchased.sol   ! this should be equal to 'demand'
+    writeln("EV 1st-stage:  ", getobjval, " purchased: ", purchased.sol)
+  end-do
+ 
+! For each scenario s solve the deterministic problem with demand equal to the
+! demand of s and 1st-stage variables fixed to the solution of the EV problem
+  forall(s in Scenarios) do
+   ! Solve a modified optimization problem
+    with newsvendor(s) do
+      modifprob(s, SDemand(s), XSol('EV',''))     
+      Sol('EV','',s):= getobjval        ! Save the scenario objective value
+    end-do
+  end-do
+
+! Compute the average of the scenario objective function values (the EEV)
+   Sol('EV','','Average'):= (sum(s in Scenarios) Sol('EV','',s))/Scenarios.size
+
+  writeln("EV Average:    ",  Sol('EV','','Average'))
+
+! **** Stochastic program ****
+  declarations
+    sy: array(Scenarios) of mpvar ! Customers dropped in scenario s (unsatisfied demand) 
+
+    SCost: linctr      ! Objective function
+    SPur: linctr       ! Purchase equation - involves only 1st stage variables
+    SBal: array(Scenarios) of linctr  ! Relaxed demand inequality for each scenario s
+    newsvendorSP: mpproblem
+  end-declarations
+
+! Define and solve the scenario based stochastic model
+  with newsvendorSP do
+   ! Objective function: 1st stage plus recourse term for 2nd stage
+    SCost:= C*purchased + sum(s in Scenarios) Prob(s)*Q*sy(s)
+
+   ! Purchase equation - involves only 1st stage variables
+    SPur:= purchased <= AVAILABLE 
+
+   ! Relaxed "satisfy demand" inequality for each scenario s
+    forall(s in Scenarios) SBal(s):= purchased + sy(s) >= SDemand(s) 
+
+   ! Solve the stochastic program (SP) - also called recourse problem (RP)
+     minimize(SCost)
+
+   ! Store the objective function value of the recourse problem as scalar RP  
+    RP:= getobjval
+    Sol('SP','',''):= RP
+    XSol('SP',''):= purchased.sol
+  end-do
+  writeln("SP recourse:   ", Sol('SP','',''), " purchased: ", XSol('SP',''))
+
+! For each scenario s solve the deterministic problem with demand equal to demand
+! of scenario s and 1st stage variables fixed to the solution of the SP problem
+  forall(s in Scenarios) do
+   ! Solve a modified optimization problem
+    with newsvendor(s) do
+      modifprob(s, SDemand(s), XSol('SP',''))     
+      Sol('SP','',s):= getobjval        ! Save the scenario objective value
+    end-do
+  end-do
+  Sol('SP','','Average') := (sum(s in Scenarios) Sol('SP','',s)) / Scenarios.size
+  writeln("SP Average:    ", Sol('SP','','Average'))
+
+
+! **** Calculation of the EEV, VSS and EVPI ****
+(! Calculate the VSS and EVPI values in the standard way for 2-stage problems:
+   1- Take the solution of the EV policy (deterministic problem with the
+      uncertain data replaced by their expected values), and
+   2- Use this solution to fix the 1-stage variables when solving the
+      individual scenarios (modified Wait-and-See problem)
+   3- The EEV is the expected value of the objective function values of the
+      modified WS problem,
+      EEV = Sol('WS','','Average') = sum(s in Scenarios) Prob(s)*Sol('WS',s,s)
+      i.e., the EEV is defined as the expected result of using the 1st-stage
+      solution of the deterministic EV model in the WS approach
+!)
+ declarations
+   EEV: real    ! Expected result of using the EV policy in the 1st-stage variables
+   VSS: real    ! Value of the Stochastic Solution
+   EVPI: real   ! Expected Value of Perfect Information ;
+ end-declarations
+
+! The EEV is the expected value, i.e., the average over the scenarios
+   EEV := Sol('EV','','Average')
+
+! Compute the VSS as the difference of the EEV and the stochastic solution
+   VSS := EEV - Sol('SP','','') 
+
+! Compute the EVPI as the difference of the stochastic solution and the EEV from
+! the modified WS problem
+   EVPI := Sol('SP','','') - Sol('WS','','Average') 
+
+ writeln("EEV:           ", EEV, " VSS: ", VSS, " EVPI:", EVPI)
+
+! **** Calculate the VSS and EVPI (special way) ****
+(! In this special case of the newsvendor problem the SP average is
+   identical to the objective function value of the SP itself. Therefore, we
+   can also compute the VSS and EVPI as:
+!)
+
+ declarations
+   VSSs: real     ! Value of the Stochastic Solution
+   EVPIs: real    ! Expected Value of Perfect Information 
+ end-declarations
+
+! Calculate the VSSs and EVPIs based on the average EV, SP, and WS values
+   VSSs  := Sol('EV','','Average') - Sol('SP','','Average') 
+   EVPIs := Sol('SP','','Average') - Sol('WS','','Average') 
+
+ writeln("                    VSSs: ", VSSs, " EVPIs:", EVPIs)
+
+
+! **** Robust Optimization Problem ****
+  declarations
+    UncertainDem: uncertain   ! Demand is uncertain
+    DemScenValue: array(range, set of uncertain) of real  ! Demand scenarios
+    RCost: linctr             ! Objective function
+    RPur: linctr              ! Purchase equation
+    RBal: robustctr           ! Robust demand constraint
+    newsvendorRO: mpproblem
+  end-declarations
+
+  forall(s in Scenarios, ct as counter) 
+    DemScenValue(ct, UncertainDem):= SDemand(s) 
+
+! Define and solve as scenario-based robust optimization problem
+  with newsvendorRO do
+   ! Objective function: otal cost
+    RCost:= C*purchased + Q*y
+
+   ! Purchase equation - involves only 1st stage variables
+    RPur:= purchased <= AVAILABLE 
+
+   ! Relaxed "satisfy demand" inequality 
+    RBal:= purchased + y >= UncertainDem 
+
+   ! Establish the demand scenario constraint
+    scenario(DemScenValue)
+
+   ! Solve the robust opt problem
+    minimize(RCost)
+
+   ! Store the objective function value of the robust opt problem 
+    Sol('RO','',''):= getobjval
+    XSol('RO',''):= purchased.sol 
+  end-do
+  writeln("Robust opt:    ", Sol('RO','',''), " purchased: ", XSol('RO',''))
+  
+end-model

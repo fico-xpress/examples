@@ -1,0 +1,59 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file blend3e.mos
+   ````````````````
+   Reading data from an Excel spreadsheet
+   - using the excel IO driver -
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2007
+*******************************************************!)
+
+model "Blend 3" 
+ uses  "mmsheet", "mmxprs" 
+
+ declarations
+  REV = 125                      ! Unit revenue of product
+  MINGRADE = 4                   ! Minimum permitted grade of product
+  MAXGRADE = 5                   ! Maximum permitted grade of product
+  ORES = 1..2                    ! Range of ores
+
+  COST: array(ORES) of real      ! Unit cost of ores
+  AVAIL: array(ORES) of real     ! Availability of ores
+  GRADE: array(ORES) of real     ! Grade of ores (measured per unit of mass)
+
+  use: array(ORES) of mpvar      ! Quantities of ores used
+ end-declarations
+
+!*** Read data from spreadsheet blend.xls ***
+(! Spreadsheet range contains data only (no header line):
+ initializations from "mmsheet.excel:blend.xls"
+  [COST,AVAIL,GRADE] as "MyRangeNoHeader"      ! or: "[Sheet1$B3:E4]" 
+ end-initializations
+!)
+
+! Or (spreadsheet range includes a header line as with ODBC):
+ initializations from "mmsheet.excel:blend.xls"
+  [COST,AVAIL,GRADE] as "skiph;MyRange"        ! or: "skiph;[Sheet1$B2:E4]" 
+ end-initializations
+!)
+
+! Objective: maximize total profit
+ Profit:= sum(o in ORES) (REV-COST(o))* use(o)
+
+! Lower and upper bounds on ore quality
+ sum(o in ORES) (GRADE(o)-MINGRADE)*use(o) >= 0
+ sum(o in ORES) (MAXGRADE-GRADE(o))*use(o) >= 0
+
+! Set upper bounds on variables
+ forall(o in ORES) use(o) <= AVAIL(o)
+
+ maximize(Profit)                 ! Solve the LP-problem
+
+ ! Print out the solution
+ writeln("Solution:\n Objective: ", getobjval)
+ forall(o in ORES)  writeln(" use(" + o + "): ", getsol(use(o)))
+
+end-model

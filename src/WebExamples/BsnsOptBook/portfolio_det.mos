@@ -1,0 +1,132 @@
+(!*********************************************************************
+   Mosel Example Problems
+   ======================
+
+   file portfolio_det.mos
+   ``````````````````````  
+   Deterministic Portfolio Investment Model (DET)
+   -- Deterministic kernel of the Portfolio Investment problem
+   
+     Example discussed in section 11.3.2.1 of
+     J. Kallrath: Business Optimization Using Mathematical Programming -
+     An Introduction with Case Studies and Solutions in Various Algebraic 
+     Modeling Languages. 2nd edition, Springer Nature, Cham, 2021 
+
+   author: S. Heipcke, October 2020
+
+   based on the GAMS implementation in Portfolio_Det.gms
+     by J.Kallrath and T.Lohmann 2011
+
+   -- A decision maker has to determine the optimal investment levels in
+      various investment opportunities subject to uncertain returns. At
+      predetermined intervals, the assets can be redistributed, based on
+      the returns realized to date. The objective is to meet a certain
+      investment goal at the end of planning horizon; falling short of
+      the financial goal carries a penalty. 
+
+   (c) Copyright 2020 Fair Isaac Corporation
+  
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+*********************************************************************!)
+
+model "portfolio_det"
+  uses "mmxprs"
+  uses "mmxprs"
+  parameters
+    LOADR = false        ! Whether to read values for 'RET'
+    VALR = ""            ! Location from which to read RET
+    LOADX = false        ! Whether to read solution for fixing 'x' variables
+    SOLX = ""            ! Location from which to read solution
+    OUTFILE = "res.txt"  ! Location for data + results output
+    DISPLAY=true         ! Whether to display results
+  end-parameters
+
+  public declarations
+    I: set of string                    ! Investments
+    T: set of string                    ! Stages
+    TL: list of string                  ! Ordered list of stages
+    TT: set of string                   ! Stages with investment
+    BDGT: real                          ! Budget
+    CAP: real                           ! Capital target at the end of the horizon
+    RET: array(I,T) of real             ! ROI of i at begin of stage t
+
+    x: array(I,T) of mpvar              ! Amount of money invested in i in stage t
+    over: mpvar                         ! Capital in excess of the target CAP
+    short: mpvar                        ! Capital short of the target CAP
+    Wealth: linctr                      ! Objective 
+
+    Solx: dynamic array(I,T) of real    ! Solution values for variables x
+  end-declarations
+
+!******** Input data ********
+
+  I:= {'Stocks', 'Bonds'}
+  BDGT:= 55; CAP:= 80
+  TL:= ['today','year-5','year-10','horizon']; T:=set(TL)
+  TT:={'today','year-5','year-10'}
+
+  if LOADR then
+    initializations from VALR
+      RET
+    end-initializations
+  else
+    RET::('Stocks',['year-5','year-10','horizon'])[1.155, 1.155, 1.155]
+    RET::('Bonds', ['year-5','year-10','horizon'])[1.13, 1.13, 1.13]
+  end-if
+  if DISPLAY then writeln(" RET=", RET); end-if
+
+!******** Problem statement ********
+
+ ! Objective: We assume an income of q+% = 1% over the excess, 
+ ! while not meeting the goal would lead to borrowing at cost q-% = 4%.
+  Wealth:= over - 4*short
+
+ ! The first-period constraint is simply to invest the initial budget
+  Budget:= sum(i in I) x(i,'today') = BDGT
+
+ ! ROI in period t+1 from investment i in period t is reinvested in period t+1,
+ ! or contributes to the final balance: CAP + over - short
+  forall(ti in 1..TL.size-1 | TL(ti) in TT) Balance(TL(ti)):=
+     sum(i in I) RET(i,TL(ti+1))*x(i,TL(ti)) = 
+      if(ti<TT.size, sum(i in I) x(i,TL(ti+1)), CAP + over - short)  
+
+  if LOADX then
+    initializations from SOLX
+      Solx
+    end-initializations
+    forall(i in I, t in T | exists(Solx(i,t))) x(i,t)=Solx(i,t)
+  end-if
+ 
+ ! Solve the problem
+  maximize(Wealth)
+
+  if getprobstat<>XPRS_OPT then
+    exit(1)
+  else
+    if DISPLAY then
+      writeln("Solution: ", getobjval)
+      forall(t in TL)
+        writeln(" ",t, "  ", x('Stocks',t).sol, "  ", x('Bonds',t).sol)
+      writeln(" short:", short.sol, " over:", over.sol)
+    !  forall(t in TL) writeln(" Balance_",t, ": ", Balance(t).dual)
+    end-if
+  end-if
+
+ ! Write results to the specified output file 
+  initializations to OUTFILE
+    evaluation of array(i in I, t in T) x(i,t).sol as "Solx" 
+    evaluation of getobjval as "Wealth"    
+  end-initializations
+
+end-model

@@ -1,0 +1,58 @@
+(!*******************************************************
+   Mosel User Guide Examples
+   =========================
+
+   file knapsackr.mos
+   ``````````````````
+   Knapsack (sub)model of the for a paper cutting example,
+   reading data from shared memory.
+   Communication of data from/to parent model
+   using 'shmem' IO driver with 'raw'.
+
+   *** Not intended to be run standalone - run from paperpr.mos ***
+
+   Solve the integer knapsack problem                              
+     z = max{Cx : Ax<=B, x<=D, x in Z^N}  
+
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2004, rev. July 2010
+*******************************************************!)
+
+model "Knapsack"
+ uses "mmxprs"
+
+ parameters
+  NWIDTHS=5                            ! Number of different widths
+ end-parameters
+ 
+ declarations
+  WIDTHS = 1..NWIDTHS                  ! Range of widths
+  A,C: array(WIDTHS) of real           ! Constraint + obj. coefficients
+  B: real                              ! RHS value of knapsack constraint
+  D: array(WIDTHS) of integer          ! Variables bounds (demand quantities)
+  KnapCtr, KnapObj: linctr             ! Knapsack constraint+objective
+  x: array(WIDTHS) of mpvar            ! Knapsack variables
+  xbest: array(WIDTHS) of integer      ! Solution values
+ end-declarations
+ 
+ initializations from "raw:noindex"
+  A as "shmem:A" B as "shmem:B" C as "shmem:C"  D as "shmem:D"
+ end-initializations
+ 
+! Define the knapsack problem
+ KnapCtr:= sum(j in WIDTHS) A(j)*x(j) <= B
+ KnapObj:= sum(j in WIDTHS) C(j)*x(j)
+
+! Integrality condition and bounds
+ forall(j in WIDTHS) x(j) is_integer
+ forall(j in WIDTHS) x(j) <= D(j)    ! These bounds can be omitted
+
+ maximize(KnapObj)
+ z:=getobjval
+ forall(j in WIDTHS) xbest(j):=round(getsol(x(j)))
+
+ initializations to "raw:"
+  xbest as "shmem:xbest" z as "shmem:zbest"
+ end-initializations
+
+end-model

@@ -1,0 +1,62 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file recordin2.mos
+   ``````````````````
+   Reading records from
+   spreadsheets or databases via ODBC.
+   - Using SQL commands -
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Nov. 2007, rev. Aug. 2023
+*******************************************************!)
+
+model "Record input (SQL)"
+ uses "mmodbc"
+
+ parameters
+                              ! Use mysql database `recorddata' (not provided)
+!  CNCT = 'DSN=mysql;DB=recorddata'
+                              ! Use SQLite database `recorddata' via ODBC
+!  CNCT = 'DSN=sqlite;DATABASE=recorddata.sqlite'
+                              ! Use SQLite database `recorddata' directly
+  CNCT = 'recorddata.sqlite'
+ end-parameters
+
+ public declarations
+  PRODUCTS: set of string
+  MACH: range
+  ProdRec = public record
+   Cost: real
+   Duration: integer
+  end-record 
+  PDATA: dynamic array(PRODUCTS,MACH) of ProdRec
+
+  R = 1..9
+  AllDataRec = public record
+   Product: string
+   Mach: integer
+   Cost: real
+   Duration: integer
+  end-record 
+  ALLDATA: array(R) of AllDataRec
+ end-declarations
+
+! **** Reading complete records
+
+ setparam("SQLverbose",true)
+
+ SQLconnect(CNCT)
+ if not getparam("SQLsuccess"): setioerr("Database connection failed")
+ SQLexecute("select * from ProdData", PDATA)
+ setparam("SQLndxcol", false)           ! Dense data
+ SQLexecute("select * from ProdData", ALLDATA)
+
+ SQLdisconnect
+
+! Now let us see what we have
+ writeln('PDATA is: ', PDATA)
+ writeln('ALLDATA is: ', ALLDATA)
+
+end-model

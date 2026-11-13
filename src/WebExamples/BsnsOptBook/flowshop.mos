@@ -1,0 +1,119 @@
+(!*********************************************************************
+   Mosel Example Problems
+   ======================
+
+   file flowshop.mos
+   `````````````````
+   Flowshop problem 
+   
+     Example solution to exercise 7.7 in section 7.10 of
+     J. Kallrath: Business Optimization Using Mathematical Programming -
+     An Introduction with Case Studies and Solutions in Various Algebraic 
+     Modeling Languages. 2nd edition, Springer Nature, Cham, 2021 
+
+   See https://examples.xpress.fico.com/example.pl?id=flowshopgr
+   for additional versions.
+
+   author: S. Heipcke, June 2018
+
+   (c) Copyright 2020 Fair Isaac Corporation
+  
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+*********************************************************************!)
+
+model 'flowshop'
+  uses "mmxprs", "mmsystem", "mmsvg"
+
+  declarations
+    NJ=6
+    NM=4
+    JOBS=1..NJ                      ! Set of jobs
+    MACH=1..NM                      ! Set of machines
+    T: array(JOBS,MACH) of real     ! Processing time of job on machine
+  end-declarations
+
+  T::[10,9,6,2,
+      12,7,4,2,
+      14,6,3,1,
+      15,4,2,1,
+      13,9,4,3,
+      12,7,5,3]
+
+  declarations
+    d: array(JOBS,JOBS) of mpvar    ! Whether job is scheduled in position
+    s: array(JOBS,MACH) of mpvar    ! Time at which job starts on machine
+  end-declarations
+
+ ! Objective: makespan (completion time of last job on last machine)
+  Obj:= s(NJ,NM) + sum(i in JOBS)T(i,NM)*d(i,NJ)
+
+ ! One job per position and one rank position for every job
+  forall(j in JOBS) S1(j):= sum(i in JOBS) d(i,j)=1
+  forall(i in JOBS) S2(i):= sum(j in JOBS) d(i,j)=1
+
+ ! 'no idle time' constraints
+  T1:= s(1,1)=0                      
+  forall(j in 1..(NJ-1))
+    T2(j):= s(j,1) - s(j+1,1) + sum(i in JOBS)T(i,1) * d(i,j)=0
+  forall(k in 1..(NM-1))
+    T3(k):= s(1,k) - s(1,k+1) + sum(i in JOBS)T(i,k) * d(i,1)=0
+
+ ! Jobs wait for machines or previous jobs - 2 sets of constraints
+  forall(j in 2..NJ,k in 1..(NM-1))
+    C1(j,k):= s(j,k) - s(j,k+1) + sum(i in JOBS)T(i,k) * d(i,j)<=0
+  forall(j in 1..(NJ-1),k in 2..NM)
+    C2(j,k):= s(j,k) - s(j+1,k) + sum(i in JOBS)T(i,k) * d(i,k)<=0
+
+ ! Position variables are binaries
+  forall(i in JOBS,j in JOBS) d(i,j) is_binary
+
+ ! Solve the problem and display the solution
+  minimise(Obj)
+  writeln("Solution: Makespan=", getobjval)
+  write("            ")
+  forall(j in JOBS) write("Job ", textfmt(getsol(sum(i in JOBS)i*d(i,j)),-3))
+  forall(m in MACH) do
+    write("\nMachine ", m, ":")
+    forall(j in JOBS) 
+      write(formattext("%4.0f-%2.0f", round(s(j,m).sol),
+        getsol(s(j,m)+sum(i in JOBS)T(i,m)*d(i,j))))
+  end-do
+  writeln
+
+! Solution drawing
+ declarations
+  JobGraph: array(JOBS) of string
+ end-declarations
+ SCALE:=5
+ svgsetgraphviewbox(-10,1, getobjval+15, NM*SCALE+5)
+ svgsetgraphscale(5)
+
+ forall(j in JOBS) do
+  JobGraph(j):="Job"+j
+  svgaddgroup(JobGraph(j), "Job "+j)
+  svgsetstyle(SVG_FILL, SVG_CURRENT)
+ end-do
+ forall(j in JOBS,m in MACH) 
+  svgaddrectangle(JobGraph(j), getsol(s(j,m)), m*SCALE,
+   getsol(sum(i in JOBS)T(i,m)*d(i,j)), 2)
+
+ svgaddgroup("M", "Machines", SVG_BLACK)
+ forall(m in MACH) svgaddtext(-5,m*SCALE, "M"+m)
+ forall(m in MACH) svgaddline(0,m*SCALE,getobjval,m*SCALE)
+
+ svgsave("flowshop.svg")
+ svgrefresh
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+
+end-model

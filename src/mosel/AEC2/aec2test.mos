@@ -1,0 +1,161 @@
+(!*******************************************************
+  * Mosel Example Problems                              *
+  * ======================                              *
+  *                                                     *
+  * file aec2test.mos                                   *
+  * `````````````````                                   *
+  *  A simple model for testing the AEC2 package        *
+  *                                                     *
+  * (c) 2011-2025 Fair Isaac Corporation                *
+  *     author: Y. Colombani                            *
+  *******************************************************!)
+
+model aec2_test
+uses 'aec2','mmjobs'
+
+parameters
+ CFG="aec2.acf"
+end-parameters
+
+declarations
+ ecf:EC2Conf
+ ainst:EC2instance
+ instances:list of EC2instance
+ l:text
+ procedure testconnect(constr:string)
+end-declarations
+
+! If necessary, define an HTTP proxy
+!setparam("httpgproxy","calliope")
+
+! Now load the configuration prepared with aec2setup
+if not loadAEC2Config(ecf,CFG) then
+ writeln("The configuration file '",CFG,"' is missing or incomplete.")
+ writeln("Please run the 'aec2setup' program for updating it.")
+ exit(1)
+end-if
+
+writeln("++++ Testing connection to an AEC2 image ++++")
+writeln
+writeln("Configuration from '",CFG,"':")
+writeln(" endpoint: ",ecf.endpoint)
+writeln(" AWS ID file: ",ecf.aidfile)
+writeln(" ssh key file: ",ecf.askfile)
+writeln(" AMI Id: ",ecf.image)
+writeln(" Instance type: ",ecf.type)
+writeln(" Security group: ",ecf.secgrp)
+writeln(" xssh port: ",ecf.xsrvport)
+writeln(" xssh context: ",ecf.xsrvctx)
+writeln(" xssh password: ",ecf.xsrvpass)
+writeln(" Default connection mode: ",ecf.connmode)
+writeln
+
+! Let's try to find a running instance
+instances:=getAllInstances(ecf)
+forall(i in instances|i.state=AEC2_RUNNING and i.image=ecf.image)
+ insrunning+=[i]
+if insrunning.size>0 then
+ writeln("+ Found the following instance(s):")
+ forall(i in insrunning) do
+  writeln("\t",i.Id,"(",EC2statetext(i.state),") from image ",i.image)
+  ! we keep the first instance built from an appropriate image
+  if ainst.Id="" then
+     ainst:=i
+  end-if
+ end-do
+ if ainst.Id="" then
+  writeln("None of these instances can be used")
+ end-if
+else
+ writeln("+ No compatible instance running.")
+end-if
+writeln
+
+if ainst.Id="" then
+ write("\nWould you like to start a new Amazon instance ?");fflush
+ if readtextline(l)<=0 or (getchar(l,1)<>getchar('y') and getchar(l,1)<>getchar('Y')) then
+  writeln("Aborting.")
+  exit(1)
+ end-if
+ write("+ Starting a new EC2 instance.");fflush
+ ainst:=runInstance(ecf)
+ if not waitInstanceReady(ecf,ainst,300,true) then
+  writeln("\nFailed to start instance!")
+  terminateInstance(ecf,ainst)
+  exit(1)
+ end-if
+ writeln
+end-if
+
+writeln("+ Instance properties:")
+writeln(" Id: ",ainst.Id)
+writeln(" Image: ",ainst.image)
+writeln(" State: ",ainst.state," (",EC2statetext(ainst.state),")")
+writeln(" Dns: ",ainst.dns)
+writeln(" ssh key name: ",ainst.key)
+writeln(" Type: ",ainst.type)
+writeln(" Launchtime: ",ainst.launchtime)
+writeln(" IP: ",ainst.ipaddr)
+writeln
+
+if ecf.askfile<>'' then
+ testconnect(getConnStringSSH(ecf,ainst))
+else
+ writeln("+ No ssh key provided - cannot connect with this method.")
+end-if
+if ecf.xsrvport>0 then
+ testconnect(getConnStringXSRV(ecf,ainst))
+else
+ writeln("+ xprmsrv disabled - cannot connect with this method.")
+end-if
+
+write("\nWould you like to shut down Amazon instance ",ainst.Id," ?");fflush
+if readtextline(l)>0 and (getchar(l,1)=89 or getchar(l,1)=121) then
+ writeln("Terminating Amazon instance.")
+ terminateInstance(ecf,ainst)
+end-if
+
+! Use Mosel on an EC2 instance
+procedure testconnect(constr:string)
+ declarations
+  minst:Mosel
+  rmod:Model
+ end-declarations
+
+ writeln("---------------------------------")
+ writeln("+ Starting Mosel using '",constr,"'")
+ ! Start a Mosel instance in the cloud...
+ if connect(minst,constr)<>0 then
+  writeln("Failed to start Mosel on ",ainst.Id)
+ else
+  writeln("+ Remote instance system information:",getsysinfo(minst))
+  writeln
+
+  ! generate a simple model for testing
+  fopen("tmp:minimod.mos",F_OUTPUT)
+  writeln(
+  "model minimod\n"+
+  "writeln('Hello from EC2')\n"+
+  "end-model")
+  fclose(F_OUTPUT)
+
+  writeln("+ Compile a model remotely (bim file saved on the remote instance)")
+  ! Now compile then load...
+  if compile(minst,"","rmt:tmp:minimod.mos","tmp:m.bim")<>0 then
+   writeln("Compilation failed!")
+  end-if
+
+  writeln("+ Load then run:")
+  load(minst,rmod,"tmp:m.bim")
+  run(rmod)
+  wait
+  dropnextevent
+  writeln("\n+ Execution finished!")
+  unload(rmod)
+
+  writeln("+ Disconnecting Mosel.")
+  disconnect(minst)
+ end-if
+ writeln("---------------------------------")
+end-procedure
+end-model

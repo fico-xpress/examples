@@ -1,0 +1,50 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file MatrixVariables_std.mos
+   ````````````````````````````
+   -- Defining constraints over a 2-dimensional array of variables --
+
+   (c) 2019-2026 Fair Isaac Corporation
+       author: S.Heipcke
+*******************************************************!)
+model "Matrix Variables"
+
+    !S:IMPORT
+    uses "mmsheet", "mmxprs"
+
+    parameters
+        DATA_FILE_PREFIX = "00"
+    end-parameters
+    writeln("#E:IMPORT")
+
+    writeln("#S:READ")
+    declarations
+        T:range
+        P:range
+        V: array(P) of integer
+        S: array(T) of integer
+    end-declarations
+
+    initializations from "mmsheet.csv:" + DATA_FILE_PREFIX + "_H_MatrixVariables_S.csv"
+        S  as "[]"
+    end-initializations
+
+    initializations from "mmsheet.csv:" + DATA_FILE_PREFIX + "_H_MatrixVariables_V.csv"
+        V  as "[]"
+    end-initializations
+
+    declarations
+        q: array(T,P) of mpvar ! separately declared to wait until P and T are finalized
+    end-declarations
+    writeln("#E:READ")
+
+    writeln("#S:PROC")
+    forall(t in T)
+        sum(p in P) q(t, p) * V(p) <= S(t)
+
+    loadprob(0)
+    writeln("#E:PROC")
+
+end-model

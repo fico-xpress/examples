@@ -1,0 +1,352 @@
+(!*******************************************************
+   Mosel User Guide Examples
+   =========================
+
+   file paperio.mos
+   ````````````````
+   Column generation algorithm for finding (near-)optimal
+   solutions for a paper cutting example.
+   
+   Data in- and output using the 'raw' driver.
+   Model can only be executed from the file paperio.c,
+   and not in standalone mode.
+   
+   Heuristic generation of patterns at start.
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2005, rev. Dec. 2017
+*******************************************************!)
+
+model "Papermill IO"
+ uses "mmxprs"
+
+ parameters
+  NWIDTHS = 5                          ! Number of different widths
+  WDATA=''                             ! Location of data in memory
+  DDATA=''                             ! Location of data in memory
+ end-parameters
+
+ forward procedure column_gen
+ forward function knapsack(C:array(range) of real, 
+                           A:array(range) of real, 
+                           B:real, 
+                           D:array(range) of integer, 
+                           xbest:array(range) of integer,
+                           pass:integer): real
+ forward function pat_heur:integer
+ forward procedure printpat(zbest:real, xbest:array(range) of integer, 
+		            W:array(range) of real)
+
+(!
+The column generation algorithm requires the solution of a knapsack problem.
+We define the constraints of the knapsack problem globally because Mosel 
+does not delete them at the end of a function (due to its principle of incremental model formulation).
+!)
+ 
+ declarations
+  WIDTHS = 1..NWIDTHS                  ! Range of widths
+  RP: range                            ! Range of cutting patterns
+  MAXWIDTH = 94                        ! Maximum roll width
+  EPS = 1e-6                           ! Zero tolerance
+
+  WIDTH: array(WIDTHS) of real         ! Possible widths
+  DEMAND: array(WIDTHS) of integer     ! Demand per width
+  PATTERNS: array(WIDTHS, range) of integer  ! (Basic) cutting patterns
+
+  use: dynamic array(RP) of mpvar      ! Rolls per pattern
+  soluse: dynamic array(RP) of real    ! Solution values for variables `use' 
+  Dem: array(WIDTHS) of linctr         ! Demand constraints
+  MinRolls: linctr                     ! Objective function
+ 
+  KnapCtr, KnapObj: linctr             ! Knapsack constraint+objective
+  x: array(WIDTHS) of mpvar            ! Knapsack variables
+ end-declarations
+
+! WIDTH::  [ 17, 21, 22.5,  24, 29.5] 
+! DEMAND:: [150, 96,   48, 108,  227]
+
+ initializations from "raw:"
+  WIDTH as WDATA
+  DEMAND as DDATA
+ end-initializations
+ 
+                                       ! Make basic patterns
+ forall(j in WIDTHS)  PATTERNS(j,j) := floor(MAXWIDTH/WIDTH(j))
+(! Alternative starting patterns, particularly for small demand values:
+ forall(j in WIDTHS)
+   PATTERNS(j,j) := minlist(floor(MAXWIDTH/WIDTH(j)),DEMAND(j)) 
+ forall(j in WIDTHS)  PATTERNS(j,j) := 1
+!)
+
+ forall(j in WIDTHS) do
+  create(use(j))                       ! Create NWIDTHS variables `use'
+  use(j) is_integer                    ! Variables are integer and bounded
+  use(j) <= integer(ceil(DEMAND(j)/PATTERNS(j,j)))
+ end-do
+
+ setparam("zerotol", EPS)              ! Set Mosel comparison tolerance
+ 
+ bnd:=pat_heur                         ! Create heuristic solution + 
+                                       ! new non-dominated patterns
+
+ MinRolls:= sum(j in WIDTHS) use(j)    ! Objective: minimize no. of rolls 
+
+                                       ! Satisfy all demands
+ forall(i in WIDTHS) 
+  Dem(i):= sum(j in WIDTHS) PATTERNS(i,j) * use(j) >= DEMAND(i)  
+
+ column_gen                            ! Column generation at top node
+
+ minimize(MinRolls)                    ! Compute the best integer solution
+                                       ! for the current problem (including
+                                       ! the new columns) 
+
+                                       ! Save solution to memory
+ forall(i in RP) soluse(i):= getsol(use(i))
+
+ initializations to "raw:noindex"
+  soluse as "mem:soltab"
+ end-initializations
+
+!************************************************************************
+!  Column generation loop at the top node:                               
+!    solve the LP and save the basis                                     
+!    get the solution values                                             
+!    generate new column(s) (=cutting pattern)                           
+!    load the modified problem and load the saved basis                  
+!************************************************************************
+ procedure column_gen
+  declarations
+   dualdem: array(WIDTHS) of real 
+   xbest: array(WIDTHS) of integer
+   ubnd, zbest, objval: real 
+   bas: basis                          ! LP basis
+  end-declarations
+
+  setparam("XPRS_CUTSTRATEGY", 0)      ! Disable automatic cuts 
+  setparam("XPRS_PRESOLVE", 0)         ! Switch presolve off
+  npatt:=NWIDTHS
+  npass:=1
+
+  while(true) do
+    minimize(XPRS_LIN, MinRolls)       ! Solve the LP 
+
+    savebasis(bas)                     ! Save the current basis 
+    objval:= getobjval                 ! Get the objective value      
+
+                                       ! Get the solution values 
+    forall(j in 1..npatt)  soluse(j):=getsol(use(j))
+    forall(i in WIDTHS)  dualdem(i):=getdual(Dem(i))
+                                       ! Solve a knapsack problem
+    zbest:= knapsack(dualdem, WIDTH, MAXWIDTH, DEMAND, xbest, npass) - 1.0
+
+    write("Pass ", npass, ": ")   
+    if zbest = 0 then
+      writeln("no profitable column found.\n")
+      break
+    else 
+      printpat(zbest, xbest, WIDTH)    ! Print the new pattern
+      npatt+=1
+      create(use(npatt))               ! Create a new var. for this pattern
+      use(npatt) is_integer
+
+      MinRolls+= use(npatt)            ! Add new var. to the objective
+      ubnd:=0
+      forall(i in WIDTHS)                 
+        if xbest(i) > 0 then
+         Dem(i)+= xbest(i)*use(npatt)  ! Add new var. to demand constr.s
+         ubnd:= maxlist(ubnd, ceil(DEMAND(i)/xbest(i) )) 
+        end-if
+      use(npatt) <= ubnd               ! Set upper bound on the new var.
+
+      loadprob(MinRolls)               ! Reload the problem 
+      loadbasis(bas)                   ! Load the saved basis 
+    end-if
+    npass+=1
+  end-do
+
+  writeln("Solution after column generation: ", objval, " rolls, ",
+          getsize(RP), " patterns")
+  write("   Rolls per pattern: ")
+  forall(i in RP) write(soluse(i),", ")
+  writeln   
+  
+ end-procedure
+
+!************************************************************************
+!  Solve the integer knapsack problem                              
+!    z = max{cx : ax<=b, x<=d, x in Z^N}                                     
+!  with b=MAXWIDTH, N=NWIDTHS, d=DEMAND
+! 
+! We reset the knapsack constraints to 0 at the end of this function
+! so that they do not unnecessarily increase the size of the main 
+! problem. The same is true in the other sense: hiding the demand 
+! constraints while solving the knapsack problem makes life easier
+! for the optimizer, but is not essential for getting the correct 
+! solution.
+!************************************************************************
+ function knapsack(C:array(range) of real,
+                   A:array(range) of real, 
+                   B:real, 
+                   D:array(range) of integer, 
+                   xbest:array(range) of integer,
+                   pass: integer):real
+
+! Hide the demand constraints
+  forall(j in WIDTHS) sethidden(Dem(j), true)
+
+! Define the knapsack problem
+  KnapCtr := sum(j in WIDTHS) A(j)*x(j) <= B
+  KnapObj := sum(j in WIDTHS) C(j)*x(j)
+
+! Integrality condition and bounds
+  if(pass=1) then
+   forall(j in WIDTHS) x(j) is_integer
+   forall(j in WIDTHS) x(j) <= D(j)
+  end-if
+
+  maximize(KnapObj)
+  returned:=getobjval
+  forall(j in WIDTHS) xbest(j):=round(getsol(x(j)))
+
+! Reset knapsack constraint and objective, unhide demand constraints 
+  KnapCtr := 0
+  KnapObj := 0  
+  forall(j in WIDTHS) sethidden(Dem(j), false)
+
+ end-function
+
+!**********************************************************************
+! This heuristic assumes that widths are given in ascending order
+! * Calculate the theoretical minimum number `minpat' of rolls
+! * Assign all items to rolls, starting with the largest items and
+!   `minpat' rolls. If an item does not fit, start a new roll.
+! * If the resulting number of rolls is equal to `minpat': stop,
+!   optimal solution found.
+! * Otherwise, complete new patterns to non-dominated patterns by
+!   adding the largest-possible item to every new pattern
+! * Create the variables `use' for the new patterns 
+!**********************************************************************
+ function pat_heur:integer
+  declarations
+   NI: integer
+  end-declarations
+  
+  NI:= sum(j in WIDTHS) DEMAND(j) 
+
+  declarations
+   CurCont: array(range) of real
+   ALLITEM: array(1..NI) of real
+   INDALLITEM: array(1..NI) of integer
+   mincont:real
+  end-declarations
+   
+! Calculate the theoretical minimum number of rolls
+  largest:=WIDTH(NWIDTHS)
+  smallest:=WIDTH(1)
+  newpat:=ceil((sum(j in WIDTHS) WIDTH(j)*DEMAND(j))/MAXWIDTH)
+  minpat:=newpat
+  returned:=newpat
+  writeln("Lower bound: ", minpat)
+
+! Copy all widths into the array ALLITEM, according to their occurrences
+  ct:=1
+  forall(j in WIDTHS)
+   forall(k in 1..DEMAND(NWIDTHS-j+1)) do 
+    ALLITEM(ct):= WIDTH(NWIDTHS-j+1)
+    INDALLITEM(ct):= NWIDTHS-j+1
+    ct+=1
+   end-do 
+   
+! Assign the largest items, one to every roll
+  forall(i in 1..newpat) do
+   PATTERNS(INDALLITEM(i),NWIDTHS+i):=1
+   CurCont(i)+=ALLITEM(i)
+  end-do  
+
+! Add the remaining items to the rolls
+  ct:=newpat+1
+  while(ct<=NI) do
+   mincont:=MAXWIDTH
+   indi:=0
+   forall(i in 1..newpat)                    ! Find the least filled roll `indi'
+    if(CurCont(i)<mincont) then
+     mincont:=CurCont(i)
+     indi:=i
+    end-if
+   if(MAXWIDTH-mincont>=ALLITEM(ct)) then    ! Add the item to roll `indi'
+    PATTERNS(INDALLITEM(ct),NWIDTHS+indi)+=1
+    CurCont(indi)+=ALLITEM(ct)
+   else                                      ! Start a new roll
+    newpat+=1
+    PATTERNS(INDALLITEM(ct),NWIDTHS+newpat)+=1
+    CurCont(newpat)+=ALLITEM(ct)
+   end-if  
+   ct+=1
+  end-do
+
+! Stop if optimal solution found
+  if(newpat=minpat) then
+   writeln("Heuristic solution is optimal: ", newpat, " patterns.")
+   forall(k in 1..newpat) do
+    forall(j in WIDTHS) 
+     write( if(PATTERNS(j,NWIDTHS+k)>0, " "+WIDTH(j)+":"+PATTERNS(j,NWIDTHS+k),
+       ""))
+    writeln(" ",sum(j in WIDTHS) PATTERNS(j,NWIDTHS+k)*WIDTH(j))
+   end-do 
+
+   exit(3)
+  end-if 
+   
+! Complete to non-dominated patterns  
+  forall(k in 1..newpat) do
+   totwidth:=MAXWIDTH-sum(j in WIDTHS) PATTERNS(j,NWIDTHS+k)*WIDTH(j)
+   if(totwidth >=smallest) then           ! If roll is not filled
+    repeat
+     if(totwidth>largest) then            ! As long as the largest item fits:
+      r:=integer(ceil(NWIDTHS*random))    ! add a randomly chosen item
+      PATTERNS(r,NWIDTHS+k)+=1
+      totwidth-=WIDTH(r)
+     else                                 ! Add the largest possible item
+      ct:=0
+      while(ct<NWIDTHS and WIDTH(ct+1)<=totwidth) ct+=1
+      if(ct>0) then
+       PATTERNS(ct,NWIDTHS+k)+=1
+       totwidth-=WIDTH(ct)
+      end-if
+     end-if 
+    until (totwidth<smallest) 
+   end-if
+  end-do
+  
+(! Create the variables `use' for the new patterns
+  ubnd:=max(k in WIDTHS) DEMAND(k)
+  forall(k in 1..newpat) do
+   create(use(NWIDTHS+k))               ! Create additional variables `use'
+   use(NWIDTHS+k) is_integer            ! Variables are integer and bounded
+   use(NWIDTHS+k) <= ubnd
+  end-do
+!)
+  writeln("Heuristic solution: ", newpat," patterns")
+
+ end-function
+
+!**********************************************************************
+ procedure printpat(zbest:real, xbest:array(range) of integer, 
+		    W:array(range) of real)
+  declarations 
+   dw: real
+  end-declarations
+  
+  writeln("New pattern found with marginal cost ", zbest)
+  write("   Widths distribution: ")
+  dw:=0
+  forall(i in WIDTHS) do 
+    write(W(i), ":", xbest(i), "  ")
+    dw += W(i)*xbest(i)
+  end-do 
+  writeln("Total width: ", dw)
+ end-procedure	
+ 	    
+end-model
+

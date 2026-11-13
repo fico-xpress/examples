@@ -1,0 +1,124 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file uniondef.mos 
+   `````````````````
+   Defining unions.
+ 
+   (c) 2021 Fair Isaac Corporation
+       author: S. Heipcke, Mar. 2021, rev. Mar. 2022
+*******************************************************!)
+model "Defining unions"
+  uses "mmsystem", "mmxprs"
+
+  declarations
+    u: string or real              ! Scalar accepting 'string' or 'real'
+    a: any                         ! Entity accepting any type
+    L: list of any                 ! List of type 'any'
+  end-declarations
+
+ ! Assigning a value determines the type of the union
+  u:="a"
+  writeln(u, " is string: ", u.typeid = string.id)
+  u:=7.5
+  writeln(u, " is real: ", u.typeid = real.id)
+ ! The preceding line is equivalent to:
+  writeln(u, " is real: ", u is real) 
+
+ ! Assignment of basic types results in constants, all others are references
+  a:=10
+  writeln(a, ":", a.struct=STRUCT_CONST, a is integer)
+  a:=date(2020,12,24)
+  writeln(a, ":", a.struct=STRUCT_REF, a is date)
+
+ ! Can specify type in assignment to force a particular type
+  a.real:=10
+  writeln(a, ":", a is real, a is integer)
+  a.text:="a text"
+  writeln(a, ":", a is text, a is string)
+
+ ! Employ 'create' for types that do not support assignment such as 'mpvar': 
+  create(a.mpvar)
+  writeln(getsol(a.mpvar), ":", a is mpvar)
+ ! ... or to change the type without performing any assignment:
+  create(a.linctr)
+  writeln(getact(a.linctr), ":", a is linctr)
+
+ !**** Working with structured types
+  declarations
+    artype = dynamic array(range,string) of real   ! Array type definition
+    rectype = public record                        ! Record type definition
+      val: real
+    end-record
+  end-declarations
+
+ !** List and set structures
+  L:=[2.5, "abc", {true,false}, [1,2,3]]
+  writeln("L=", L)
+  writeln(L(1), " is real:", L(1) is real)  
+  writeln(L(3), ": is set:", L(3) is set,
+    " is set of boolean:", L(3) is set of boolean, 
+    " elem. type is boolean:", L(3).eltype = boolean.id) 
+  writeln(L(4), ": is list:", L(4).struct=STRUCT_LIST, 
+    " elem. type is integer:", L(4).eltype = integer.id)
+
+ !** Defining and accessing arrays
+ ! Optional: explicit type specification (req. if type not used in assignment)
+ ! create(a.artype); a.array(1,"a").real:= 1.5   
+  a.artype(1,"b"):= 1.5; a.artype(3,"b"):= -0.5
+  a.array(1,"cde").real:= 7.25;       ! Type has been set by prev. assignments
+  writeln(a, " is array:", a is array, 
+    " is array of real:", a is array of real)
+  writeln(" is of artype:", a is artype, 
+    " elem. type is real:", a.eltype = real.id)
+  writeln("  dimensions:", a.array.nbdim, " size:", a.array.size)
+                                                 
+  forall(i in 1..a.array.nbdim)
+    writeln("  index", i, "=", a.array.index(i))
+ 
+  with A(I,J)=a.artype do
+    forall(i in I,j in J | exists(A(i,j))) writeln("A(",i,",",j,")=",A(i,j))
+  end-do
+
+ !** Record structure
+  a.rectype.val:=1.25
+  writeln(a, " is record:", a is record, " is rectype:", a is rectype)
+
+ !**** Defining a type name for a union of the 4 basic Mosel types
+  declarations
+    basictype = string or integer or real or boolean
+    B: array(range) of basictype     ! Array of union type 'basictype'
+  end-declarations
+
+  B(1):="abc"; B(3):=5; B(4):=5.0
+  forall(i in 1..3) writeln(B(i), ":", B(i) is string)
+  writeln(B(2).struct=STRUCT_NIL)    ! Undefined entry has no structure
+  writeln(B(2).typeid=STRUCT_NIL)    ! Undefined entry has no type
+  writeln(B(3)=B(4), B(3).integer=B(4).real) 
+
+ !**** Wrapping mechanism for subroutines: compatible union types are accepted 
+  procedure dosomething(aunion: any)
+    writeln("In procedure: ", aunion)
+  end-procedure
+
+  a:=date(2020,12,24)   ! u:=7.5; B(1):="abc"
+  dosomething(a)
+  dosomething(u)
+  dosomething(B(1))
+  writeln("B(10) is defined:", isdefined(B(10)))
+  dosomething(B(10))    ! Undefined entry 
+  dosomething(L)
+
+
+  procedure dosomething2(aunion: basictype)
+    writeln("In procedure 2: ", aunion)
+  end-procedure
+
+!  dosomething2(a)      ! This would result in an error since 'date' is not a compatible type
+  a:=1.5                ! u:=7.5; B(1):="abc"
+  dosomething2(a)
+  dosomething2(u)
+  dosomething2(B(1))
+
+end-model  

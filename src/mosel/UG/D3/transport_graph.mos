@@ -1,0 +1,106 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file transport_graph.mos
+   ````````````````````````
+   Graphical solution output with mmsvg.
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S.Heipcke, 2006, rev. Sep. 2017
+*******************************************************!)
+
+model "Transport (Graph)"
+ uses "mmxprs", "mmsvg"
+
+ forward procedure draw_solution
+
+ declarations
+  REGION: set of string                 ! Set of customer regions
+  PLANT: set of string                  ! Set of plants
+
+  DEMAND: array(REGION) of real         ! Demand at regions
+  PLANTCAP: array(PLANT) of real        ! Production capacity at plants
+  PLANTCOST: array(PLANT) of real       ! Unit production cost at plants
+  TRANSCAP: dynamic array(PLANT,REGION) of real
+                                        ! Capacity on each route plant->region
+  DISTANCE: dynamic array(PLANT,REGION) of real
+                                        ! Distance of each route plant->region
+  FUELCOST: real                        ! Fuel cost per unit distance
+
+  flow: dynamic array(PLANT,REGION) of mpvar    ! Flow on each route
+ end-declarations
+ 
+ initializations from 'transprt.dat'
+  DEMAND
+  [PLANTCAP,PLANTCOST] as 'PLANTDATA'
+  [DISTANCE,TRANSCAP] as 'ROUTES'
+  FUELCOST
+ end-initializations
+ 
+! Create the flow variables that exist
+ forall(p in PLANT, r in REGION | exists(TRANSCAP(p,r)) ) create(flow(p,r))
+ 
+! Objective: minimize total cost
+ MinCost:= sum(p in PLANT, r in REGION | exists(flow(p,r))) 
+            (FUELCOST * DISTANCE(p,r) + PLANTCOST(p)) * flow(p,r)
+ 
+! Limits on plant capacity
+ forall(p in PLANT) sum(r in REGION) flow(p,r) <= PLANTCAP(p)
+
+! Satisfy all demands
+ forall(r in REGION) sum(p in PLANT) flow(p,r) = DEMAND(r)
+ 
+! Bounds on flows
+ forall(p in PLANT, r in REGION | exists(flow(p,r))) 
+  flow(p,r) <= TRANSCAP(p,r)
+ 
+ minimize(MinCost)                       ! Solve the problem
+
+ draw_solution                           ! Solution drawing (SVG)
+
+!***********************************************************************
+ procedure draw_solution
+  declarations
+   YP: array(PLANT) of integer           ! y-coordinates of plants
+   YR: array(REGION) of integer          ! y-coordinates of sales regions
+  end-declarations
+  
+  ! Scale the size of the displayed graph
+  svgsetgraphviewbox(0.25,0.75,3.75,getsize(REGION)+1)
+  svgsetgraphscale(100)
+
+  ! Determine y-coordinates for plants and regions  
+  ct:= 1+floor((getsize(REGION)-getsize(PLANT))/2)
+  forall(p in PLANT, ct as counter) YP(p):= ct
+
+  ct:=1
+  forall(r in REGION, ct as counter) YR(r):= ct
+  
+  ! Draw the plants
+  svgaddgroup("PGr", "Plants", svgcolor(0,63,95))
+  forall(p in PLANT) svgaddtext(0.55, YP(p)-0.1, p)
+  
+  ! Draw the sales regions
+  svgaddgroup("RGr", "Regions", svgcolor(0,157,169))
+  forall(r in REGION) svgaddtext(3.1, YR(r)-0.1, r)
+  
+  ! Draw all transport routes
+  svgaddgroup("TGr", "Routes", SVG_GREY)
+  forall(p in PLANT, r in REGION | exists(TRANSCAP(p,r)) ) 
+   svgaddline(1, YP(p), 3, YR(r))
+   
+  ! Draw the routes used by the solution
+  svgaddgroup("SGr", "Solution", SVG_ORANGE)
+  forall(p in PLANT, r in REGION | exists(flow(p,r)) and getsol(flow(p,r)) > 0)
+   svgaddarrow(1, YP(p), 3, YR(r))
+
+  ! Save graphic in SVG format
+  svgsave("transport.svg")
+
+  ! Display the graphic
+  svgrefresh
+  svgwaitclose("Close browser window to terminate model execution.", 1)
+ end-procedure
+
+end-model

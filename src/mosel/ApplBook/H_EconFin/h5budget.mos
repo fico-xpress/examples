@@ -1,0 +1,74 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file h5budget.mos
+   `````````````````
+   Planning the family budget
+
+   A mother wants to plan her family's annual budget.  A
+   list of monthly expenses is provided as well as the
+   family salary and allowances. Each month, the mother
+   pays at least a given amount for leisure, but she would
+   like to spend more in such activities. How should she
+   balance the budget through the year to maximize the money
+   available for leisure?
+
+   This is a LP model similar to a production planning
+   model where money can be transferred from one time
+   period to the next one. To deal with the different
+   periodicities of the expenses, the Mosel operator 'mod'
+   is introduced. For the savings at the beginning of the
+   first period, the conditional 'if' is used in the constraint
+   formulation.
+
+   (c) 2008-2022 Fair Isaac Corporation
+       author: S. Heipcke, Mar. 2002, rev. Mar. 2022
+*******************************************************!)
+
+model "H-5 Family budget"
+ uses "mmxprs"
+
+ declarations
+  MONTHS = 1..12                      ! Time period
+  ITEMS: set of string                ! Set of shops
+  
+  INCOME, ALLOW: integer              ! Monthly income and allowance
+  HMIN: integer                       ! Min. amount required for hobbies
+  EXPENSE: array(ITEMS) of integer    ! Expenses
+  FREQ: array(ITEMS) of integer       ! Frequency (periodicity) of expenses
+
+  hobby: array(MONTHS) of mpvar       ! Money to spend for leisure/hobbies
+  saving: array(MONTHS) of mpvar      ! Savings
+ end-declarations
+
+ initializations from 'h5budget.dat'
+  INCOME ALLOW HMIN
+  [EXPENSE, FREQ] as 'PAYMENT'
+ end-initializations
+
+! Objective: money for hobby
+ Leisure:= sum(m in MONTHS) hobby(m)
+ 
+! Monthly balances
+ forall(m in MONTHS)
+  sum(i in ITEMS | m mod FREQ(i) = 0) EXPENSE(i) + hobby(m) +
+                  saving(m) <= INCOME + ALLOW + if(m>1, saving(m-1), 0) 
+
+ forall(m in MONTHS) hobby(m) >= HMIN
+
+! Solve the problem
+ maximize(Leisure)
+ 
+! Solution printing
+ writeln("Money for hobby: ", getobjval)
+ write("Month   ")
+ forall(m in MONTHS) write(" ", strfmt(m,4))
+ setparam("realfmt", "%4g")     ! Reserve 4 char.s for display of real numbers
+ write("\nHobby:  ")
+ forall(m in MONTHS) write(" ", getsol(hobby(m)))
+ write("\nSavings:")
+ forall(m in MONTHS) write(" ", getsol(saving(m)))
+ writeln
+ 
+end-model

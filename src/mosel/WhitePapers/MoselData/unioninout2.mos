@@ -1,0 +1,134 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file unioninout2.mos
+   ````````````````````
+   Reading/writing unions from/to databases via ODBC.
+   - Using SQL commands -
+   
+   (c) 2021 Fair Isaac Corporation
+       author: S. Heipcke, Apr. 2021, rev. Aug. 2023
+*******************************************************!)
+model "Union handling (SQL)"
+ uses 'mmodbc', 'mmsystem'
+
+ parameters
+                              ! Use mysql database `uniondata' (not provided)
+!  CNCT = 'DSN=mysql;DB=uniondata'
+                              ! Use SQLite database 'uniondata.sqlite' via ODBC
+!  CNCT = 'DSN=sqlite;DATABASE=uniondata.sqlite'
+                              ! Use SQLite database 'uniondata.sqlite' directly 
+   CNCT = "uniondata.sqlite"
+ end-parameters
+
+ procedure gendb
+   declarations
+     tsucc: array ({false,true}) of string
+   end-declarations
+   tsucc(false):="failed"; tsucc(true):="succeeded"
+
+   setparam("SQLverbose",true)
+
+(! mysql date and time formats:
+ setparam("timefmt", "%0H:%0M:%0S")
+ setparam("datefmt", "%y-%0m-%0d")
+ setparam("datetimefmt", "%y-%0m-%0d %0H:%0M:%0S")
+!)
+(! SQLite date and time formats:
+   setparam("timefmt", "%0H:%0M:%0S")
+   setparam("datefmt", "%y-%0m-%0d")
+   setparam("datetimefmt", "%y-%0m-%0d %0H:%0M:%0S")
+!)
+
+   fdelete('uniondata.sqlite')
+   SQLconnect(CNCT)
+   if not getparam("SQLsuccess"): setioerr("Database connection failed")
+
+   SQLexecute("drop table UnionTab")
+   SQLexecute("drop table UnionLst")
+   SQLexecute("drop table UnionOut")
+   SQLexecute("drop table Union2Out")
+
+   SQLexecute("create table UnionTab (IVal integer, RVal real, BVal boolean, SVal varchar(20), DVal date, TVal timestamp(3))")  !sqlite
+ !  SQLexecute("create table UnionTab (IVal integer, RVal real, BVal boolean, SVal varchar(20), DVal date, TVal time(3))")   !mysql
+   writeln(" - Create UnionTab (",tsucc(getparam("SQLsuccess")),")")
+   SQLexecute("insert into UnionTab (IVal,RVal,SVal,BVal,TVal,DVal) values(?1,?2,?3,?4,?5,?6)", [ 5, 1.75, "some text", true, '11:25:30', '2021-03-20' ])
+   writeln(" - Insert values into UnionTab (",tsucc(getparam("SQLsuccess")),",",
+        getparam("SQLrowcnt"),'/',getparam("SQLrowxfr")," rows)")
+ 
+   SQLexecute("create table UnionLst (UValues varchar(20))")
+   writeln(" - Create UnionLst (",tsucc(getparam("SQLsuccess")),")")
+   SQLexecute("insert into UnionLst (UValues) values (?1)", [string(5), string(1.75), string(true), "some text", '2021-03-20', '11:25:30'])
+   writeln(" - Insert values into UnionLst (",tsucc(getparam("SQLsuccess")),",",
+        getparam("SQLrowcnt"),'/',getparam("SQLrowxfr")," rows)")
+
+   SQLexecute("create table UnionOut (IVal integer, RVal real, BVal boolean, SVal varchar(20), DVal date, TVal timestamp(3))")  !sqlite
+ !  SQLexecute("create table UnionOut (IVal integer, RVal real, BVal boolean, SVal varchar(20), DVal date, TVal time(3))")   !mysql
+   writeln(" - CreateUnionOut (",tsucc(getparam("SQLsuccess")),")")
+   SQLexecute("create table Union2Out (UnionValues varchar(20))")
+   writeln(" - Create Union2Out (",tsucc(getparam("SQLsuccess")),")")
+
+   SQLdisconnect
+ end-procedure
+
+! gendb
+
+ declarations
+   L,L2: list of any
+   L3: list of text or real
+   LS: list of text
+ end-declarations
+
+ setparam("SQLverbose",true)
+ setparam("SQLdebug",true)
+
+ SQLconnect(CNCT)
+ if not getparam("SQLsuccess"): setioerr("Database connection failed")
+
+ ! Reading data of different types from a database
+ SQLexecute("select * from UnionTab", L)
+ write("L orig: ")
+ forall(i in L) write (i,": ", i.typeid, "; ")
+ writeln
+ ! Date and time types are read in textual form 
+ L(5).date:=date(text(L(5)))
+ L(6).time:=time(text(L(6)))
+ write("L new:  ")
+ forall(i in L) write (i,": ", i.typeid, "; ")
+ writeln
+
+ ! Reading into a list defined with a restricted set of types
+ SQLexecute("select * from UnionTab", L3)
+ write("L3:     ")
+ forall(i in L3) write (i,": ", i.typeid, "; ")
+ writeln
+
+ ! Textual database types are always read as string 
+ SQLexecute("select * from UnionLst", L2)
+ write("L2:     ")
+ forall(i in L2) write (i,": ", i.typeid, "; ")
+ writeln
+
+ ! Writing data of type 'any' to a database
+ SQLexecute("delete from UnionOut")
+ SQLexecute("insert into UnionOut (IVal,RVal,BVal,SVal,DVal,TVal) values(?1,?2,?3,?4,?5,?6)", L)
+ writeln(" - writing L into UnionOut succeeded (",getparam("SQLsuccess"),")")
+
+ ! Writing data of type 'any' into textual fields of a database
+ SQLexecute("delete from Union2Out")
+ SQLexecute("insert into Union2Out (UnionValues) values(?1)", L)
+ writeln(" - writing L into Union2Out succeeded (",getparam("SQLsuccess"),")")
+
+ ! Writing data of a union type to a database
+ SQLexecute("insert into UnionOut (IVal,RVal,BVal,SVal,DVal,TVal) values(?1,?2,?3,?4,?5,?6)", L3)
+ writeln(" - writing L3 into UnionOut succeeded (",getparam("SQLsuccess"),")")
+
+ ! Writing text-format data to a database table with various different types
+ LS:=sum(i in L) [text(i)]
+ SQLexecute("insert into UnionOut (IVal,RVal,BVal,SVal,DVal,TVal) values(?1,?2,?3,?4,?5,?6)", LS)
+ writeln(" - writing LS into UnionOut succeeded (",getparam("SQLsuccess"),")")
+
+ SQLdisconnect
+
+end-model

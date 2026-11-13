@@ -1,0 +1,46 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file listinout1.mos
+   ```````````````````
+   Reading/writing lists from/to text files.
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Nov. 2007
+*******************************************************!)
+
+model "List handling (Text file)"
+
+ declarations
+  R: range
+  LI: list of integer
+  LS,LS2: array(R) of list of string   ! With text data files we can use
+                                       ! compositions of structured types
+ end-declarations
+
+ initializations from "listdata.dat"
+  LI as "List1"
+  LS as "List2"
+ end-initializations 
+
+! Display the lists
+ writeln("LI: ", LI)
+ writeln("LS: ", LS)
+
+! Reverse the list LI
+ reverse(LI)
+
+! Append some text to every entry of LS 
+ forall(i in R) LS2(i):= sum(l in LS(i)) [l+" year"+i]
+
+! Display the modified lists
+ writeln("LI: ", LI)
+ writeln("LS2: ", LS2)
+
+ initializations to "listout.dat"
+  LI as "List1Out"
+  LS2 as "List2Out"
+ end-initializations 
+
+end-model

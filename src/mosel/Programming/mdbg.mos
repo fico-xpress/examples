@@ -1,0 +1,1254 @@
+(!*******************************************************
+  * Mosel Example Programs                              *
+  * ======================                              *
+  *                                                     *
+  * file mdbg.mos                                       *
+  * `````````````                                       *
+  * Example for the use of the Mosel language           *
+  * (use of the Remote Invocation Protocol)             *
+  *                                                     *
+  * Implements a debugger written in Mosel              *
+  *                                                     *
+  * (c) 2015 Fair Isaac Corporation                     *
+  *     author: Y. Colombani, 2015                      *
+  *******************************************************!)
+
+model mdbg
+
+uses 'mmjobs','mmsystem'
+
+parameters
+ SRC="qsort.mos"
+end-parameters
+
+declarations
+ LINEMASK=16777215
+ FILESHIFT=-24
+ EVENT_DBG=32770
+
+ MO:Mosel
+ M:Model
+
+ lineset:range
+ modset:range
+ s_src=record
+	 fname:string
+         nbl:integer
+	 lines:array(lineset) of text
+        end-record
+ s_msrc=record
+	  nbi:integer
+	  lndx:array(lineset) of integer
+          src:array(modset) of s_src
+	end-record
+ allmods:range
+ allsrc:dynamic array(allmods) of s_msrc
+end-declarations
+
+forward procedure intcmd(stat:integer)
+forward procedure cmdprint(m:integer,toprint:text)
+forward procedure cmdbreak(m:integer,toprint:text)
+forward procedure cmdstack(m:integer,args:text)
+forward procedure cmdstat
+forward procedure cmdfct(m:integer,fct:text)
+forward procedure cmdinfo(m:integer,args:text)
+forward procedure cmdlsloc(m:integer,args:text)
+forward procedure cmdlsattr
+forward procedure lslib
+forward function dbgopcode(v:real):integer
+forward function dbgoparg(v:real):integer
+forward function loadfile(f:string):s_src
+forward procedure showlocation(m:integer)
+forward procedure loadsrc(m:integer)
+forward procedure lndxlist(m:integer)
+forward function vers2str(sv:string):string
+forward function vers2str(v:integer):string
+forward function str2date(sd:string):string
+forward function getndx(v:integer):integer
+forward procedure showsign(typs:array(range) of string, fctsign:string)
+forward procedure showtyp(typs:array(range) of string, args:string, ta:textarea)
+forward procedure showhelp
+
+if connect(MO,"")<0 then
+ exit(1)
+end-if
+nid:=getid(MO)
+setcontrol(MO,"realfmt","%g")
+setcontrol(MO,"zerotol","1e-13")
+setcontrol(MO,"lang","en")
+
+if compile(MO,"G",SRC,"tmp:bimfile")<>0 then
+ writeln("Compilation failed")
+ exit(1)
+end-if
+
+load(MO,M,"tmp:bimfile")
+
+loadsrc(0)
+
+! switch model to debug mode
+setcontrol(M,"runmode","1")
+run(M)
+
+! execution will stop just before 1st statement
+repeat
+ wait
+ ev:=getnextevent
+ if ev.class=EVENT_DBG then
+  case dbgopcode(ev.value) of
+   1: do		! submodel starting
+       writeln("model ",dbgoparg(ev.value)," starting")
+      end-do
+   2: do		! submodel ending
+       writeln("model ",dbgoparg(ev.value)," ending")
+       if exists(allsrc(dbgoparg(ev.value))) then
+        delcell(allsrc(dbgoparg(ev.value)))
+       end-if
+      end-do
+   3: intcmd(dbgoparg(ev.value))	! Interruption
+   else
+    writeln("Unexpected DBG event: ",dbgopcode(ev.value),"-",dbgoparg(ev.value))
+  end-case
+ end-if
+until ev.class=EVENT_END
+reset(M)
+
+!**********************************
+! Interactive command interpreter
+!**********************************
+! Model flow control is achieved using the 'dbgctrl' parameter that
+! can be set using 'setcontrol':
+! dbgctrl=B => suspend execution
+! dbgctrl=E => terminate execution
+! Following can be used only on a suspended model:
+! dbgctrl=C => continue
+! dbgctrl=N [s] => next statement (on submodel 's')
+! dbgctrl=S [s] => step into (on submodel 's')
+! dbgctrl=F [s] => continue up to end of routine (on submodel 's')
+! dbgctrl=T s lndx => continue up to 'lndx' on submodel 's'
+
+! Other useful parameters:
+! flushdso => force unloading of unused modules
+! realfmt=string => change format used for displaying reals
+! zerotol=real => zero tolerance for real comparison
+procedure intcmd(stat:integer)
+ declarations
+  l:text
+  RT_OK=0
+  RT_ENDING=2
+  RT_BREAK=14
+  RT_NIFCT=15
+ end-declarations
+
+ case stat of
+  RT_OK     : showlocation(0)
+  RT_ENDING : writeln("Ending...")
+  RT_BREAK  : do writeln("Breakpoint at:"); showlocation(0); end-do
+  RT_NIFCT  : do writeln("In NIFct:"); showlocation(0); end-do
+  else
+   write("Stat: ",stat," at:")
+   showlocation(0)
+ end-case
+ repeat
+  write("> "); fflush
+  nbc:=readtextline(l)
+  trim(l,SYS_RIGHT)
+  if nbc<=0 or l="end" then
+   setcontrol(M,"dbgctrl","E")
+   break
+  elif l="cont" then
+   setcontrol(M,"dbgctrl","C")
+   break
+  elif l="next" then
+   setcontrol(M,"dbgctrl","N")
+   break
+  elif l="step" then
+   setcontrol(M,"dbgctrl","S")
+   break
+  elif l="fin" then
+   setcontrol(M,"dbgctrl","F")
+   break
+  elif startswith(l,"to ") then
+   setcontrol(M,"dbgctrl","T 0 "+copytext(l,4,l.size))
+   break
+  elif startswith(l,"info") then
+   cmdinfo(0,copytext(l,5,l.size))
+  elif startswith(l,"lsloc") then
+   cmdlsloc(0,copytext(l,6,l.size))
+  elif l="lsattr" then
+   cmdlsattr
+  elif l="list" then
+   lndxlist(0)
+  elif l="lslib" then
+   lslib
+  elif l="flushdso" then
+   setcontrol(MO,"flushdso","")
+  elif startswith(l,"print ") then
+   cmdprint(0,copytext(l,7,l.size))
+  elif startswith(l,"break") then
+   cmdbreak(0,copytext(l,6,l.size))
+  elif startswith(l,"stack") then
+   cmdstack(0,copytext(l,6,l.size))
+  elif l="status" then
+   cmdstat
+  elif startswith(l,"fct ") then
+   cmdfct(0,copytext(l,4,l.size))
+  elif l="help" then
+   showhelp
+  else
+   writeln("Unknown command (try 'help')")
+  end-if
+ until false
+end-procedure
+
+!******************
+!* Command 'print'
+!******************
+! Request 'eval' (evaluate an expression):
+!   mcmd:eval@M[.s] lab:expr lab:expr...
+! M: main model
+! s: submodel (0<=>main model)
+! if 'lab'=='.' => label is expression itself
+! expression may be ended with 1 or several data amount limit(s)
+! [ maxelt ] : return at most 'maxelt' entries
+! [ maxelt skip ] : return at most 'maxelt' entries after skipping 'skip'
+procedure cmdprint(m:integer,toprint:text)
+ trim(toprint)
+
+(!
+ declarations
+  v:text
+ end-declarations
+ 
+ setparam("ioctrl",true)
+ initialisations from "rmt:["+nid+"]mcmd:eval-t@1."+m+" v:"+toprint
+  v
+ end-initialisations
+ setparam("ioctrl",false)
+ if getparam("iostatus")=0 then
+  writeln(" ",v)
+ else
+  writeln("Evaluation failed or value cannot be displayed")
+ end-if
+!)
+  fflush
+  fcopy("rmt:["+nid+"]mcmd:eval-t@1."+m+" :"+toprint,0,"",F_APPEND+F_LINBUF)
+end-procedure
+
+!******************
+!* Command 'break'
+!******************
+! Request 'dbgbrkp' (get/set/update/delete breakpoint):
+!   mcmd:dbgbrkp@M[.s]
+!   mcmd:dbgbrkp@M[.s] lndx
+!   mcmd:dbgbrkp@M[.s] lndx cond
+! M: main model
+! s: submodel (0<=>main model)
+! no parameter: return list of breakpoints
+! lndx: delete breakpoint. if lndx=*: delete all breakpoints
+! lndx cond: add or modify breakpoint at lndx (cond='*' <=> no cond)
+procedure cmdbreak(m:integer,args:text)
+ declarations
+  Rlndx:range
+  lndx:dynamic array(Rlndx) of integer
+  cond:dynamic array(Rlndx) of string
+ end-declarations
+
+ trim(args)
+ setparam("ioctrl",true)
+ initialisations from "bin:rmt:["+nid+"]mcmd:dbgbrkp@1."+m+" "+args
+  Rlndx
+  lndx
+  cond
+ end-initialisations
+ setparam("ioctrl",false)
+ if getparam("iostatus")=0 then
+  loadsrc(m)
+  forall(b in Rlndx) do
+   l:=bittest(allsrc(m).lndx(lndx(b)),LINEMASK)
+   f:=bitshift(allsrc(m).lndx(lndx(b)),FILESHIFT)
+   write("Break at (",lndx(b),") ",allsrc(m).src(f).fname,":",l)
+   if cond(b)<>"" then
+    writeln(" if ",cond(b))
+   else
+    writeln
+   end-if
+  end-do
+ else
+  writeln("Failed to set breakpoint")
+ end-if
+end-procedure
+
+!******************
+!* Command 'stack'
+!******************
+! Request 'dbgstlev' (get/set stack level):
+!   mcmd:dbgstlev@M[.s]
+!   mcmd:dbgstlev@M[.s] stlev [maxlev]
+! M: main model
+! s: submodel (0<=>main model)
+! stlev=='*' => get current stack level
+! stlev>=0 => set stack level
+! if 'maxlev' not provided => maxlev=10
+procedure cmdstack(m:integer,args:text)
+ declarations
+  Rlndx:range
+  lndx:dynamic array(Rlndx) of integer
+ end-declarations
+
+ trim(args)
+ setparam("ioctrl",true)
+ initialisations from "bin:rmt:["+nid+"]mcmd:dbgstlev@1."+m+" "+args
+  Rlndx
+  lndx
+ end-initialisations
+ setparam("ioctrl",false)
+ if getparam("iostatus")=0 then
+  loadsrc(m)
+  forall(b in Rlndx) do
+   write(" ",b,": ")
+   i:=lndx(b)
+   if i<0 then
+    writeln("no location information")
+   else
+    l:=bittest(allsrc(m).lndx(i),LINEMASK)
+    f:=bitshift(allsrc(m).lndx(i),FILESHIFT)
+    if l=0 then
+     writeln("in package ",allsrc(m).src(f).fname)
+    else
+     writeln(allsrc(m).src(f).fname,":",l," ",allsrc(m).src(f).lines(l))
+    end-if 
+   end-if 
+  end-do
+ else
+  writeln("Failed to get stack trace")
+ end-if
+end-procedure
+
+!***************************************
+!* Display status of all running models 
+!***************************************
+! Request 'dbgstat' (status and location):
+!   mcmd:dbgstat@M
+!   mcmd:dbgstat@M.s
+! M: main model (if no submodel => status of all running models)
+! s: submodel (0<=>main model)
+procedure cmdstat
+ declarations
+  Rid:range
+  id,stat,stlev,lndx:array(Rid) of integer
+ end-declarations
+
+ initialisations from "bin:rmt:["+nid+"]mcmd:dbgstat@1"
+  Rid
+  id
+  stat
+  stlev
+  lndx
+ end-initialisations
+
+ forall(j in Rid) do
+  m:=id(j)
+  i:=lndx(j)
+  if stat(j)=2 then
+   writeln("[",m,"] ending")
+  elif stat(j)=15 then
+   writeln("[",m,"] in native function")
+  elif i<0 then
+   writeln("[",m,"] no location information")
+  else
+   loadsrc(m)
+   l:=bittest(allsrc(m).lndx(i),LINEMASK)
+   f:=bitshift(allsrc(m).lndx(i),FILESHIFT)
+   if l=0 then
+    writeln("[",m,"] in package ",allsrc(m).src(f).fname)
+   else
+    writeln("[",m,"] ",allsrc(m).src(f).fname,":",l," ",allsrc(m).src(f).lines(l))
+   end-if
+  end-if
+ end-do
+end-procedure
+
+!*****************
+!* Command 'fct'
+!*****************
+! Request 'dbgflndx' (line index of a subroutine):
+!   mcmd:dbgflndx@M[.s] [fctname|*]
+! M: main model
+! s: submodel (0<=>main model)
+! several line indices are returned if the function is overloaded
+! with option 'N', result is sorted by function names
+! with option 'L', result is sorted by line indices
+procedure cmdfct(m:integer,fct:text)
+
+ declarations
+  Rsign:range
+  sign:array(Rsign) of string
+  lndx:array(Rsign) of integer
+  elndx:array(Rsign) of integer
+  name:array(Rsign) of string
+ end-declarations
+
+ setparam("ioctrl",true)
+ initialisations from "bin:rmt:["+nid+"]mcmd:dbgflndx-N@1."+m+fct
+  Rsign
+  sign
+  lndx
+  name
+  elndx
+ end-initialisations
+ setparam("ioctrl",false)
+ trim(fct)
+ if getparam("iostatus")=0 then
+  forall(i in Rsign)
+   if elndx(i)>lndx(i) then
+    writeln(" ",name(i),"(",sign(i),") -> ",lndx(i),":",elndx(i))
+   else
+    writeln(" ",name(i),"(",sign(i),") -> ",lndx(i))
+   end-if
+ else
+  writeln("Subroutine '",fct,"' not found")
+ end-if
+end-procedure
+
+!******************
+!* Command 'info'
+!******************
+! Request 'info' (model/package/module/Mosel information):
+!   mcmd:info@M[.s]
+!   mcmd:info
+!   mcmd:info modulename
+! M: main model
+! s: submodel (0<=>main model)
+! 1st form is for a loaded model/package
+! 2d form returns Mosel information
+! 3d form is used for a module (the module is loaded if necessary)
+procedure cmdinfo(m:integer,args:text)
+ declarations
+  fmt:integer
+  hdr:array(Rhdr:range) of string
+  deps:array(Rdeps:range) of string
+  depsvers,depstyp:array(Rdeps) of integer
+  typs:array(Rtyps:range) of string
+  typscod:array(Rtyps) of integer
+  parms,parmsdesc:array(Rparms:range) of string
+  parmsval:array(Rparms) of integer
+  consts:array(Rconsts:range) of string
+  conststyp:array(Rconsts) of integer
+  cstint:array(Rcstint:range) of integer
+  cststr:array(Rcststr:range) of string
+  cstdbl:array(Rcstdbl:range) of real
+  vars:array(Rvars:range) of string
+  varstyp,varsopt:array(Rvars) of integer
+  arrndx:array(Rarrndx:range) of string
+  fct,fctsign:array(Rfct:range) of string
+  fcttyp:array(Rfct) of integer
+  dtyp:array(Rdtyp:range) of string
+  dtyptyp:array(Rdtyp) of integer
+  recsstart:array(Rrecsstart:range) of integer
+  recfield:array(Rrecfield:range) of string
+  recftype:array(Rrecfield) of integer
+  iodrv,iodrvinfo:array(Riodrv:range) of string
+  annsident:array(Rannsident:range) of string
+  annsstart:array(Rannsstart:range) of integer
+  anns: array(Ranns:range) of string
+
+	! Format decoding
+  SYMB_FMT_MOD=0
+  SYMB_FMT_PKG=1
+  SYMB_FMT_DSO=2
+  SYMB_FMT_MOS=3
+  SYMB_MSK_FMT=3
+
+	! Format options (for models/packages)
+  SYMB_FMT_CRYPTED=4
+  SYMB_FMT_SIGNED=8
+  SYMB_FMT_VERIFIED=16
+  SYMB_FMT_UNVERIFIED=32
+
+	! Basic types
+  SYMB_TYP_NOT=0
+  SYMB_TYP_INT=1
+  SYMB_TYP_REAL=2
+  SYMB_TYP_STRING=3
+  SYMB_TYP_BOOL=4
+  SYMB_TYP_MPVAR=5
+  SYMB_TYP_LINCTR=6
+
+	! Masks for type decoding
+  SYMB_MSK_TYP=4095	! 0xFFF		12 bits [ 0-11]
+  SYMB_MSK_STR=61440	! 0xF000	 4 bits [12-15]
+  SYMB_MSK_OPT=983040	! 0xF0000	 4 bits [16-19]
+  SYMB_MSK_NDX=-1048576	! 0xFFF00000	12 bits [20-31]
+
+	! Shift length for type decoding
+  SYMB_SHT_STR=12
+  SYMB_SHT_OPT=16
+  SYMB_SHT_NDX=20
+
+	! Entity structure
+  SYMB_STR_SCA=0	! (0<<SYMB_SHT_STR)
+  SYMB_STR_ARR=4096	! (1<<SYMB_SHT_STR)
+  SYMB_STR_SET=8192	! (2<<SYMB_SHT_STR)
+  SYMB_STR_LST=12288	! (3<<SYMB_SHT_STR)
+  SYMB_STR_REC=16384	! (4<<SYMB_SHT_STR)
+  SYMB_STR_PROB=20480	! (5<<SYMB_SHT_STR)
+  SYMB_STR_CSREF=24576	! (6<<SYMB_SHT_STR)
+  SYMB_STR_UNION=28672	! (7<<SYMB_SHT_STR)
+  SYMB_STR_PROC=32768	! (8<<SYMB_SHT_STR)
+
+	! Parameter flags
+  SYMB_OPT_READ=65536	! (1<<SYMB_SHT_OPT)
+  SYMB_OPT_WRITE=131072	! (2<<SYMB_SHT_OPT)
+
+	! variable/subroutine flags (to tag requirements)
+  SYMB_OPT_REQMT=65536	! (1<<SYMB_SHT_OPT)
+  SYMB_OPT_PTR=131072	! (2<<SYMB_SHT_OPT) subroutines
+  SYMB_OPT_CONST=131072	! (2<<SYMB_SHT_OPT) variables
+  SYMB_OPT_PRIV=262144	! (4<<SYMB_SHT_OPT)
+
+	! Flags for varsopt
+  SYM_VOPT_DENSE=1      ! => range for a set
+  SYM_VOPT_HMAP=2       ! if not dense
+
+	! Native type properties
+  SYMB_MTP_CREAT=1
+  SYMB_MTP_DELET=2
+  SYMB_MTP_TOSTR=4
+  SYMB_MTP_FRSTR=8
+  SYMB_MTP_PRTBL=16
+  SYMB_MTP_RFCNT=32
+  SYMB_MTP_COPY=64
+  SYMB_MTP_APPND=128
+  SYMB_MTP_ORSET=256
+  SYMB_MTP_PROB=512
+  SYMB_MTP_CMP=1024
+  SYMB_MTP_SHARE=2048
+  SYMB_MTP_TFBIN=4096
+  SYMB_MTP_ORD=8192
+  SYMB_MTP_CONST=16384
+  SYMB_MTP_ANDX=32768
+ 
+ end-declarations
+
+ trim(args)
+ if args.size=0 then
+  fname:="rmt:["+nid+"]mcmd:info-t@1"
+ elif args="*" then
+  fname:="rmt:["+nid+"]mcmd:info-t"
+ else
+  fname:="rmt:["+nid+"]mcmd:info-t "+args
+ end-if
+ setparam("ioctrl",true)
+! fcopy(fname,"")
+ initialisations from fname
+  fmt
+  Rhdr hdr
+  Rdeps deps depsvers depstyp
+  Rtyps typs typscod
+  Rparms parms parmsval parmsdesc
+  Rconsts consts conststyp
+  Rcstint cstint
+  Rcststr cststr
+  Rcstdbl cstdbl
+  Rvars vars varstyp varsopt
+  Rarrndx arrndx
+  Rfct fct fctsign fcttyp
+  Rdtyp dtyp dtyptyp
+  Rrecsstart recsstart
+  Rrecfield recfield recftype
+  Riodrv iodrv iodrvinfo
+  Rannsident annsident
+  Rannsstart annsstart
+  Ranns anns
+ end-initialisations
+ setparam("ioctrl",false)
+ if getparam("iostatus")=0 then
+
+ 					!------------------- Header ----------
+  case bittest(fmt,SYMB_MSK_FMT) of
+   SYMB_FMT_MOD,SYMB_FMT_PKG: do		! Model or Package
+	 writeln(if(bittest(fmt,SYMB_MSK_FMT)=SYMB_FMT_MOD,"Model ","Package "),
+	 				hdr(0)," version ",vers2str(hdr(4)))
+	 writeln(" sys.com:  ",hdr(1))
+	 writeln(" date:",str2date(hdr(6)))
+	 writeln(" usr.com:  ",hdr(2))
+	 write(" security: ")
+	 if bittest(fmt,SYMB_FMT_CRYPTED+SYMB_FMT_SIGNED)=0 then
+	  writeln("none")
+	 else
+	  if bittest(fmt,SYMB_FMT_CRYPTED)<>0 then write(" encrypted"); end-if
+	  if bittest(fmt,SYMB_FMT_SIGNED)<>0 then
+	   write(" signed ",hdr(3))
+	   if bittest(fmt,SYMB_FMT_VERIFIED)<>0 then write(" verified")
+	   elif bittest(fmt,SYMB_FMT_UNVERIFIED)<>0 then write(" unverified")
+	   else write(" unchecked")
+	   end-if
+	  end-if
+	  writeln
+	 end-if
+	 if Rdeps.size>0 then
+	  j:=0
+	  forall(i in Rdeps) do
+	   if depstyp(i)=0 and j=0 then
+	    write(" modules:")
+	    j:=1
+	   elif depstyp(i)<2 and j<2 then
+	    if i>0 then writeln; end-if
+	    write(" pkg. req.:")
+	    j:=2
+	   elif depstyp(i)>1 and j<3 then
+	    if i>0 then writeln; end-if
+	    write(" pkg. imp.:")
+	    j:=3
+	   end-if
+	   write(" ",deps(i)," (",vers2str(depsvers(i)),")")
+	  end-do
+	  writeln
+	 end-if
+	end-do
+   SYMB_FMT_DSO: do				! Module
+         writeln("Module ",hdr(0)," version ",vers2str(hdr(4))," (",hdr(1),")")
+	 writeln(" file:",hdr(5)+"/"+hdr(0)+".dso")
+	 writeln(" date:",str2date(hdr(6)))
+	 writeln(" priority:",hdr(7))
+	 if Rdeps.size>0 then
+	  write(" modules:")
+	  forall(i in Rdeps) do
+	   write(" ",deps(i))
+	  end-do
+	  writeln
+	 end-if
+	end-do
+   SYMB_FMT_MOS: do				! Mosel core functionality
+	 writeln("Mosel ",hdr(7),"-bit version ",vers2str(hdr(4)))
+	 writeln(" Link date: ",hdr(2))
+	 writeln(" Libpath: ",hdr(5))
+	 writeln(" dsopath: ",hdr(1))
+	end-do
+  end-case
+  writeln
+
+ 					!------------------- Constants --------
+  if Rconsts.size>0 then
+   writeln("Constants:")
+   forall(i in Rconsts) do
+    write(" ",consts(i),"=")
+    j:=getndx(conststyp(i))-1
+    case bittest(conststyp(i),SYMB_MSK_TYP) of
+     SYMB_TYP_INT: write(cstint(j))
+     SYMB_TYP_REAL: write(cstdbl(j))
+     SYMB_TYP_STRING: write(cststr(j))
+     SYMB_TYP_BOOL: write(if(cstint(j)<>0,"true","false"))
+    end-case
+    if bittest(conststyp(i),SYMB_OPT_PRIV)<>0 then
+     writeln(" [priv]")
+    else
+     writeln
+    end-if
+   end-do
+   writeln
+  end-if
+
+ 					!------------------- Types ------------
+  if Rdtyp.size>0 then
+   writeln("Types:")
+   forall(i in Rdtyp) do
+    type:=bittest(dtyptyp(i),SYMB_MSK_TYP)
+    if type=0 then	! dso type
+     write(" ",dtyp(i)," (")
+     flag:=bitshift(dtyptyp(i),-SYMB_SHT_STR)
+     if bittest(flag,SYMB_MTP_PROB)<>0 then
+      write("problem")
+      if bittest(flag,SYMB_MTP_CREAT)<>0 then write(",create"); end-if
+     else
+      if bittest(flag,SYMB_MTP_CREAT)<>0 then write("create"); end-if
+     end-if
+     if bittest(flag,SYMB_MTP_DELET)<>0 then write(",delete"); end-if
+     if bittest(flag,SYMB_MTP_RFCNT)<>0 then write(",refcnt"); end-if
+     if bittest(flag,SYMB_MTP_TOSTR)<>0 then write(",tostring"); end-if
+     if bittest(flag,SYMB_MTP_PRTBL)<>0 then write("+"); end-if
+     if bittest(flag,SYMB_MTP_FRSTR)<>0 then write(",fromstring"); end-if
+     if bittest(flag,SYMB_MTP_ORSET)<>0 then write(",reset"); end-if
+     if bittest(flag,SYMB_MTP_COPY)<>0 then write(",copy"); end-if
+     if bittest(flag,SYMB_MTP_APPND)<>0 then write("+"); end-if
+     if bittest(flag,SYMB_MTP_CMP)<>0 then write(",cmp"); end-if
+     if bittest(flag,SYMB_MTP_TFBIN)<>0 then write(",bin"); end-if
+     if bittest(flag,SYMB_MTP_SHARE)<>0 then write(",share"); end-if
+     if bittest(flag,SYMB_MTP_ORD)<>0 then write(",ord"); end-if
+     if bittest(flag,SYMB_MTP_CONST)<>0 then write(",const"); end-if
+     if bittest(flag,SYMB_MTP_ANDX)<>0 then write(",indexer"); end-if
+     writeln(")")
+    else
+     write(" ",dtyp(i),if(bittest(dtyptyp(i),SYMB_OPT_PRIV)<>0,"[priv]",""),"=")
+     if bittest(typscod(type),SYMB_MSK_STR)=SYMB_STR_REC then
+      j:=getndx(typscod(type))
+      writeln("record")
+      forall(k in recsstart(j)..(recsstart(j+1)-1))
+       writeln("      ",recfield(k),":",
+                        typs(bittest(recftype(k),SYMB_MSK_TYP)),
+                        if(bittest(recftype(k),SYMB_OPT_PRIV)<>0," [priv]",""))
+      writeln("    end-record")
+     elif bittest(typscod(type),SYMB_MSK_STR)=SYMB_STR_UNION then
+      j:=getndx(typscod(type))
+      write(typs(recftype(recsstart(j))))
+      forall(k in recsstart(j)+1..(recsstart(j+1)-1))
+       write(" or ",if(recftype(k)=0,"any",typs(recftype(k))))
+      writeln
+     elif bittest(typscod(type),SYMB_MSK_STR)=SYMB_STR_PROB then
+      writeln("problem:",typs(type))
+     elif bittest(typscod(type),SYMB_MSK_STR)=SYMB_STR_PROC then
+      j:=recsstart(getndx(typscod(type)))
+      if bittest(typscod(type),SYMB_MSK_TYP)=0 then
+       write("procedure",recfield(j),")")
+       showsign(typs,recfield(j))
+      else
+       write("function")
+       showsign(typs,recfield(j))
+       write(":",typs(bittest(typscod(type),SYMB_MSK_TYP)))
+      end-if
+      writeln
+     else
+      writeln(typs(type))
+     end-if
+    end-if
+   end-do
+   writeln
+  end-if
+
+ 					!------------------- Parameters -------
+  if Rparms.size>0 then
+   writeln("Control Parameters:")
+   forall(i in Rparms) do
+    type:=parmsval(i)
+    write(" ",parms(i)," (",typs(bittest(type,SYMB_MSK_TYP)))
+    if bittest(type,SYMB_OPT_READ)<>0 then
+     if bittest(type,SYMB_OPT_WRITE)<>0 then write(",read/write")
+     else write(",read only"); end-if
+    else
+     if bittest(type,SYMB_OPT_WRITE)<>0 then write(",write only"); end-if
+    end-if
+    if parmsdesc(i)<>"" then
+     write(",",parmsdesc(i),")")
+    else
+     write(")")
+    end-if
+
+    j:=getndx(type)-1
+    if j>=0 then
+     case bittest(type,SYMB_MSK_TYP) of
+      SYMB_TYP_INT: writeln("=",cstint(j))
+      SYMB_TYP_REAL: writeln("=",cstdbl(j))
+      SYMB_TYP_STRING: writeln("=",cststr(j))
+      SYMB_TYP_BOOL: writeln("=",if(cstint(j)<>0,"true","false"))
+     end-case
+    else
+     writeln
+    end-if
+   end-do
+   writeln
+  end-if
+
+ 					!------------------- Variables --------
+  if Rvars.size>0 then
+   writeln("Variables:")
+   forall(i in Rvars) do
+    write(" ",vars(i),":")
+    if bittest(varstyp(i),SYMB_OPT_CONST)<>0 then write("constant "); end-if
+    case bittest(varstyp(i),SYMB_MSK_STR) of
+     SYMB_STR_ARR: do
+         if bittest(varsopt(i),SYM_VOPT_DENSE)=0 then
+          if bittest(varsopt(i),SYM_VOPT_HMAP)=0 then
+	   write("dynamic ")
+          else
+	   write("hashmap ")
+	  end-if
+	 end-if
+	 j:=getndx(varstyp(i))
+	 if j>0 then
+	  write("array (",arrndx(j-1),") of ")
+	 else
+	  write("array of ")
+	 end-if
+	end-do
+     SYMB_STR_SET:
+	if bittest(varsopt(i),SYM_VOPT_DENSE)<>0 then
+         write("range set of ")
+	else
+         write("set of ")
+	end-if
+     SYMB_STR_LST: write("list of ")
+    end-case
+    writeln(typs(bittest(varstyp(i),SYMB_MSK_TYP)),if(bittest(varstyp(i),SYMB_OPT_REQMT)<>0," [reqmt]",""),if(bittest(varstyp(i),SYMB_OPT_PRIV)<>0," [priv]",""))
+   end-do
+   writeln
+  end-if
+
+ 					!------------------- Subroutines ------
+  if Rfct.size>0 then
+   writeln("Procedures and Functions:")
+   forall(i in Rfct) do
+    write(" ",if(bittest(fcttyp(i),SYMB_MSK_TYP)=0,"procedure ","function "),fct(i))
+    showsign(typs,fctsign(i))
+    if bittest(fcttyp(i),SYMB_MSK_TYP)<>0 then
+     write(":",typs(bittest(fcttyp(i),SYMB_MSK_TYP)))
+    end-if
+    if bittest(fcttyp(i),SYMB_OPT_REQMT)<>0 then write(" [reqmt]"); end-if
+    if bittest(fcttyp(i),SYMB_OPT_PRIV)<>0 then write(" [priv]"); end-if
+    if bittest(fcttyp(i),SYMB_OPT_PTR)<>0 then write(" [ptr]"); end-if
+    writeln
+   end-do
+   writeln
+  end-if
+
+ 					!------------------- IO drivers -------
+  if Riodrv.size>0 then
+   writeln("I/O drivers:")
+   forall(i in Riodrv) do
+    writeln(" ",iodrv(i),":",iodrvinfo(i))
+   end-do
+   writeln
+  end-if
+
+ 					!------------------- Annotations ------
+  if Rannsident.size>0 then
+   writeln("Annotations:")
+   forall(i in Rannsident) do
+    writeln(" ",if(annsident(i)<>"",annsident(i),"[global]"),"->")
+    forall(k in annsstart(i)..(annsstart(i+1)-1)|not isodd(k)) do
+     writeln("   ",anns(k),":",anns(k+1))
+    end-do
+   end-do
+   writeln
+  end-if
+ else
+  writeln("Operation failed")
+ end-if
+end-procedure
+
+!******************
+!* Command 'lsloc'
+!******************
+! Request 'lsloc' (list of local variables):
+!   mcmd:info@M[.s]
+! M: main model
+! s: submodel (0<=>main model)
+procedure cmdlsloc(m:integer,args:text)
+ declarations
+  typs:array(Rtyps:range) of string
+  typscod:array(Rtyps) of integer
+  vars:array(Rvars:range) of string
+  varstyp:array(Rvars) of integer
+  arrndx:array(Rarrndx:range) of string
+
+	! Basic types
+  SYMB_TYP_NOT=0
+  SYMB_TYP_INT=1
+  SYMB_TYP_REAL=2
+  SYMB_TYP_STRING=3
+  SYMB_TYP_BOOL=4
+  SYMB_TYP_MPVAR=5
+  SYMB_TYP_LINCTR=6
+
+	! Masks for type decoding
+  SYMB_MSK_TYP=4095	! 0xFFF		12 bits [ 0-11]
+  SYMB_MSK_STR=61440	! 0xF000	 4 bits [12-15]
+  SYMB_MSK_OPT=983040	! 0xF0000	 4 bits [16-19]
+  SYMB_MSK_NDX=-1048576	! 0xFFF00000	12 bits [20-31]
+
+	! Shift length for type decoding
+  SYMB_SHT_STR=12
+  SYMB_SHT_OPT=16
+  SYMB_SHT_NDX=20
+
+	! Entity structure
+  SYMB_STR_SCA=0	! (0<<SYMB_SHT_STR)
+  SYMB_STR_ARR=4096	! (1<<SYMB_SHT_STR)
+  SYMB_STR_SET=8192	! (2<<SYMB_SHT_STR)
+  SYMB_STR_LST=12288	! (3<<SYMB_SHT_STR)
+  SYMB_STR_REC=16384	! (4<<SYMB_SHT_STR)
+  SYMB_STR_PROB=20480	! (5<<SYMB_SHT_STR)
+  SYMB_STR_CSREF=24576	! (6<<SYMB_SHT_STR)
+  SYMB_STR_UNION=28672	! (7<<SYMB_SHT_STR)
+  SYMB_STR_PROC=32768	! (8<<SYMB_SHT_STR)
+
+ end-declarations
+
+ setparam("ioctrl",true)
+! fcopy(fname,"")
+ initialisations from "rmt:["+nid+"]mcmd:lsloc-t@1"
+  Rtyps typs typscod
+  Rvars vars varstyp
+  Rarrndx arrndx
+ end-initialisations
+ setparam("ioctrl",false)
+ if getparam("iostatus")=0 then
+ 					!------------------- Variables --------
+  if Rvars.size>0 then
+   writeln("Variables:")
+   forall(i in Rvars) do
+    write(" ",vars(i),":")
+    case bittest(varstyp(i),SYMB_MSK_STR) of
+     SYMB_STR_ARR: do
+	 j:=getndx(varstyp(i))
+	 if j>0 then
+	  write("array (",arrndx(j-1),") of ")
+	 else
+	  write("array of ")
+	 end-if
+	end-do
+     SYMB_STR_SET: write("set of ")
+     SYMB_STR_LST: write("list of ")
+    end-case
+    writeln(typs(bittest(varstyp(i),SYMB_MSK_TYP)))
+   end-do
+   writeln
+  end-if
+ else
+  writeln("Operation failed")
+ end-if
+end-procedure
+
+!******************
+!* Command 'lsattr'
+!******************
+! Request 'lsattr' (list of attributes):
+!   mcmd:lsattr@M[.s]
+! M: main model
+! s: submodel (0<=>main model)
+procedure cmdlsattr
+ declarations
+  typs:array(Rtyps:range) of string
+  attrs:array(Rattrs:range) of string
+  attrsntyp:array(Rattrs) of integer
+  attrsatyp:array(Rattrs) of integer
+ end-declarations
+
+ setparam("ioctrl",true)
+ initialisations from "rmt:["+nid+"]mcmd:lsattr-t@1"
+  Rattrs attrs attrsntyp attrsatyp
+ end-initialisations
+ ! Get the type names (from lsloc)
+ initialisations from "rmt:["+nid+"]mcmd:lsloc-t@1"
+  Rtyps typs
+ end-initialisations
+ setparam("ioctrl",false)
+
+ lasttyp:=0;
+ forall(a in Rattrs) do
+  if attrsntyp(a)<>lasttyp then
+   writeln(typs(attrsntyp(a)),":")
+   lasttyp:=attrsntyp(a)
+  end-if
+  writeln("  ",attrs(a),":",typs(attrsatyp(a)))
+ end-do
+end-procedure
+
+!******************
+!* Command 'lslib'
+!******************
+! Request 'lslib' (list of available libraries [packages+modules]):
+!   mcmd:lslib
+! with option 'p', packages are listed with their full path
+procedure lslib
+ declarations
+  pkgs:array(Rpkgs:range) of string
+  dsos:array(Rdsos:range) of string
+ end-declarations
+
+ initialisations from "rmt:["+nid+"]mcmd:lslib-pt"
+  Rpkgs
+  pkgs
+  Rdsos
+  dsos
+ end-initialisations
+
+ if pkgs.size>0 then
+  writeln(" Packages:")
+  forall(p in Rpkgs)
+   writeln("   ",pkgs(p))
+ end-if
+
+ if pkgs.size>0 then
+  writeln(" Modules:")
+  forall(p in Rdsos)
+   writeln("   ",dsos(p))
+ end-if
+end-procedure
+
+!**********************************************
+!* Return operation code of a dbg event value
+!**********************************************
+function dbgopcode(v:real):integer
+ returned:=bitshift(integer(v),-16)
+end-function
+
+!**********************************************
+!* Return operation arg of a dbg event value
+!**********************************************
+function dbgoparg(v:real):integer
+ returned:=bittest(integer(v),65535)
+end-function
+
+!**********************
+!* Load a source file
+!**********************
+function loadfile(f:string):s_src
+ declarations
+  l:text
+ end-declarations
+ returned.fname:=f
+ setparam("ioctrl",true)
+  fopen(f,F_INPUT+F_SILENT)
+ setparam("ioctrl",false)
+ if getparam("iostatus")=0 then
+  while(readtextline(l)>=0) do
+   returned.nbl+=1
+   trim(l,SYS_RIGHT)
+   returned.lines(returned.nbl):=l
+  end-do
+  fclose(F_INPUT)
+ end-if
+end-function
+
+!***************************************
+!* Display current location of a model 
+!***************************************
+! Request 'dbgstat' (status and location):
+!   mcmd:dbgstat@M
+!   mcmd:dbgstat@M.s
+! M: main model (if no submodel => status of all running models)
+! s: submodel (0<=>main model)
+procedure showlocation(m:integer)
+ declarations
+  Rid:range
+  id,stat,stlev,lndx:array(Rid) of integer
+ end-declarations
+ 
+ initialisations from "bin:rmt:["+nid+"]mcmd:dbgstat@1."+m
+  Rid
+  id
+  stat
+  stlev
+  lndx
+ end-initialisations
+ i:=lndx(0)
+ if stat(0)=2 then
+  writeln("[",m,"] ending")
+ elif i<0 then
+  writeln("[",m,"] no location information")
+ else
+  loadsrc(m)
+  l:=bittest(allsrc(m).lndx(i),LINEMASK)
+  f:=bitshift(allsrc(m).lndx(i),FILESHIFT)
+  if l=0 then
+   writeln("[",m,"] in package ",allsrc(m).src(f).fname)
+  else
+   writeln("[",m,"] ",allsrc(m).src(f).fname,":",l," ",allsrc(m).src(f).lines(l))
+  end-if
+ end-if
+end-procedure
+
+!***************************
+!* Load source for a model
+!***************************
+! Request 'dbglndx' (all line indices):
+!   mcmd:dbglndx@M[.s]
+! M: main model
+! s: submodel (0<=>main model)
+procedure loadsrc(m:integer)
+ declarations
+  lines:array(Rlines:range) of integer
+  files:array(Rfiles:range) of string
+ end-declarations
+
+ if not exists(allsrc(m)) then
+  initialisations from "bin:rmt:["+nid+"]mcmd:dbglndx@1."+m
+   Rfiles
+   files
+   Rlines
+   lines
+  end-initialisations
+
+  allsrc(m).nbi:=Rlines.size
+  forall(i in Rlines) allsrc(m).lndx(i):=lines(i)
+  forall(f in Rfiles) do
+   allsrc(m).src(f):=loadfile(files(f))
+  end-do
+ end-if
+end-procedure
+
+!**********************************************************
+!* Display correspondance between line indices and source
+!**********************************************************
+procedure lndxlist(m:integer)
+ loadsrc(m)
+ forall(i in 0..allsrc(m).nbi-1) do
+  l:=bittest(allsrc(m).lndx(i),LINEMASK)
+  f:=bitshift(allsrc(m).lndx(i),FILESHIFT)
+  if l=0 then
+   writeln("package ",allsrc(m).src(f).fname)
+  else
+   writeln(i,":",allsrc(m).src(f).fname,'-',l," ",allsrc(m).src(f).lines(l))
+  end-if
+ end-do
+end-procedure
+
+!***************************************
+!* Convert a version number to a string
+!***************************************
+function vers2str(sv:string):string
+ returned:=vers2str(integer(sv))
+end-function
+
+function vers2str(v:integer):string
+ m0:=v mod 1000
+ v:=v div 1000
+ m1:=v mod 1000
+ v:=v div 1000
+ returned:=string(v)+"."+m1+"."+m0
+end-function
+
+!************************************
+!* Convert a Unix time into a string
+!************************************
+function str2date(sd:string):string
+ dt:=datetime(integer(sd))
+ returned:=string(dt)
+end-function
+
+!***************************************
+!* Return index value of an identifier
+!***************************************
+function getndx(v:integer):integer
+ declarations
+  SYMB_SHT_NDX=20
+ end-declarations
+ returned:=bitshift(v,-SYMB_SHT_NDX)
+end-function
+
+!*****************************************
+!* Display the signature of a subroutine
+!*****************************************
+procedure showsign(typs:array(range) of string, fctsign:string)
+ declarations
+  ta:textarea
+ end-declarations
+ if fctsign<>"" then
+  write("(");
+  ta.start:=1
+  ta.succ:=1
+  showtyp(typs,fctsign,ta)
+  while(ta.succ<fctsign.size) do
+   write(",")
+   showtyp(typs,fctsign,ta)
+  end-do
+  write(")");
+ end-if
+end-procedure
+
+!*********************************
+!* Display a subroutine argument
+!*********************************
+procedure showtyp(typs:array(range) of string, args:string, ta:textarea)
+ ta.start:=ta.succ
+ ta.succ:=ta.succ+1
+ case getchar(args,ta.start) of
+  105: write("integer")	! 'i'
+  114: write("real")	! 'r'
+  83: write("string")	! 'S'
+  115: write("string")	! 's'
+  98: write("boolean")	! 'b'
+  118:write("mpvar")	! 'v'
+  99: write("linctr")	! 'c'
+  73: write("range")	! 'I'
+  97: write("array")	! 'a'
+  101:write("set")	!' e'
+  108:write("list")	! 'l'
+  117:write("union")	! 'u'
+  102:write("subroutine")!'f'
+  33: do		! '!'
+	 i:=findtext(args,"!",ta.succ)
+	 write(copytext(args,ta.succ,i-1))
+	 ta.succ:=i+1
+	end-do
+  124: do		! '|'
+	 i:=findtext(args,"|",ta.succ)
+	 write(copytext(args,ta.succ,i-1))
+	 ta.succ:=i+1
+	end-do
+  37: do		! '%'
+	 i:=integer("0x"+substr(args,ta.succ,ta.succ+2))
+	 write(typs(i))
+	 ta.succ:=ta.succ+3
+	end-do
+  65: do		! 'A'
+	 write("array (")
+	 while(getchar(args,ta.succ)<>46) do
+	  showtyp(typs,args,ta)
+	 end-do
+	 ta.succ:=ta.succ+1
+	 write(") of ")
+	 showtyp(typs,args,ta)
+	end-do
+  69: do		! 'E'
+	 write("set of ")
+	 showtyp(typs,args,ta)
+	end-do
+  76: do		! 'L'
+	 write("list of ")
+	 showtyp(typs,args,ta)
+	end-do
+  70: do		! 'F'
+	if getchar(args,ta.succ)=40 then
+	 write("procedure")
+	 i:=ta.succ+1
+	else
+	 write("function")
+	 i:=findtext(args,"(",ta.succ)+1
+	end-if
+	j:=findtext(args,")",i)
+	if j>i then
+	 showsign(typs,substr(args,i,j-1))
+	end-if
+	if i>ta.succ+1 then
+	 write(":")
+	 showtyp(typs,args,ta)
+	end-if
+	ta.succ:=j+1
+      end-do
+  42: write("...")	! '*'
+  else
+   write("?")
+ end-case
+end-procedure
+
+!*************************
+!* Display some help
+!*************************
+procedure showhelp
+ write(`
+Available commands:
+  cont   : continue execution
+  end    : abort execution
+  next   : continue to next statement
+  step   : step into
+  fin    : continue up to end of routine
+  to lndx: continue up to given line index
+  list   : display all line indices of current model
+  fct fname: display line indices of given function
+  lslib  : list available modules and packages
+  info [mod|*]: symbols of the model, a module (mod) or Mosel (*)
+  lsattr : list of attributes
+  lsloc  : list of current local symbols
+  flushdso: unload unused modules
+  print expr: evaluate expression
+  break  : list breakpoints
+  break lndx|*: remove breakpoints at line index lndx (*=> all breakpoints)
+  break lndx cond|*: set/change breakpoint at line index lndx
+  status : report status of all running models
+  stack [stlev [maxlev]]: set/check stack level
+`)
+end-procedure
+
+end-model

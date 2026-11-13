@@ -1,0 +1,53 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file customrelax.mos
+   ````````````````````
+   Defining customized linear relaxations.
+
+   (c) 2009 Artelys S.A. and Fair Isaac Corporation
+       Creation: 2009
+*****************************************************************!)
+model "Custom relaxations"
+ uses "kalis"
+
+ declarations		
+  myrelax: cplinrelax               ! A linear relaxation	
+  a1,a2  : cpauxvar                 ! Auxiliary variables for relaxation	
+  taux   : array(1..4) of cpauxvar  ! Array of auxiliary variables
+	
+  x1,x2,x3: cpvar                   ! Finite domain variables	
+  z       : cpfloatvar              ! CP variable with continuous domain	
+  CAlld   : cpctr                   ! A CP constraint
+ end-declarations
+	
+! Define an 'alldifferent' constraint	
+ CAlld := all_different({x1,x2,x3})
+
+! Build an automatic 'LP' oriented linear relaxation
+ myrelax1 := cp_get_linrelax(0)
+
+! Setting bounds on the auxiliary variables
+ setdomain(a2,0,1)
+ setdomain(a1,0.56,18.67)
+
+! Adding linear inequalities to the relaxation
+ myrelax += 3*a1      <= 3
+ myrelax += a1+a2     >= 3.1
+ myrelax += 2*a1-4*a2  = 3
+ myrelax += a1-x1      <= 3.4
+ myrelax += a1+4*a2-z <= 3
+ myrelax += get_linrelax(CAlld,0)
+ myrelax += 
+   get_indicator(x1,1) + get_indicator(x2,1) + get_indicator(x3,1) <= 1
+ myrelax += sum(i in 1..4) taux(i) = 4
+
+! Set integrality condition for variables in the relaxation
+ set_integer(myrelax,a2,true)
+ set_integer(myrelax,x1,true)
+	
+! Output the resulting relaxation to the screen
+ cp_show_relax(myrelax)
+ 
+end-model 

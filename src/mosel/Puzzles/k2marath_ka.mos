@@ -1,0 +1,75 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file k2marath_ka.mos
+   ````````````````````
+   Marathon puzzle
+   
+   Dominique, Ignace, Naren, Olivier, Philippe, and Pascal
+   have arrived as the first six at the Paris marathon.
+   Reconstruct their arrival order from the following
+   information:
+   a) Olivier has not arrived last
+   b) Dominique, Pascal and Ignace have arrived before Naren 
+      and Olivier
+   c) Dominique who was third last year has improved this year.
+   d) Philippe is among the first four.
+   e) Ignace has arrived neither in second nor third position.
+   f) Pascal has beaten Naren by three positions.
+   g) Neither Ignace nor Dominique are on the fourth position.
+
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, March 2005
+*******************************************************!)
+
+model "K-2 Marathon (CP)"
+ uses "kalis"
+
+ declarations
+  NPOS = 6
+  POS = 1..NPOS                       ! Arrival positions
+  RUNNERS = {"Dominique","Ignace","Naren","Olivier","Philippe","Pascal"}
+    
+  arrive: array(RUNNERS) of cpvar     ! Position of runner
+ end-declarations
+
+! Creation of variables
+ forall(r in RUNNERS) do
+  setname(arrive(r),r)
+  1 <= arrive(r); arrive(r) <= NPOS
+ end-do
+
+! Every runner has a different position
+ all_different(arrive) 
+ 
+! a: Olivier not last
+ arrive("Olivier") <= 5
+
+! b: Dominique, Pascal and Ignace before Naren and Olivier
+ forall(r in {"Dominique","Pascal","Ignace"}, s in {"Naren","Olivier"})
+  arrive(r) <= arrive(s) - 1
+ 
+! c: Dominique better than third
+ arrive("Dominique") <= 2
+ 
+! d: Philippe is among the first four 
+ arrive("Philippe") <= 4
+
+! e: Ignace neither second nor third
+ arrive("Ignace") <> 2;  arrive("Ignace") <> 3
+
+! f: Pascal three places earlier than Naren
+ arrive("Pascal") + 3 = arrive("Naren")
+
+! g: Neither Ignace nor Dominique on fourth position
+ arrive("Ignace") <> 4; arrive("Dominique") <> 4
+
+! Solve the problem
+ if cp_find_next_sol then
+  forall(r in RUNNERS) writeln(r, ": ", arrive(r))
+ else
+  writeln("Problem is infeasible")
+ end-if
+ 
+end-model

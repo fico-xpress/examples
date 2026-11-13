@@ -1,0 +1,41 @@
+(!****************************************************** 
+   Mosel Example Problems
+   ======================
+
+   file preproc.mos
+   ````````````````
+   Example of using preprocessor definitions within a Mosel model
+
+   !!! The C preprocessor 'cpp' must be available in order     
+   !!! to process this file before running it with Mosel 
+
+   Compile and run the resulting BIM file with:
+mosel comp "mmsystem.pipe:cpp preproc.mos -DA=1 -DDEBUG" -o preproc.bim
+mosel run preproc
+
+   Produce the prepocessed source via cpp:
+cpp preproc.mos -DA=1 -DDEBUG -o preprocA1.mos
+
+   (c) 2020-2022 Fair Isaac Corporation
+       author: S. Heipcke, Aug. 2020, rev. Oct. 2022
+*******************************************************!)
+model "preprocess via cpp"
+
+#ifdef A
+writeln("A defined")
+#if A==1
+writeln("A is 1")
+#endif
+#else
+writeln("A not defined")
+#endif
+
+!writeln("Uncommenting this line produces a syntax error",,)
+
+#ifdef DEBUG
+writeln_("This is a debug message.")
+#endif
+
+writeln_("Terminating.")
+
+end-model

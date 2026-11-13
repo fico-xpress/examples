@@ -1,0 +1,74 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file probeac2001.mos
+   ````````````````````
+   Euler knight tour problem implemented with user-defined
+   binary constraints.
+
+   *** This model cannot be run with a Community Licence 
+       for the default data instance ***
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+       Creation: 2005, rev. Jul. 2022   
+*****************************************************************!) 
+model "Euler Knight Moves"
+ uses "kalis"
+
+ parameters
+  S = 8                                  ! No. of rows/columns
+ end-parameters
+ 
+ N:= S * S                               ! Total number of cells
+ setparam("KALIS_DEFAULT_LB", 0)
+ setparam("KALIS_DEFAULT_UB", N-1)
+
+ forward function valid_knight_move(a:integer, b:integer): boolean
+
+ declarations
+  PATH = 1..N                            ! Cells on the board
+  pos: array(PATH) of cpvar              ! Position p in tour
+ end-declarations
+
+! Setting names of decision variables
+ forall(i in PATH) setname(pos(i), "Position"+i)  
+
+! Fix the start position
+ pos(1) = 0
+
+! Each cell is visited once
+ all_different(pos, KALIS_GEN_ARC_CONSISTENCY)
+
+! The knight's path obeys the chess rules for valid knight moves
+ forall(i in 1..N-1)
+  generic_binary_constraint(pos(i), pos(i+1), ->valid_knight_move)
+ generic_binary_constraint(pos(N), pos(1), ->valid_knight_move)
+
+! Setting enumeration parameters
+ cp_set_branching(probe_assign_var(KALIS_SMALLEST_MIN, 
+                  KALIS_MAX_TO_MIN, pos, 14))
+
+! Search for up to NBSOL solutions
+ solct:= 0
+ if not cp_find_next_sol then
+  writeln("No solution")
+ else
+  writeln(pos)
+ end-if
+
+! **** Test whether the move from a to b is admissible ****
+ function valid_knight_move(a:integer, b:integer): boolean
+  declarations
+   xa,ya,xb,yb,delta_x,delta_y: integer
+  end-declarations
+  xa := a div S
+  ya := a mod S
+  xb := b div S
+  yb := b mod S
+  delta_x := abs(xa-xb)
+  delta_y := abs(ya-yb)
+  returned := (delta_x<=2) and (delta_y<=2) and (delta_x+delta_y=3)
+ end-function
+
+end-model

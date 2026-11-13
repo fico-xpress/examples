@@ -1,0 +1,60 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file minmax.mos
+   ```````````````
+   Minimum and maximum constraints.
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+
+*****************************************************************!)
+model "Min and Max"
+ uses "kalis"
+
+ declarations
+  R = 1..5
+  x: array(R) of cpvar
+  v, w, y: cpvar
+  L: cpvarlist
+  MaxCtr: cpctr
+ end-declarations
+ 
+ setname(v,"v")
+ setname(w,"w")
+ setname(y,"y")
+ 
+ forall(i in R) do
+  setname(x(i),"x"+i+"")
+  setdomain(x(i), 0, 2*i + round(5*random + 0.5))
+ end-do
+
+ writeln("Initial domains:\n ", x, "  ", v) 
+
+! Minimum constraint with automated posting 
+ v = minimum(x)
+ writeln("With minimum constraint:\n ", x, "  ", v)
+ 
+ x(1) = 2
+ writeln("Fixing x(1) to 2: ", v) 
+
+! Maximum constraint with explicit posting
+ MaxCtr:= w = maximum({x(2), x(3), x(5)})
+ if cp_post(MaxCtr) then 
+  writeln("With maximum constraint:\n ", x, "  ", w) 
+ else exit(1) 
+ end-if 
+ 
+ w <= 7
+ writeln("Bounding w by 7:\n ", x, "  ", w)
+
+! Maximum constraint on list of variables 
+ L += x(2); L += x(3); L += x(4)
+ y = maximum(L)
+ writeln("With 2nd maximum constraint:\n ", x, "  ", y)
+
+ if cp_find_next_sol then
+  writeln("A solution:\n ", x, "  ", v, "  ", w, "  ", y)
+ end-if
+end-model
+

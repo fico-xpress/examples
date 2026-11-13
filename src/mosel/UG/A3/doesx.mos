@@ -1,0 +1,34 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file doesx.mos
+   ``````````````
+   Working with dynamic arrays of variables.
+   
+   (c) 2008 Fair Isaac Corporation
+       author: Bob Daniel, 2001, rev. Sep. 2018
+*******************************************************!)
+
+model doesx
+ public declarations
+  IR = 1..15
+  WHICH: set of integer
+  x: dynamic array(IR) of mpvar
+  Obj,C: linctr
+ end-declarations
+
+! Read data from file
+ initializations from 'doesx.dat'
+  WHICH
+ end-initializations
+
+! Create the x variables that exist
+ forall(i in WHICH) create(x(i))
+
+! Build a little model to show what esists
+ Obj:= sum(i in IR) x(i)
+ C:= sum(i in IR) i * x(i) >= 5
+
+ exportprob(0, "", Obj)    ! Display the resulting problem definition in Mosel
+end-model

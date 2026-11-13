@@ -1,0 +1,35 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file doesx1.mos
+   ```````````````
+   Working with dynamic arrays of variables.
+   -- Using 'exists' in enumerations --
+   
+   (c) 2008 Fair Isaac Corporation
+       author: Bob Daniel, 2001, rev. Nov. 2021
+*******************************************************!)
+
+model doesx1
+ public declarations
+  IR = 1..15
+  WHICH: set of integer
+  x: dynamic array(IR) of mpvar
+  Obj,C: linctr
+ end-declarations
+
+! Read data from file
+ initializations from 'doesx.dat'
+  WHICH
+ end-initializations
+
+! Create the x variables that exist
+ forall(i in WHICH) create(x(i))
+
+! Build a little model to show what esists
+ Obj:= sum(i in IR | exists(x(i))) x(i)
+ C:= sum(i in IR | exists(x(i))) i * x(i) >= 5
+
+ exportprob(0, "", Obj)    ! Display the resulting problem definition in Mosel
+end-model

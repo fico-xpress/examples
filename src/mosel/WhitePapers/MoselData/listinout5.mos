@@ -1,0 +1,54 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file listinout5.mos
+   ```````````````````
+   Reading/writing lists from/to spreadsheets.
+   - Using 'initializations from' with the xls driver -
+   
+   (c) 2012 Fair Isaac Corporation
+       author: S. Heipcke, Dec. 2012
+*******************************************************!)
+
+model "List handling (generic spreadsheet)"
+ uses "mmsheet"
+
+ parameters
+!  CSTR= 'mmsheet.xls:listdata.xls'
+  CSTR= 'mmsheet.xlsx:listdata.xlsx'
+ end-parameters
+ 
+ declarations
+  LI: list of integer
+  A: integer
+  LS,LS2: list of string
+ end-declarations
+
+ initializations from CSTR
+  LI as "List1E"
+  A as "AE"
+  LS as "List2E"
+ end-initializations 
+
+! Display the lists
+ writeln("LI: ", LI)
+ writeln("A: ", A, ", LS: ", LS)
+
+! Reverse the list LI
+ reverse(LI)
+
+! Append some text to every entry of LS
+ LS2:= sum(l in LS) [l+" "+A]
+
+! Display the modified lists
+ writeln("LI: ", LI)
+ writeln("LS2: ", LS2)
+
+ initializations to CSTR
+  LI as "List1EOut"
+  LS2 as "List2EOut"             ! Output into a row
+  LS2 as "grow;List2EGOut"       ! Output into a column
+ end-initializations
+
+end-model

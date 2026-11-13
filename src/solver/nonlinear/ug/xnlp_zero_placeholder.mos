@@ -1,0 +1,131 @@
+! XNLP example demonstrating local optimality and the role of placeholders
+!
+! This examples solves a simple, then a complex function with many
+! local optimal solutions both with SLP and Knitro to demonstrate
+! the role of placeholders and delta_z, which while allows SLP to
+! make long steps in degenrate situations, also tends to drive it to 
+! solutions with a large vertex index.
+!
+! This example demonstrates a particular non-linear optimization concept as related 
+! to Xpress NonLinear.
+! The version of the example is for Xpress 7.5.
+!
+!  (c) 2013-2026 Fair Isaac Corporation
+!       author: Zsolt Csizmadia
+model mmxnlp_nlp_duals
+uses "mmxnlp"; 
+
+declarations
+ x: mpvar
+end-declarations
+
+x is_free
+-1 <= x
+      x <= 1
+
+!setparam("xnlp_verbose",1)
+
+! Start solving using a second order method, startign from 0, 1, and -1
+setparam("xnlp_solver",XNLP_SOLVER_KNITRO)
+setparam("XPRS_NLPSOLVER",1)
+setinitval(x,0)
+minimize(x^3)
+Knitro_zero := getobjval
+Knitro_zero_x := getsol(x)
+
+
+setinitval(x,1)
+minimize(x^3)
+Knitro_one := getobjval
+Knitro_one_x := getsol(x)
+
+setinitval(x,-1)
+minimize(x^3)
+Knitro_mone := getobjval
+Knitro_mone_x := getsol(x)
+
+! Now solve using SLP
+setparam("xnlp_solver",XNLP_SOLVER_XSLP)
+setinitval(x,0)
+minimize(x^3)
+SLP_zero := getobjval
+SLP_zero_x := getsol(x)
+
+setinitval(x,1)
+minimize(x^3)
+SLP_one := getobjval
+SLP_one_x := getsol(x)
+
+setinitval(x,-1)
+minimize(x^3)
+SLP_mone := getobjval
+SLP_mone_x := getsol(x)
+
+! Summarize
+writeln
+writeln("Function: x^3")
+writeln("Starting point:     -1            0            1   ");
+writeln("---------------------------------------------------")
+writeln("Knitro : ",strfmt(Knitro_mone,13), strfmt(Knitro_zero,13), 
+        strfmt(Knitro_one,13));
+writeln("SLP    : ",strfmt(SLP_mone,13), strfmt(SLP_zero,13), strfmt(SLP_one,13));
+writeln("-- at x = ")
+writeln("Knitro : ",strfmt(Knitro_mone_x,13), strfmt(Knitro_zero_x,13), 
+        strfmt(Knitro_one_x,13));
+writeln("SLP    : ",strfmt(SLP_mone_x,13), strfmt(SLP_zero_x,13), 
+        strfmt(SLP_one_x,13));
+
+objective := x*sin((10*x)^2);
+
+! Start solving using a second order method, startign from 0, 1, and -1
+setparam("xnlp_solver",XNLP_SOLVER_KNITRO)
+setinitval(x,0)
+minimize( objective )
+F_Knitro_zero := getobjval
+F_Knitro_zero_x := getsol(x)
+
+setinitval(x,1)
+minimize( objective )
+F_Knitro_one := getobjval
+F_Knitro_one_x := getsol(x)
+
+setinitval(x,-1)
+minimize( objective )
+F_Knitro_mone := getobjval
+F_Knitro_mone_x := getsol(x)
+
+! Now solve using SLP
+setparam("xnlp_solver",XNLP_SOLVER_XSLP)
+setinitval(x,0)
+minimize( objective )
+F_SLP_zero := getobjval
+F_SLP_zero_x := getsol(x)
+
+setinitval(x,1)
+minimize( objective )
+F_SLP_one := getobjval
+F_SLP_one_x := getsol(x)
+
+setinitval(x,-1)
+minimize( objective )
+F_SLP_mone := getobjval
+F_SLP_mone_x := getsol(x)
+
+! Summarize
+writeln
+writeln("Function: x*sin((10*x)^2)")
+writeln("Starting point:     -1            0            1   ");
+writeln("---------------------------------------------------")
+writeln("Knitro : ",strfmt(F_Knitro_mone,13), strfmt(F_Knitro_zero,13), 
+        strfmt(F_Knitro_one,13));
+writeln("SLP    : ",strfmt(F_SLP_mone,13), strfmt(F_SLP_zero,13),
+        strfmt(F_SLP_one,13));
+writeln("-- at x = ")
+writeln("Knitro : ",strfmt(F_Knitro_mone_x,13), strfmt(F_Knitro_zero_x,13), 
+        strfmt(F_Knitro_one_x,13));
+writeln("SLP    : ",strfmt(F_SLP_mone_x,13), strfmt(F_SLP_zero_x,13), 
+        strfmt(F_SLP_one_x,13));
+end-model
+
+end-model
+

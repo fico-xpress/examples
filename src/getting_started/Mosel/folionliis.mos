@@ -1,0 +1,119 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file folionliis.mos
+   ```````````````````
+   Modeling a small QCQP or MIQCQP problem 
+   to perform portfolio optimization.
+  
+   Same model as in folioqc.mos or foliomiqc.mos.
+   -- Infeasible model parameter values --
+   -- Retrieving IIS -- 
+
+  (c) 2023 Fair Isaac Corporation
+      author: S.Heipcke, June 2023
+*******************************************************!)
+
+model "Portfolio optimization with QCQP"
+ uses "mmxprs", "mmnl"
+
+ parameters
+  MAXVAL = 0.3                      ! Max. investment per share
+  MINAM = 0.5                       ! Min. investment into N.-American values
+  MAXVAR = 0.5                      ! Max. allowed variance
+  MINVAL = 0.2                      ! Min. investment per share
+  MAXNUM = 5                        ! Max. number of different assets
+  IFMIP=false                       ! Switch between continuous and discrete
+ end-parameters
+
+ declarations
+  SHARES = 1..10                    ! Set of shares
+  NA: set of integer                ! Set of shares issued in N.-America
+  RET: array(SHARES) of real        ! Estimated return in investment
+  VAR: array(SHARES,SHARES) of real ! Variance/covariance matrix of
+                                    ! estimated returns
+ end-declarations
+
+ initializations from "folioqp.dat"
+  RET NA VAR
+ end-initializations
+
+ public declarations
+  frac: array(SHARES) of mpvar      ! Fraction of capital used per share
+  buy: array(SHARES) of mpvar       ! 1 if asset is in portfolio, 0 otherwise
+  LimitMinAm: linctr                ! Min. amount for geograph. region 
+  TotalOne: linctr                  ! Spend all the capital
+  LimitVar: nlctr                   ! Max. variance
+  LimitNum: linctr                  ! Max. total number of assets
+  LinkUB,LinkLB: array(SHARES) of linctr   ! Linking buy+frac variables
+ end-declarations
+
+! Objective: total return
+ Return:= sum(s in SHARES) RET(s)*frac(s) 
+
+! Minimum amount of North-American values
+ LimitMinAm:=  sum(s in NA) frac(s) >= MINAM
+
+! Spend all the capital
+ TotalOne:= sum(s in SHARES) frac(s) = 1
+ 
+! Limit variance
+ LimitVar:= sum(s,t in SHARES) VAR(s,t)*frac(s)*frac(t) <= MAXVAR
+
+! Upper bounds on the investment per share
+ forall(s in SHARES) frac(s) <= MAXVAL
+
+ if IFMIP then
+! Limit the total number of assets
+  LimitNum:= sum(s in SHARES) buy(s) <= MAXNUM
+
+  forall(s in SHARES) do
+   buy(s) is_binary                  ! Turn variables into binaries
+   LinkUB(s):= frac(s) <= MAXVAL*buy(s)     ! Linking the variables
+   LinkLB(s):= frac(s) >= MINVAL*buy(s)     ! Linking the variables
+  end-do
+ end-if
+
+! Display Optimizer log
+ setparam("XPRS_verbose", true)
+ setparam("XPRS_LOADNAMES", true)
+
+! Solve the problem
+ maximize(Return)
+
+ declarations
+  V: set of mpvar
+  C: set of linctr
+  NC: set of nlctr
+ end-declarations
+
+ probstat:= getprobstat
+ case probstat of
+  XPRS_OPT: writeln("Problem solved")
+  XPRS_INF: do
+              setparam("XPRS_verbose", false)  ! Disable Optimizer output
+	      writeln("Problem is infeasible")
+
+              getiis({},{},{},{})              ! Generate all IIS
+              numiis:= getparam("XPRS_NUMIIS") ! Retrieve number of IIS
+              writeln("Total IIS:", numiis, " status:", 
+                getparam("XPRS_IISSOLSTATUS"))
+ ! IIS status: 0: unstarted, 1: feasible (no IIS), 2: completed, 3: unfinished
+              forall(i in 1..numiis) do
+                getiis(i, V, C, NC, {})        ! Retrieve the i'th IIS
+                writeln("IIS ", i, ":")
+                writeln(" variables: ", getsize(V))
+	        write("  "); forall(v in V) write(getname(v), " "); writeln
+                writeln(" linear constraints: ", getsize(C))
+	        write("  "); forall(c in C) write(getname(c), " "); writeln
+                writeln(" nonlinear constraints: ", getsize(NC))
+	        write("  "); forall(c in NC) write(getname(c), " "); writeln
+              end-do
+            end-do
+  XPRS_OTH: writeln("Problem unbounded") 
+  XPRS_UNF: writeln("Optimization unfinished")
+  else writeln("Unknown problem status")
+ end-case
+
+end-model 

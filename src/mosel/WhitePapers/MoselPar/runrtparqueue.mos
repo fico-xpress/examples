@@ -1,0 +1,79 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file runrtparqueue.mos
+   ``````````````````````
+   Running several instances of a model from another
+   Mosel model.
+   - Queuing submodels for parallel execution 
+     in a limited number of processes -
+
+   (c) 2010 Fair Isaac Corporation
+       author: S. Heipcke, Apr. 2010, rev. Jun. 2015
+*******************************************************!)
+
+model "Run model rtparams with job queue"
+ uses "mmjobs"
+
+ parameters
+   J=10                             ! Number of jobs to run
+   NUMPAR=2                         ! Number of parallel model executions
+ end-parameters                     ! (preferrably <= no. of processors)
+  
+ forward procedure start_next_job(submod: Model)
+ 
+ declarations
+   RM = 1..NUMPAR                   ! Model indices
+   JOBS = 1..J                      ! Job (instance) indices
+   modPar: array(RM) of Model       ! Models
+   jobid: array(set of integer) of integer  ! Job index for model UIDs
+   JobList: list of integer         ! List of jobs
+   JobsRun: set of integer          ! Set of finished jobs
+   JobSize: integer                 ! Number of jobs to be executed
+   Msg: Event                       ! Messages sent by models
+ end-declarations
+                                    ! Compile the model file
+ if compile("rtparams.mos")<>0 then exit(1); end-if
+
+ forall(m in RM) do
+   load(modPar(m), "rtparams.bim")  ! Load the bim file
+   modPar(m).uid:= m                ! Store the model ID
+ end-do 
+
+ JobList:= sum(i in JOBS) [i]       ! Define the list of jobs (instances)
+ JobSize:=JobList.size              ! Store the number of jobs
+ JobsRun:={}                        ! Set of terminated jobs is empty
+
+!**** Start initial lot of model runs ****
+ forall(m in RM) 
+   if JobList<>[] then
+     start_next_job(modPar(m))
+   end-if
+
+!**** Run all remaining jobs ****
+ while (JobsRun.size<JobSize) do
+   wait                               ! Wait for model termination
+ ! Start next job
+   Msg:= getnextevent
+   if Msg.class=EVENT_END then        ! We are only interested in "end" events
+     m:= Msg.fromuid                  ! Retrieve the model ID
+     JobsRun+={jobid(m)}              ! Keep track of job termination
+     writeln("End of job ", jobid(m), " (model ", m, ")")
+     if JobList<>[] then              ! Start a new run if queue not empty
+      start_next_job(modPar(m))
+     end-if
+   end-if
+ end-do 
+
+!*************************************************************************
+ procedure start_next_job(submod: Model)
+   i:=getfirst(JobList)               ! Retrieve first job in the list
+   cuthead(JobList,1)                 ! Remove first entry from job list
+   jobid(submod.uid):= i              ! Save job index for this model
+   writeln("Start job ", i, " (model ", submod.uid, ")")
+   run(submod, "PARAM1=" + i + ",PARAM2=" + 0.1*i +
+               ",PARAM3='string " + i + "'" + ",PARAM4=" + isodd(i))
+ end-procedure
+
+end-model 

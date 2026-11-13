@@ -1,0 +1,114 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file datesinout2.mos
+   ````````````````````
+   Reading/writing dates from/to
+   spreadsheets or databases via ODBC.
+   - Using SQL commands -
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Nov. 2007, rev. Aug. 2023
+*******************************************************!)
+
+model "Dates and times (SQL)"
+ uses "mmsystem", "mmodbc"
+ options keepassert
+
+ parameters
+                              ! Use Excel spreadsheet `datetime.xls'
+ ! CNCT = 'DSN=Excel Files;DBQ=C:/xpress/examples/mosel/WhitePapers/MoselData/datetime.xls'
+ ! CNCT = 'datetime.xls'
+                              ! Use Access database `datetime.mdb'
+ ! CNCT = 'DSN=MS Access Database;DBQ=C:/xpress/examples/mosel/WhitePapers/MoselData/datetime.mdb'
+  CNCT = 'datetime.mdb'
+                              ! Use mysql database `datetime' (not provided)
+ ! CNCT = 'DSN=mysql;DB=datetime'
+                              ! Use database 'datetime.sqlite' via ODBC 
+ ! CNCT = 'DSN=sqlite;DATABASE=datetime.sqlite'
+                              ! Use SQLite database 'datetime.sqlite' directly 
+ ! CNCT = 'datetime.sqlite'
+ end-parameters
+
+ declarations
+  T: time
+  D: date
+  DT: datetime
+  Dates: array(1..5) of date
+  DList: list of date
+ end-declarations
+
+ setparam("SQLverbose",true)
+ SQLconnect(CNCT)
+ assert(getparam("SQLsuccess"))
+
+! Read in dates / time (make sure to select the format used by the
+! spreadsheet/database)
+! Access and Excel:
+ setparam("timefmt", "%y-%0m-%0d %0H:%0M:%0S")
+ setparam("datefmt", "%y-%0m-%0d")
+ setparam("datetimefmt", "%y-%0m-%0d %0H:%0M:%0S")
+!)
+(! mysql:
+ setparam("timefmt", "%0H:%0M:%0S")
+ setparam("datefmt", "%y-%0m-%0d")
+ setparam("datetimefmt", "%y-%0m-%0d %0H:%0M:%0S")
+!)
+(! SQLite:
+ setparam("timefmt", "%0H:%0M:%0S")
+ setparam("datefmt", "%y-%0m-%0d")
+ setparam("datetimefmt", "%y-%0m-%0d %0H:%0M:%0S")
+!)
+
+ T:=time(SQLreadstring("select * from Time1"))
+ D:=date(SQLreadstring("select * from Date1"))
+ DT:=datetime(SQLreadstring("select * from DateTime1"))
+
+ SQLexecute("select * from Dates", Dates)
+ SQLexecute("select * from Dates", DList)
+ 
+ setparam("timefmt", "%h:%0M %p")
+ writeln(D, ", ", T)
+ writeln(DT)
+ writeln(Dates)
+ writeln(DList)
+
+! Read date / time from strings
+ setparam("timefmt", "%Hh%0Mm")
+ setparam("datefmt", "%dm%0my%0y")
+ setparam("datetimefmt", "%dm%0my%0y, %Hh%0Mm")
+
+ T:=time(SQLreadstring("select * from Time2"))
+ D:=date(SQLreadstring("select * from Date2"))
+! 'Datetime2' is a keyword for MS Access: need to use quotes or backquotes
+ DT:=datetime(SQLreadstring("select * from `DateTime2`"))
+! Standard form for other databases:
+! DT:=datetime(SQLreadstring("select * from DateTime2"))
+
+ writeln(D, ", ", T)
+ writeln(DT)
+
+! Use Mosel's default format
+ setparam("timefmt", "")
+ setparam("datefmt", "")
+ setparam("datetimefmt", "")
+
+ writeln(D, ", ", T)
+ writeln(DT)
+
+ SQLexecute("delete from TimeOut")      ! Cleaning up previous results: works
+ SQLexecute("delete from DateOut")      ! only for databases, cannot be used
+ SQLexecute("delete from DateTimeOut")  ! with spreadsheets (instead, delete
+                                        ! previous solutions directly in the
+                                        ! spreadsheet file)
+ SQLexecute("insert into TimeOut values (?)", [T])
+ assert(getparam("SQLsuccess"))
+ SQLexecute("insert into DateOut values (?)", [D])
+ assert(getparam("SQLsuccess"))
+ SQLexecute("insert into DateTimeOut values (?)", [DT])
+ assert(getparam("SQLsuccess"))
+
+ SQLdisconnect
+
+end-model

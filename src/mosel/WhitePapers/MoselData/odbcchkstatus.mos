@@ -1,0 +1,81 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file odbcchkstatus.mos
+   ``````````````````````
+   Implementing 'stop on error' behaviour for SQL statements.
+   
+   (c) 2020 Fair Isaac Corporation
+       author: S. Heipcke, Feb. 2020, rev. Aug. 2023
+*******************************************************!)
+model "Check SQL status"
+  uses "mmodbc", "mmsystem"
+  
+  parameters
+    DB="mytest.sqlite"
+  end-parameters
+  
+  forward procedure checksqlstatus
+  forward procedure createdb
+
+  declarations
+    A: array(string) of real
+  end-declarations
+  A::(['a','ab','b'])[1.5,2,2.5]
+
+  setparam("SQLverbose",true)
+  setparam("SQLdebug",true)
+
+  SQLconnect(DB)
+  if not getparam("SQLsuccess"): setioerr("Database connection failed")
+
+  createdb
+
+  SQLexecute("insert into TestTable (AnIndx,AValue) values (?,?)", A)
+  checksqlstatus
+
+  ! This is a duplicate entry, so causes an error
+  initializations to "mmodbc.odbc:debug;"+DB
+    A as "TestTable(AnIndx,AValue)"
+  end-initializations
+!)
+  ! This is a duplicate entry, so causes an error
+  SQLexecute("insert into TestTable (AnIndx,AValue) values (?,?)", A)
+  checksqlstatus
+
+  SQLdisconnect
+
+  !**** Check status and stop on error **** 
+  procedure checksqlstatus  
+    declarations
+      sstat: boolean
+    end-declarations
+    sstat:= getparam("SQLsuccess")
+    writeln_("SQL status: ", if(sstat, "succeeded", "failed"), ". ",
+             getparam("SQLrowcnt"), " rows affected")
+    if not sstat then
+      setioerr("SQL error")   ! Stop on error if parameter 'ioctrl' is false
+    end-if
+  end-procedure 
+
+!**** Database creation **** 
+  procedure createdb
+  
+    declarations
+      tsucc: array ({false,true}) of string
+      Tables: list of string
+    end-declarations
+    tsucc(false):="failed"; tsucc(true):="succeeded"
+   
+    ! Delete the table if it exists already
+    SQLtables(Tables)
+    if findfirst(Tables, "TestTable")>0 then
+      SQLexecute("drop table TestTable")
+    end-if
+ 
+    ! Create a new table
+    SQLexecute("create table TestTable (AnIndx varchar(50), ACharField char(3), Status boolean, CreationDate date, CreationTime time, AValue double, primary key (AnIndx))")
+    writeln(" - Create TestTable (",tsucc(getparam("SQLsuccess")),")")
+  end-procedure  
+end-model

@@ -1,0 +1,69 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file arraydef.mos 
+   `````````````````
+   Defining arrays.
+   - sparse and dense arrays
+   - deleting array entries
+   - multiple indices
+   - array access functions
+ 
+   (c) 2010 Fair Isaac Corporation
+       author: S. Heipcke, Jul. 2010, rev. Mar. 2022
+*******************************************************!)
+model "array definition"
+
+ declarations
+  A1: array(1..3) of integer         ! Fixed size array
+  F = {"a","b","c"}
+  A2: array(F) of real               ! Fixed size array
+  A3: array(R:range) of integer      ! Dense array with nknown index set
+  A4: dynamic array(F) of real       ! Sparse array
+  A5: hashmap array(F) of real       ! Sparse array
+ end-declarations
+
+ writeln("A1:", A1, " A2:", A2, " A3:", A3, " A4:", A4, " A5:", A5)
+
+! Using the array initialization operator
+ A1::[10,20,30]                      ! Range indices are known
+ A2::(["a","b","c"])[1.1, 2.5, 3.9]  ! String indices must be stated
+ A3::(1..3)[10,20,30]                ! Indices are not known upfront
+
+! Redefine an entry
+ A2("a"):=5.1
+
+! This line leads to an 'index out of range' error
+! A2("d"):=5.1
+ 
+ setrandseed(3)
+ forall(f in F) A4(f):= 10*random    ! Value assignment
+ forall(f in F) A5(f):= A4(f)
+ delcell(A4("a")); delcell(A5("b"))  ! Deleting entries from sparse arrays
+ 
+ writeln("A1:", A1, " A2:", A2, " A3:", A3, " A4:", A4, " A5:", A5)
+
+ delcell(A4); reset(A5)              ! Deleting the whole array contents
+ writeln("A4:", A4, " A5:", A5)
+
+!**** Multiple indices and array access functions ****
+
+ declarations
+  C: array(range, set of string, set of real) of integer
+  D: array(1..5) of array(range, set of string) of real
+ end-declarations
+
+ C(5,"ab",1.5):= 10
+ C(5,"dce",2.5):= 15
+ writeln("C=", C, ", size of C: ", C.size, ", number of dimensions: ", C.nbdim)
+ forall(i in 1..getnbdim(C))
+  writeln("  index set ", i, " = ", C.index(i), " (size:", C.index(i).size, ")")
+
+! Alternative syntax for accessing entries of 'array of array' structures
+ D(1,7,"a"):= 2.8;  D(3,7,"b"):= 1.4
+ D(1)(9,"a"):= 20;  D(4)(1,"b"):= 3.5
+
+ writeln("D: ", D)
+ 
+end-model

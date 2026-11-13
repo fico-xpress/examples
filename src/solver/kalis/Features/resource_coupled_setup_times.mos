@@ -1,0 +1,60 @@
+(!******************************************************
+   CP example problems
+   ===================
+   
+   file resource_coupled_setup_times.mos
+   `````````````````````````````````````
+   Resource-dependent setup times between two tasks.
+
+   r.assign(t1) and r.assign(t2) => t1.end + setupt1t2 <= t2.start or
+                                    t2.end + setupt2t1 <= t1.start
+
+   Copyright(C) 2019 Artelys S.A. and Fair Isaac Corporation
+                     Creation: 2019
+*******************************************************!)
+
+model "Resource coupled setup time"
+ uses "kalis"
+
+ declarations
+  r: cpresource
+  t1, t2, t3, t4, t5, t6: cptask
+ end-declarations
+
+! Resource and task configuration
+ set_resource_attributes(r, KALIS_DISCRETE_RESOURCE, 4, KALIS_TIMETABLING)
+ L:=[t1, t2, t3, t4, t5, t6]
+ forall(t in L, ct as counter) do
+   setname(t, "t"+ct)
+   setduration(t, 20)
+   requires(t, 1, r)
+ end-do
+
+! Resource-dependent setup times
+ Dur1to2 := 11
+ Dur2to1 := 6
+ setsetuptime(r, t1, t2, Dur1to2, Dur2to1)
+
+! Change (overwrite) setup time values
+ setsetuptime(r, t3, t4, 10, 5)
+ Dur3to4 := 1
+ Dur4to3 := 5
+ setsetuptime(r, t3, t4, Dur3to4, Dur4to3)
+
+! No setup times between a pair of tasks
+ setsetuptime(r, t5, t6, 0, 0)
+
+ cp_close_schedule
+ if cp_schedule(getmakespan) = 0 then
+  writeln("Inconsistent schedule")
+ end-if
+
+ forall(t in L) writeln(t.name, " starts at: ", getsol(getstart(t)))
+
+ if getsol(getstart(t5)) = getsol(getstart(t6)) then
+  writeln("No setup time between t5 and t6")
+ end-if
+
+ cp_show_sol
+
+end-model

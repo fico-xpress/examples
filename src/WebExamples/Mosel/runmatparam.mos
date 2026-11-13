@@ -1,0 +1,71 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file runmatparam.mos
+   ````````````````````
+   Use Optimizer 'command' to read+solve a matrix file
+   -- Various ways of setting and retrieving solver parameters --
+   
+  (c) 2017-2022 Fair Isaac Corporation
+      author: S.Heipcke, 11 Sep 2017, rev. Oct. 2022
+*******************************************************!)
+model "running Optimizer command line"
+ uses "mmsystem", "mmxprs"
+
+! Load+run an MPS format matrix
+ scriptmps:=`
+readprob folio10
+chgobjsense max
+mipoptimize
+writeprtsol optsol.prt
+`
+
+ public declarations
+   tmptxt: text
+ end-declarations
+
+! Setting a solver control parameter
+ command("THREADS=2")
+
+! It is not possible to retrieve parameter values via console commands, but 
+! they can be accessed via Mosel set/getparam routines
+ writeln_("Threads setting:", getparam("XPRS_THREADS"))
+
+! setparam("XPRS_verbose", true)
+ setparam("realfmt","%.3f")        ! Redefine Mosel number printing format
+
+ stime:=gettime
+ command(scriptmps)
+
+ writeln_("(", gettime-stime, "sec) Max used memory:", getparam("XPRS_PEAKMEMORY"), 
+  ", total nodes:", getparam("XPRS_NODES"))
+
+! Apply solver parameter settings from a text file at runtime
+ fcopy("optparams.txt", "text:tmptxt")
+ command(string(tmptxt))
+
+! Or: Include solver parameter settings from a text file at compile time
+!  command(`optparams.txt`)
+
+ stime:=gettime
+ command(scriptmps)
+
+ writeln_("(", gettime-stime, "sec) Max used memory:", getparam("XPRS_PEAKMEMORY"), 
+  ", total nodes:", getparam("XPRS_NODES"))
+
+! Load solution log into Mosel, eg to extract/display some information from it 
+ declarations
+   public sollog: text
+ end-declarations
+ fcopy("optsol.prt", "text:sollog")
+
+! Display the start of the solver solution output
+ writeln(text(sollog,750), "\n [...truncated...]")
+
+ tobj:="Objective function value is"
+ pos:=findtext(sollog, tobj, 1)
+ objval:=parsereal(sollog, pos+tobj.size)
+ writeln_("Objective value: ", objval)
+ 
+end-model 

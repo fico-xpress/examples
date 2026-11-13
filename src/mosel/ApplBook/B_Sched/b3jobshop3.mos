@@ -1,0 +1,103 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file b3jobshop3.mos
+   ```````````````````
+   Job shop production planning, 
+   second, generic formulation.
+   - Set/list version -
+   
+   Three types of wallpaper pass through three machines in
+   different orders depending on the design. Processing times
+   differ based on surface and design. What order should the
+   paper be scheduled so that the order is completed as soon
+   as possible.
+   
+   This second model formulation uses double indices so that
+   'start' is now defined by machine AND job. The duration 
+   array is also expanded to machine and job. The job sequence
+   per machine is represented by an 'array of list' and the 
+   set of disjunctive jobs per machine as an 'array of set'
+   data structure.
+   
+   (c) 2008-2022 Fair Isaac Corporation
+       author: S. Heipcke, Aug. 2006, rev. Mar. 2022
+*******************************************************!)
+
+model "B-3 Job shop (3)"
+ uses "mmxprs"
+
+ declarations   
+  JOBS: range                         ! Set of jobs (wall paper types)
+  MACH: range                         ! Set of machines (colors)
+
+  DUR: array(MACH,JOBS) of integer    ! Durations per machine and paper
+  SEQ: array(JOBS) of list of integer ! Machine sequence per job
+  DISJ: array(MACH) of set of integer ! Sets of jobs per machine
+ 
+  start: array(MACH,JOBS) of mpvar    ! Start times of tasks
+  finish: mpvar                       ! Schedule completion time
+  y: array(range) of mpvar            ! Disjunction variables 
+ end-declarations
+
+ initializations from 'b3jobshop3.dat'
+  DUR SEQ
+ end-initializations
+
+ forall(m in MACH, j in JOBS | DUR(m,j)>0 ) create(start(m,j))
+ 
+ BIGM:=sum(m in MACH, j in JOBS) DUR(m,j)  ! Some (sufficiently) large value
+
+! Precedence constraints
+ forall(j in JOBS, jlast=SEQ(j).last) finish >= start(jlast,j) + DUR(jlast,j)
+ forall(j in JOBS) do
+  pred:= SEQ(j).first     ! Same as: SEQ(j)(1)
+  forall(m in gettail(SEQ(j),-1)) do 
+   start(pred,j)+DUR(pred,j) <= start(m,j)
+   pred:=m
+  end-do
+ end-do
+
+! Disjunctions
+ forall(m in MACH) DISJ(m):= union(j in JOBS | findfirst(SEQ(j),m)<>0) {j}
+ d:=1
+ forall(m in MACH, i,j in DISJ(m) | i<j) do
+  create(y(d))
+  y(d) is_binary
+  start(m,i) + DUR(m,i) <= start(m,j) + BIGM*y(d)
+  start(m,j) + DUR(m,j) <= start(m,i) + BIGM*(1-y(d))
+  d+=1
+ end-do
+
+! Bound on latest completion time 
+ finish <= BIGM
+
+! Solve the problem: minimize latest completion time
+ minimize(finish)
+
+! Solution printing
+ declarations
+  COLOR: array(MACH) of string         ! Colors printed by the machines
+ end-declarations
+
+ initializations from 'b3jobshop3.dat'
+  COLOR
+ end-initializations
+
+ writeln("Total completion time: ", getobjval)
+ write("     ")
+ forall(j in JOBS) write(strfmt(j,6))
+ writeln
+ forall(m in MACH) do
+  write(strfmt(COLOR(m),-7))
+  forall(j in JOBS)
+   if(DUR(m,j)>0) then
+    write(strfmt(getsol(start(m,j)),3), "-", getsol(start(m,j))+DUR(m,j))
+   else
+    write(strfmt(" ",6))
+   end-if 
+  writeln
+ end-do
+ 
+end-model 

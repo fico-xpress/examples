@@ -1,0 +1,138 @@
+(!*******************************************************
+  * Mosel Example Problems                              *
+  * ======================                              *
+  *                                                     *
+  * file transprt.mos                                   *
+  * `````````````````                                   *
+  * Example for the use of the Mosel language           *
+  * (Transportation model with nicely formatted output) *
+  *                                                     *
+  * (c) 2008 Fair Isaac Corporation                     *
+  *     author: S. Heipcke, 2001, rev. Feb. 2010        *
+  *******************************************************!)
+
+model Transport                    ! Start a new model
+
+uses "mmxprs"                      ! Load the optimizer library
+uses "mmsystem"
+
+declarations
+ REGION: set of string             ! Set of customer regions
+ PLANT: set of string              ! Set of plants
+ DEMAND: array(REGION) of real     ! Demand at regions
+ PLANTCAP: array(PLANT) of real    ! Production capacity at plants
+ PLANTCOST: array(PLANT) of real   ! Unit production cost at plants
+ TRANSCAP: array(PLANT,REGION) of real ! Capacity on each route plant->region
+ DISTANCE: array(PLANT,REGION) of real ! Distance of each route plant->region
+ FUELCOST: real                    ! Fuel cost per unit distance
+end-declarations
+
+                                   ! Read data from file
+initializations from 'Data/transprt.dat'
+ DEMAND
+ [PLANTCAP, PLANTCOST] as 'PlantCapCost'
+ [DISTANCE, TRANSCAP] as 'DistTCasp'
+ FUELCOST
+end-initializations
+
+ finalize(REGION)                  ! Turn dynamic sets into static sets
+ finalize(PLANT)                   ! containing the data read previously.
+                                   ! All arrays subsequently declared and
+                                   ! indexed by these sets will therefore
+                                   ! be static. 
+declarations
+ flow: array(PLANT,REGION) of mpvar ! Amount transported on each route
+end-declarations
+
+                                   ! Objective: minimize total cost
+ MinCost:= sum(p in PLANT,r in REGION) (FUELCOST * DISTANCE(p,r) + 
+      PLANTCOST(p)) * flow(p,r)
+
+                                   ! Limits on plant capacity
+ forall(p in PLANT) Supply(p):= sum(r in REGION) flow(p,r) <= PLANTCAP(p)
+                                   ! Satisfy all demands
+ forall(r in REGION) Demand(r):= sum(p in PLANT) flow(p,r) = DEMAND(r)
+
+                                   ! Bounds on flows
+ forall(p in PLANT,r in REGION) flow(p,r) <= TRANSCAP(p,r)
+
+ minimize(MinCost)                 ! Solve the LP-problem
+
+                                   ! Print out the solution
+declarations
+ rsum: array(REGION) of integer    ! Auxiliary data table for printing
+ psum, ct, iflow: integer          ! Counters
+end-declarations
+ 
+ writeln("\nProduct Distribution at Dash Motors\n", "="*35)
+ writeln("Least cost solution found (Fuel cost = ", strfmt(FUELCOST,0,2),").");
+
+                                   ! Print solution (product flows) as table
+                                   ! ...heading and first line of the table
+ writeln("\nProduct Distribution\n", "~"*20)
+ writeln(strfmt("Sales Region", 48))
+ write(strfmt("",15), "| ")
+ forall(r in REGION) write(strfmt(r,9))
+ writeln(" |", strfmt("TOTAL",6), " Capacity") 
+ writeln("-"*80)
+                                   ! ...solution values of the flow variables
+                                   ! ...calculate totals per region / plant
+ ct:=0
+ forall(p in PLANT, ct as counter) do
+   if ct=2 then 
+     write(" Plant ", strfmt(p,-8), "|")
+   else
+     write("       ", strfmt(p,-8), "|")
+   end-if
+   psum:=0
+   forall(r in REGION) do
+     iflow:=integer(flow(p,r).sol)
+     psum += iflow
+     rsum(r) += iflow
+     if iflow<>0 then 
+       write(strfmt(iflow,9))
+     else
+       write("      -- ")
+     end-if
+   end-do
+   writeln("  |", strfmt(psum,6), strfmt(integer(PLANTCAP(p)),8))
+ end-do
+                                    ! ...the column totals
+ writeln("-"*80)
+ write(strfmt(" TOTAL",-15), "|") 
+ forall(r in REGION) write(strfmt(rsum(r),9))
+ writeln("  |", strfmt(sum(r in REGION) rsum(r),6)) 
+                                    ! ...demand of every region
+ write(strfmt("Demand",-15), "|") 
+ forall(r in REGION) write(strfmt(integer(DEMAND(r)),9))
+
+                                   ! Print the reduced costs in table format
+                                   ! ...heading and first line of the table
+ writeln("\n\nReduced Costs\n", "~"*13)
+ writeln(strfmt("Sales Region",48))
+ write(strfmt("",15), "| ")
+ forall(r in REGION) write(strfmt(r,9))
+ writeln("\n", "-"*65)
+                                   ! ...red. cost values of the flow variables
+ ct:=0
+ forall(p in PLANT, ct as counter) do
+   if ct=2 then
+     write(" Plant ", strfmt(p,-8), "| ")
+   else
+     write("       ", strfmt(p,-8), "| ")
+   end-if
+   forall(r in REGION) do
+     dj:= flow(p,r).rcost
+     if (dj <> 0.0) then 
+       write(strfmt(dj,9,1))
+     else
+       write("      -- ")
+     end-if
+   end-do
+   writeln
+ end-do
+
+                                   ! Print objective function value
+ writeln("\n\nTotal cost of distribution = ",strfmt(getobjval/1e6,0,3)," million.\n")
+
+end-model

@@ -1,0 +1,67 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file listinout2.mos
+   ```````````````````
+   Reading/writing lists from/to
+   spreadsheets or databases via ODBC.
+   - Using SQL commands -
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Nov. 2007, rev. Aug. 2023
+*******************************************************!)
+
+model "List handling (SQL)"
+ uses "mmodbc"
+ options keepassert
+
+ parameters
+                              ! Use mysql database `listdata' (not provided)
+!  CNCT = 'DSN=mysql;DB=listdata'
+                              ! Use SQLite database 'listdata.sqlite' via ODBC
+!  CNCT = 'DSN=sqlite;DATABASE=listdata.sqlite'
+                              ! Use SQLite database 'listdata.sqlite' directly 
+  CNCT = "listdata.sqlite"
+ end-parameters
+
+ declarations
+  LI: list of integer
+  A: integer
+  LS,LS2: list of string
+ end-declarations
+
+ setparam("SQLverbose",true)
+
+ SQLconnect(CNCT)
+ assert(getparam("SQLsuccess"))
+ SQLexecute("select * from List1", LI)
+ A:= SQLreadinteger("select * from A")
+ SQLexecute("select * from List2", LS)
+
+! Display the lists
+ writeln("LI: ", LI)
+ writeln("A: ", A, ", LS: ", LS)
+
+! Reverse the list LI
+ reverse(LI)
+
+! Append some text to every entry of LS 
+ LS2:= sum(l in LS) [l+" "+A]
+
+! Display the modified lists
+ writeln("LI: ", LI)
+ writeln("LS2: ", LS2)
+
+ SQLexecute("delete from List1Out")     ! Cleaning up previous results: works
+ SQLexecute("delete from List2Out")     ! only for databases, cannot be used
+                                        ! with spreadsheets (instead, delete
+                                        ! previous solutions directly in the
+                                        ! spreadsheet file)
+ SQLexecute("insert into List1Out values (?)", LI)
+ assert(getparam("SQLsuccess"))
+ SQLexecute("insert into List2Out values (?)", LS2)
+ assert(getparam("SQLsuccess"))
+ SQLdisconnect
+
+end-model

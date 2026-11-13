@@ -1,0 +1,72 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file recordout.mos
+   ``````````````````
+   Writing out records to
+   spreadsheets or databases via ODBC.
+   - Using 'initializations from' with odbc IO driver -
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Nov. 2007, rev. Jan. 2014
+*******************************************************!)
+
+model "Record output (ODBC)"
+ uses "mmodbc"
+
+ parameters
+                              ! Use Excel spreadsheet `recorddata.xls'
+!  CNCTIO = "recorddata.xls"
+                              ! Use Access database `recorddata.mdb'
+  CNCTIO = "debug;recorddata.mdb"
+                              ! Use mysql database `recorddata' (not provided)
+!  CNCTIO = "debug;DSN=mysql;DB=recorddata"
+                              ! Use SQLite database `recorddata' via ODBC
+!  CNCTIO = 'DSN=sqlite;DATABASE=recorddata.sqlite'
+                              ! Use SQLite database `recorddata' directly
+!  CNCTIO = 'recorddata.sqlite'
+ end-parameters
+
+ declarations
+  PRODUCTS: set of string
+  MACH: range
+  ProdRec = record
+   Cost: real
+   Duration: integer
+  end-record 
+  PDATA: dynamic array(PRODUCTS,MACH) of ProdRec
+
+  R = 1..9
+  AllDataRec = record
+   Product: string
+   Mach: integer
+   Cost: real
+   Duration: integer
+  end-record 
+  ALLDATA: array(R) of AllDataRec
+ end-declarations
+
+! **** Reading data from a text file
+ initializations from "recorddata.dat"
+  PDATA as "ProdData"
+  ALLDATA as "AllData"
+ end-initializations
+
+! **** Write out complete records
+! (This assumes that the output tables have been created previously.)
+! ATTENTION: results from previous runs must be removed previously.
+
+ initializations to "mmodbc.odbc:"+CNCTIO
+  PDATA as "ProdDataOutH"
+  ALLDATA as "noindex;AllDataOutH"
+ end-initializations
+
+! **** Write out record fields
+
+ initializations to "mmodbc.odbc:"+CNCTIO
+  PDATA(Cost) as "CostOutH"
+  ALLDATA(Product,Mach,Duration) as "noindex;DurationOutH"
+ end-initializations
+
+end-model

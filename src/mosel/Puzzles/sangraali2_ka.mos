@@ -1,0 +1,106 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file sangraal2_ka.mos
+   `````````````````````
+   Sangraal scheduling problem.
+   - Formulation using tasks and resources -
+   - Using string indices -
+
+   When the Sangraal (Holy Grail) is almost won the hero arrives 
+   at a castle where he finds 8 imprisoned knights. He is facing 
+   the task to bring the largest possible number of knights for 
+   the arrival of the Sangraal in twenty minutes' time. The time 
+   required for freeing a knight depends on his state of binding. 
+   A freed knight then needs a given amount of time to wash and 
+   recover himself physically.
+
+   *** This model cannot be run with a Community Licence 
+       for the provided data instance ***
+
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2006, rev. Jan. 2018
+*****************************************************************!)
+
+model "sangraal (CP)"
+ uses "kalis"
+ 
+ parameters
+  K = 8
+ end-parameters
+
+ forward public procedure print_solution
+
+ setparam("kalis_default_lb", 0)
+
+ declarations
+  KNIGHTS = {"Agravain", "Bors", "Caradoc", "Dagonet", "Ector", "Feirefiz", 
+             "Gareth", "Harry"}
+  FREE, PREP: array(KNIGHTS) of integer   ! Durations of freeing/preparing
+  hero: cpresource                        ! Resource: the hero's time
+  taskF: array(KNIGHTS) of cptask         ! Task of freeing each knight
+  taskP: array(KNIGHTS) of cptask         ! Task of preparing each knight
+  ontime: array(KNIGHTS) of cpvar         ! ontime(i)=1 if knight i finished 
+                                          ! within 20 minutes, 0 otherwise
+  Disj: array(range) of cpctr             ! Disjunction betw. freeing op.s
+  totalFreed,freedLate: cpvar             ! Objective function variables
+ end-declarations
+    
+ FREE :: (["Agravain", "Bors", "Caradoc", "Dagonet", "Ector", "Feirefiz", 
+           "Gareth", "Harry"])[1, 1, 2,2, 3, 4, 5,6]
+ PREP :: (["Agravain", "Bors", "Caradoc", "Dagonet", "Ector", "Feirefiz", 
+           "Gareth", "Harry"])[15,5,15,5,10,15,10,5]
+ MAXT:= sum(i in KNIGHTS) FREE(i) + max(i in KNIGHTS) PREP(i)
+
+! Setting up the resource (formulation of the disjunction of freeing tasks)
+ set_resource_attributes(hero, KALIS_UNARY_RESOURCE, 1)
+
+! Setting up the tasks (durations and disjunctions)
+ forall(i in KNIGHTS) do
+  set_task_attributes(taskF(i), FREE(i), hero)
+  set_task_attributes(taskP(i), PREP(i))
+ end-do
+ 
+! Define bounds on decision variables
+ forall(i in KNIGHTS) do
+  ontime(i) <= 1
+  getstart(taskF(i)) <= MAXT
+  getstart(taskP(i)) <= MAXT
+ end-do
+
+! Every knight must be freed before he can prepare himself
+ forall(i in KNIGHTS) setsuccessors(taskF(i), {taskP(i)})
+
+! ontime(i) = 1 if knight i is freed and prepared within 20 minutes
+ forall(i in KNIGHTS) equiv( ontime(i)=1, getend(taskP(i)) <= 20 )
+ 
+! Maximize number of positions finished within 20 minutes
+ totalFreed = sum(i in KNIGHTS) ontime(i)        
+ freedLate = sum(i in KNIGHTS) (1-ontime(i))
+
+! Define an enumeration strategy
+ Strategy:= assign_and_forbid(KALIS_LARGEST_MAX, KALIS_MAX_TO_MIN, ontime)
+ cp_set_branching(Strategy)
+
+! Solve the problem
+ cp_set_solution_callback("print_solution")
+ if not cp_maximize(totalFreed) then
+  writeln("Problem is infeasible")
+  exit(1)
+ end-if                 
+   
+ cp_show_stats
+   
+!********************************************************************
+! Solution printing
+
+ public procedure print_solution
+  writeln("          Freed  Ready  <=20 min")
+  forall(i in KNIGHTS)
+   writeln(strfmt(i, -12), strfmt(getsol(getend(taskF(i))),2), "     ",  
+          strfmt(getsol(getend(taskP(i))),2), "     ", 
+          if(getsol(ontime(i))=1,"yes","no"))
+  writeln("Number of knights freed on time: ", getsol(totalFreed), "\n")
+ end-procedure
+end-model 

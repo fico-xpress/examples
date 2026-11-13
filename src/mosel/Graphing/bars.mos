@@ -1,0 +1,79 @@
+(!******************************************************
+   Mosel graph examples
+   ==================== 
+
+   file bars.mos
+   `````````````
+   Drawing a bar chart.
+   
+   Uses functions from the mmsvg library to draw
+   a "User graph" in SVG format.
+   
+   (c) 2017 Fair Isaac Corporation
+       Author: S. Heipcke, Jul. 2017, rev. Sep. 2017
+*******************************************************!)
+
+model bars
+  uses "mmsvg"
+
+  declarations
+    NP=5
+    PDATA: dynamic array(RG:set of string, RP:range) of real
+  end-declarations
+
+  procedure drawbars(data:array(S:set of string, R:range) of real, msg: text)
+    declarations
+      pids: array(S) of string
+      wpos: dynamic array(R) of real
+    end-declarations
+
+    BWIDTH:=1/(S.size+1)
+    BHEIGHT:=max(s in S, p in R) data(s,p)
+    forall(ct as counter, p in R | or(g in S) exists(data(g,p)))
+      wpos(p):=ct 
+    wmax:=max(p in R) wpos(p)
+    WFAC:= BHEIGHT/wmax
+    forall(p in R) wpos(p):=wpos(p)*WFAC
+
+    forall(g in S) do
+      pids(g):="g"+g
+      svgaddgroup(pids(g),"Group "+g)
+      svgsetstyle(SVG_FILL, SVG_CURRENT)
+      svgsetstyle(SVG_STROKE, SVG_GREY)
+      svgsetstyle(SVG_STROKEWIDTH, BWIDTH/2)
+      forall(p in R | exists(data(g,p))) do
+        svgaddrectangle(wpos(p), 0, BWIDTH*WFAC, data(g,p))
+        wpos(p)+=(BWIDTH*WFAC)
+      end-do
+    end-do
+
+    svgaddgroup("msg", "", SVG_GREY)
+    svgsetstyle(SVG_FONTSIZE, ceil(BHEIGHT/10))
+    !forall(p in R| exists(wpos(p)))
+    !  svgaddtext(wpos(p)-BWIDTH-(BWIDTH/2*wct(p)), ypos-12, text(p))
+    svgaddtext(WFAC, BHEIGHT+5, msg)
+
+    svgsetgraphviewbox(0,0,BHEIGHT+10,BHEIGHT+10)
+    svgsetgraphlabels("", "Data values")
+
+   ! Draw the graph 
+    svgrefresh
+  end-procedure
+
+ ! Some random data
+  PDATA("a",1):=20; PDATA("a",2):=12; PDATA("a",4):=38
+  PDATA("b",1):=15; PDATA("b",3):=39; PDATA("b",5):=15; PDATA("b",6):=30
+  PDATA("c",2):=11; PDATA("c",4):=24
+  PDATA("d",2):=23; PDATA("d",3):=18; PDATA("d",5):=32; PDATA("d",6):=9
+  PDATA("e",3):=15; PDATA("e",4):=37; PDATA("e",6):=20
+
+ ! Configure and draw the graphic
+  drawbars(PDATA, "Bar chart example")
+
+ ! Optionally save graphic to a file
+  svgsave("bars.svg")
+
+ ! Wait for display window to close 
+  svgwaitclose("Close browser window to terminate model execution.", 1)
+
+end-model

@@ -1,0 +1,69 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file piecewise_linear_graph.mos
+   ```````````````````````````````
+   Approximating nonlinear univariate functions using
+   piecewise linear constraints.
+   -- Representing functions as SVG graph --
+
+   -- Mosel version of the Python example piecewise_linear.py --
+
+   (c) 2020 Fair Isaac Corporation
+       author: S.Heipcke, Jul 2020
+*******************************************************!)
+model piecewise_linear_graph
+uses 'mmxnlp', 'mmsvg'
+
+parameters
+  N = 300                    ! Number of points of the approximation
+  FREQ = 27.5                ! Frequency of sine curve
+end-parameters
+
+public declarations
+  STEP = 2 * M_PI / (N - 1)  ! Width of each x segment
+  x: mpvar
+end-declarations
+
+! Piecewise linear, continuous concave function formulated via piecewise
+! linear segments
+pw1:= pwlin([pws(0,       10*x),
+             pws(1, 10 +  3*(x-1)),
+             pws(2, 13 +  2*(x-2)),
+             pws(3, 15 +    (x-3))])
+
+!**** Approximate sin(FREQ * x) for x in [0, 2*pi]
+! Piecewise linear, discontinuous function over N points: over the
+! i-th interval, the function is equal to v[i] + s[i] * (x - b[i])
+! where v, s, b are value, slope, and breakpoint.
+pw2:= pwlin(union(i in 0..N-1,s=i*STEP)[pws(s,sin(s*FREQ)+FREQ*cos(s*FREQ)*(x-s))])
+
+minimise(pw1 - pw2)
+
+writeln("Solution: x = ", x.sol)
+writeln("Values of piecewise linear functions:", [pw1.sol, pw2.sol])
+writeln("Objective function:", getobjval)
+
+!**** Draw the graphs
+ svgaddgroup("F", "pwl1")
+ svgaddgroup("S", "pwl2")
+ svgaddgroup("O", "pwl1-pwl2")
+
+ function pwlin1val(x:real):real
+   returned:=
+     if(x<1, 10*x, if(x<2, 10+3*(x-1), if(x<3, 13+2*(x-2), 15+(x-3))))
+ end-function
+
+ svgsetgraphviewbox(0, -5, 2*M_PI, 25)
+ svgsetgraphstyle(SVG_STROKEWIDTH,.01)
+ svgshowgraphaxes(true)
+
+ svgaddline("F", union(i in 0..6) [real(i), pwlin1val(i)])
+ svgaddline("S", union(i in 0..N,s=i*STEP)[s,sin(s*FREQ)])
+ svgaddline("O", union(i in 0..N,s=i*STEP)[s,pwlin1val(s)-sin(s*FREQ)])
+
+ svgsave("pwlin.svg")
+ svgrefresh
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+end-model

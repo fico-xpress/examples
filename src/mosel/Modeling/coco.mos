@@ -1,0 +1,182 @@
+(!*******************************************************
+  * Mosel Example Problems                              *
+  * ======================                              *
+  *                                                     *
+  * file coco.mos                                       *
+  * `````````````                                       *
+  * Example for the use of the Mosel language           *
+  * (Complete Coco Problem.                             *
+  *  Specify phase by PHASE parameter.                  *
+  *  Data input in the model, not via data files.)      *
+  *                                                     *
+  * (c) 2008 Fair Isaac Corporation                     *
+  *     author: S. Heipcke, 2001, rev. Feb. 2010        *
+  *******************************************************!)
+
+model Coco                             ! Start a new model
+
+uses "mmxprs"                          ! Load the optimizer library
+uses "mmsystem"
+
+parameters
+ PHASE=5
+(!* Phase = 3: Multi-period parameterised model; mines always open
+  * Phase = 4: Mines may open/closed freely; when closed save 20000 per month
+  * Phase = 5: Once closed always closed; larger saving 
+!)
+end-parameters
+
+declarations
+ NT=4                                  ! Number of time periods
+ RP=1..2                               ! Range of products (p)
+ RF=1..2                               !          factories (f)
+ RR=1..2                               !          raw materials (r)
+ RT=1..NT                              !          time periods (t)
+
+ REV: array(RP,RT) of real             ! Unit selling price of product p
+ CMAKE: array(RP,RF) of real           ! Unit cost to make product p 
+                                       ! at factory f
+ CBUY: array(RR,RT) of real            ! Unit cost to buy raw material r
+ COPEN: array(RF) of real              ! Fixed cost of factory f being 
+                                       ! open for one period
+ REQ: array(RP,RR) of real             ! Requirement by unit of product p 
+                                       ! for raw material r
+ MXSELL: array(RP,RT) of real          ! Max. amount of p that can be sold
+ MXMAKE: array(RF) of real             ! Max. amount factory f can make 
+                                       ! over all products
+ PSTOCK0: array(RP,RF) of real         ! Initial product p stock level 
+                                       ! at factory f
+ RSTOCK0: array(RR,RF) of real         ! Initial raw material r stock 
+                                       ! level at factory f
+ CPSTOCK = 2.0                         ! Unit cost to store any product p
+ CRSTOCK = 1.0                         ! Unit cost to store any raw mat. r
+ MXRSTOCK = 300                        ! Max. amount of r that can be 
+                                       ! stored each f and t
+                                   
+ make: array(RP,RF,RT) of mpvar        ! Amount of product p made at 
+                                       ! factory f
+ sell: array(RP,RF,RT) of mpvar        ! Amount of product p sold from 
+                                       ! factory f in period t
+ buy: array(RR,RF,RT) of mpvar         ! Amount of raw material r bought 
+                                       ! for factory f in period t
+ pstock: array(RP,RF,1..NT+1) of mpvar ! Stock level of product p at 
+                                       ! factory f at start of period t
+ rstock: array(RR,RF,1..NT+1) of mpvar ! Stock level of raw material r at
+                                       ! factory f at start of period t 
+ openm: array(RF,RT) of mpvar          ! 1 if factory f is open in
+                                       ! period t, else 0
+end-declarations
+
+ REV ::  [400, 380, 405, 350,
+          410, 397, 412, 397]
+ CMAKE :: [150, 153,
+           75,  68] 
+ CBUY :: [100,  98,  97, 100,
+          200, 195, 198, 200]
+ COPEN :: [50000, 63000]
+ REQ ::  [1.0, 0.5,
+          1.3, 0.4]
+ MXSELL ::   [650, 600, 500, 400,
+              600, 500, 300, 250]
+ MXMAKE ::  [400, 500]
+ PSTOCK0 :: [50, 100,
+             50,  50]
+ RSTOCK0 :: [100, 150,
+              50, 100]
+
+                                 ! Objective: maximize total profit
+ MaxProfit:= 
+  sum(p in RP,f in RF,t in RT) REV(p,t) * sell(p,f,t) -        ! revenue
+  sum(p in RP,f in RF,t in RT) CMAKE(p,f) * make(p,f,t) -      ! prod. cost
+  sum(r in RR,f in RF,t in RT) CBUY(r,t) * buy(r,f,t) -        ! raw mat. cost
+  sum(p in RP,f in RF,t in 2..NT+1) CPSTOCK * pstock(p,f,t) -  ! p stor. cost
+  sum(r in RR,f in RF,t in 2..NT+1) CRSTOCK * rstock(r,f,t)    ! r stor. cost
+
+ if PHASE=4 then                 ! Factory fixed cost
+  MaxProfit -= sum(f in RF,t in RT) (COPEN(f)-20000)*openm(f,t)
+ elif PHASE=5 then
+  MaxProfit -= sum(f in RF,t in RT) COPEN(f)* openm(f,t)
+ end-if
+                                 ! Product stock balance
+ forall(p in RP,f in RF,t in RT) PBal(p,f,t):=
+  (pstock(p,f,t+1) = pstock(p,f,t) + make(p,f,t) - sell(p,f,t))
+
+                                 ! Raw material stock balance
+ forall(r in RR,f in RF,t in RT) 
+  RBal(r,f,t):=  rstock(r,f,t+1) = 
+   rstock(r,f,t) + buy(r,f,t) - sum(p in RP) REQ(p,r)*make(p,f,t)
+
+                                 ! Capacity limit at factory f
+ forall(f in RF,t in RT)
+  MxMake(f,t):= sum(p in RP) make(p,f,t) <= MXMAKE(f)*openm(f,t)
+
+                                 ! Limit on the amount of prod. p to be sold
+ forall(p in RP,t in RT)
+  MxSell(p,t):= sum(f in RF) sell(p,f,t) <= MXSELL(p,t)
+
+                                 !  Raw material stock limit
+ forall(f in RF,t in 2..NT+1)
+  MxRStock(f,t):= sum(r in RR) rstock(r,f,t) <= MXRSTOCK
+
+ if PHASE=5 then                 ! Once closed, always closed
+  forall(f in RF,t in 1..NT-1) Closed(f,t):= openm(f,t+1) <= openm(f,t)
+ end-if
+                                 ! Initial product levels
+ forall(p in RP,f in RF) pstock(p,f,1) = PSTOCK0(p,f)
+                                 ! Initial raw material levels
+ forall(r in RR,f in RF) rstock(r,f,1) = RSTOCK0(r,f)
+
+ if PHASE>=4 then
+  forall(f in RF,t in RT) openm(f,t) is_binary
+ else
+  forall(f in RF,t in RT) openm(f,t) = 1
+ end-if
+ 
+ maximize(MaxProfit)             ! Solve the LP or MIP-problem
+
+                                 ! Print out the solution
+ writeln("Solution:\n Objective: ", getobjval)
+
+ hline:=60*"-"
+ writeln("Total profit: ", getobjval)
+ writeln(hline)
+ write(8*" ", "Period")
+ forall(t in 0..NT) write(strfmt(t,8)) 
+ writeln("\n", hline)
+ writeln("Finished products\n", 
+         "=================")
+ forall(f in RF) do
+  writeln(" Factory ", f) 
+  forall(p in RP) do
+   write(3*" ", "P", p, ":  Prod", 10*" ")
+   forall(t in RT) write(strfmt(make(p,f,t).sol,8))
+   writeln
+   write(8*" ", "Sell", 10*" ")
+   forall(t in RT) write(strfmt(sell(p,f,t).sol,8))
+   writeln
+   write(8*" ", "(Stock)")
+   forall(t in 1..NT+1) write("   (", strfmt(pstock(p,f,t).sol,3), ")")
+   writeln
+  end-do 
+ end-do 
+
+ writeln(hline)
+ writeln("Raw material\n", 
+         "============")
+ forall(f in RF) do
+  writeln(" Factory ", f) 
+  forall(r in RR) do
+   write(3*" ", "R", r, ":  Buy ", 10*" ")
+   forall(t in RT) write(strfmt(buy(r,f,t).sol,8))
+   writeln
+   write(8*" ", "Use ", 10*" ")
+   forall(t in RT) write(strfmt(getsol(sum(p in RP) REQ(p,r)*make(p,f,t)),8))
+   writeln
+   write(8*" ", "(Stock)")
+   forall(t in 1..NT+1) write("   (", strfmt(rstock(r,f,t).sol,3), ")")
+   writeln
+  end-do 
+ end-do 
+
+ writeln(hline)
+end-model

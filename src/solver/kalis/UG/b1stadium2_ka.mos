@@ -1,0 +1,68 @@
+(!****************************************************************
+   Mosel Example Problems
+   ======================
+   
+   file b1stadium2_ka.mos
+   ``````````````````````
+   Construction of a stadium
+   (See "Applications of optimization with Xpress-MP",
+        Section 7.1 Construction of a stadium)
+   - Alternative formulation using tasks -
+
+   *** This model cannot be run with a Community Licence 
+       for the provided data instance ***
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+       
+*****************************************************************!)
+
+model "B-1 Stadium construction (CP)"
+ uses "kalis"
+ 
+ declarations
+  N = 19                              ! Number of tasks in the project 
+                                      ! (last = fictitious end task)
+  TASKS = 1..N
+  ARC: dynamic array(range,range) of integer  ! Matrix of the adjacency graph 
+  DUR: array(TASKS) of integer        ! Duration of tasks
+  HORIZON : integer                   ! Time horizon 
+
+  task: array(TASKS) of cptask        ! Tasks to be planned
+  bestend: integer
+ end-declarations
+
+ initializations from 'Data/b1stadium.dat'
+  DUR ARC
+ end-initializations
+
+ HORIZON:= sum(j in TASKS) DUR(j)
+
+! Setting up the tasks 
+ forall(j in TASKS) do
+  setdomain(getstart(task(j)), 0, HORIZON)   ! Time horizon for start times
+  set_task_attributes(task(j), DUR(j))       ! Duration
+  setsuccessors(task(j), union(i in TASKS | exists(ARC(j,i))) {task(i)})
+ end-do                                      ! Precedences
+          
+ if not cp_propagate or not cp_shave then
+  writeln("Problem is infeasible")
+  exit(1)
+ end-if 
+
+! Since there are no side-constraints, the earliest possible completion
+! time is the earliest start of the fictitious task N
+ bestend:= getlb(getstart(task(N)))
+ getstart(task(N)) <= bestend
+ writeln("Earliest possible completion time: ", bestend)
+
+! For tasks on the critical path the start/completion times have been fixed
+! by setting the bound on the last task. For all other tasks the range of
+! possible start/completion times gets displayed.
+ forall(j in TASKS) writeln(j, ": ", getstart(task(j)))
+
+! Complete enumeration: schedule every task at the earliest possible date
+ if cp_minimize(getstart(task(N))) then
+  writeln("Solution after optimization: ")
+  forall(j in TASKS) writeln(j, ": ", getsol(getstart(task(j))))
+ end-if
+end-model

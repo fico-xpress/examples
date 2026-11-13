@@ -1,0 +1,45 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file trio_out.mos 
+   ````````````````` 
+   Three ways of writing data to file.
+ 
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2001, rev. Dec. 2005
+*******************************************************!)
+
+model "Trio output"
+ uses "mmetc"
+
+ declarations
+  A: array(-1..1,5..7) of real
+ end-declarations
+
+ A :: [ 2,  4,  6,
+       12, 14, 16,
+       22, 24, 26]
+
+! First method: use an initializations block
+ initializations to "out_1.dat"
+  A as "MYOUT"
+ end-initializations
+
+! Second method: use the built-in writeln function 
+ fopen("out_2.dat", F_OUTPUT)
+ forall(i in -1..1, j in 5..7)
+  writeln('A_out(', i, ' and ', j, ') = ', A(i,j))
+ fclose(F_OUTPUT)
+
+! Third method: use diskdata
+ diskdata(ETC_OUT+ETC_SPARSE, "out_3.dat", A)
+! diskdata(ETC_OUT, "out_3d.dat", A)
+
+(! Alternatively, use 'diskdata' IO driver:
+ initializations to 'mmetc.diskdata:'
+  A as 'sparse,out_3.dat'
+ end-initializations
+!)
+
+end-model

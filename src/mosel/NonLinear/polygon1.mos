@@ -1,0 +1,70 @@
+(!*********************************************************************
+   Mosel NL examples
+   =================
+   file polygon1.mos
+   `````````````````
+   Maximize the area of polygon of N vertices and diameter of 1. 
+   
+   The position of vertices is indicated as (rho,theta) coordinates
+   where rho denotes the distance to the base point (vertex with number N) 
+   and theta the angle from the x-axis.
+   
+   -- Formulation using direct algebraic expressions --
+ 
+   (c) 2008 Fair Issac Corporation
+       Creation: 2002, rev. Jun. 2023
+*********************************************************************!)
+
+model "Polygon 1"
+ uses "mmxnlp"
+
+ parameters
+  N=5                               ! Number of vertices
+  SOLVER=0                          ! 0: SLP, 1: Knitro
+ end-parameters
+ 
+ declarations
+  RN = 1..N
+  Area: nlctr
+  rho : array(RN) of mpvar          ! Distance of vertex from the base point 
+  theta : array(RN) of mpvar        ! Angle from x-axis
+  D: array(RN,RN) of nlctr          ! Limit on side length
+ end-declarations
+
+! Objective: sum of areas
+ Area:= (sum (i in 2..N-1) (rho(i)*rho(i-1)*sin(theta(i)-theta(i-1)))) * 0.5
+
+! Bounds and start values for decision variables
+ forall(i in 1..N-1) do
+  rho(i) >= 0.1
+  rho(i) <= 1
+  setinitval(rho(i), 4*i*(N + 1 - i)/((N+1)^2))
+  setinitval(theta(i), M_PI*i/N)
+ end-do
+ 
+! Third side of all triangles <= 1
+ forall(i in 1..N-2, j in i+1..N-1)
+  D(i,j):= rho(i)^2 + rho(j)^2 - rho(i)*rho(j)*2*cos(theta(j)-theta(i)) <= 1
+ 
+! Vertices in increasing order 
+ forall(i in 2..N-1) theta(i) >= theta(i-1) +.01
+ 
+! Boundary conditions
+ theta(N-1) <= M_PI                     ! Last vertex above x-axis
+
+! Optional parameter settings
+ setparam("xnlp_verbose", true)         ! Enable XNLP output log
+ setparam("xnlp_solver", SOLVER)        ! Select the solver
+ 
+! In this example we will use a local solver
+ setparam("xprs_nlpsolver", 1)
+
+! Solve the problem
+ maximise(Area)
+
+! Solution output
+ writeln("Area = ", getobjval)
+ forall (i in 1..N-1) 
+  writeln("V", i, ": r=", getsol(rho(i)), " theta=", getsol(theta(i)))
+end-model
+ 

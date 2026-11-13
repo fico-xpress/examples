@@ -1,0 +1,89 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file blending.mos
+   `````````````````
+   TYPE:         Blending problem
+   DIFFICULTY:   1
+   FEATURES:     simple LP problem, formulation of blending constraints
+   DESCRIPTION:  Several ores are blended to a final product that must
+                 have a certain quality (`grade'). We wish to determine 
+                 the quantity of every ore to be used in the blend with 
+                 the objective to maximize the total profit (calculated 
+                 as sales revenues - raw material cost).     
+   FURTHER INFO: `Mosel User Guide', Section 2.2 `A blending example';
+                 `Applications of optimization with Xpress-MP', 
+                 Section 2.7 `Blending constraints'.
+                 Similar problems: Section 6.1 `Production of alloys',
+                 Section 6.2 `Animal food production',  Section 6.3 `Refinery'
+
+   (c) 2008 Fair Isaac Corporation
+       author: S.Heipcke, Jan. 2001, rev. Sep. 2017
+*******************************************************!)
+
+model blending
+ uses "mmxprs", "mmsvg"
+
+ declarations
+  ROres = 1..2                 ! Range of Ores
+  REV = 125                    ! Unit revenue of product
+  MINGRADE = 4                 ! Min permitted grade of product
+  MAXGRADE = 5                 ! Max permitted grade of product
+  COST: array(ROres) of real   ! Unit cost of ores
+  AVAIL: array(ROres) of real  ! Availability of ores
+  GRADE: array(ROres) of real  ! Grade of ores (measured per unit of mass)
+
+  x: array(ROres) of mpvar     ! Quantities of ores used
+  
+ end-declarations
+
+ COST :: [85, 93]
+ AVAIL:: [60, 45]
+ GRADE:: [2.1, 6.3]
+                               
+! Objective: maximize total profit 
+ Profit:= sum(o in ROres) (REV-COST(o))* x(o)  
+
+! Lower and upper bounds on ore quality
+ LoGrade:= sum(o in ROres) (GRADE(o)-MINGRADE) * x(o) >= 0
+ UpGrade:= sum(o in ROres) (MAXGRADE-GRADE(o)) * x(o) >= 0 
+
+! Set upper bounds on variables
+ forall(o in ROres) x(o) <= AVAIL(o)
+
+! Solve the problem  
+ maximize(Profit)
+
+! Solution printing
+ writeln("Solution:\n Objective: ", getobjval)
+ forall(o in ROres)  writeln(" x(" + o + "): ", getsol(x(o)))
+
+! Solution drawing
+ FACT:=20
+ ttl:=sum(o in ROres) x(o).sol
+ cum:=0.0
+ forall(o in ROres) do
+   svgaddgroup("O"+o, "Ore "+o)
+   svgaddpie(100,100,55,cum,cum+(x(o).sol/ttl))
+   cum+=x(o).sol/ttl
+   svgaddline(175, GRADE(o)*FACT, 225, GRADE(o)*FACT)
+ end-do
+ svgaddgroup("msg", "", SVG_BLACK)
+ svgaddtext(75,15, "Composition")
+ svgaddtext(185,15, "Quality")
+
+ svgaddgroup("lim", "Target quality range", SVG_GREEN)
+ svgsetstyle(SVG_FILL,SVG_CURRENT)
+ svgsetstyle(SVG_OPACITY, 0.5)
+ svgaddrectangle(175, MINGRADE*FACT, 50, (MAXGRADE-MINGRADE)*FACT)
+
+ svgaddgroup("final", "Blend quality", SVG_BROWN)
+ svgsetstyle(SVG_OPACITY, 0.5)
+ val:=sum(o in ROres) GRADE(o)*FACT* x(o).sol/ttl
+ svgaddline(175, val, 225, val)
+
+ svgsave("blend.svg")
+ svgrefresh
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+end-model

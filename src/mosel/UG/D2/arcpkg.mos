@@ -1,0 +1,40 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file arcpkg.mos
+   ```````````````
+   Definition of the type 'arc'.
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Jan. 2007, rev. June 2018
+*******************************************************!)
+
+package arcpkg
+
+ public declarations
+  arc = public record                   ! Arcs:
+   Source,Sink: string                  !   Source and sink of arc
+   Cost: real                           !   Cost coefficient
+  end-record 
+ end-declarations
+
+(! Alternatively:
+ declarations
+  public arc = record                   ! Arcs:
+   public Source,Sink: string           !   Source and sink of arc
+   public Cost: real                    !   Cost coefficient
+  end-record 
+ end-declarations
+!)
+
+ public function is_neighbor(n1,n2: string, A: array(Arcs:set of integer) of arc): boolean
+(!  
+  returned:=or(a in Arcs ) ((A(a).Source=n1 and A(a).Sink=n2) or
+                            (A(a).Source=n2 and A(a).Sink=n1))
+!)
+  returned:= or(a in Arcs, source=A(a).Source, sink=A(a).Sink) 
+                ((source=n1 and sink=n2) or (source=n2 and sink=n1))
+ end-function  
+
+end-package 

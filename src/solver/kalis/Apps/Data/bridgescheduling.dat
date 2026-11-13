@@ -1,0 +1,105 @@
+! Data file for 'bridgescheduling.mos'
+
+DISTEE: [(1 1) "S6" "B6" (2 1) "S5" "B5" (3 1) "S4" "B4"
+         (4 1) "S3" "B3" (5 1) "S2" "B2" (6 1) "S1" "B1" ]
+DISTES: [(1 1) "A6" "S6" (2 1) "A5" "S5" (3 1) "P2" "S4"
+         (4 1) "P2" "S4" (5 1) "P1" "S3" (6 1) "A2" "S2" 
+	 (7 1) "A1" "S1" ]
+DISTSS: [(1 1) "UE" "SOF" ]
+DISTSE: [(1 1) "EOM" "UA" ]
+
+! (Task name) [duration, num. predecessors, resource used]    
+TASKDATA: [     
+ ("PA")  [0  0  ""]
+ ("A1")  [4  1  "excavator"]
+ ("A2")  [2  1  "excavator"]
+ ("A3")  [2  1  "excavator"]
+ ("A4")  [2  1  "excavator"]
+ ("A5")  [2  1  "excavator"]
+ ("A6")  [5  1  "excavator"]
+ ("P1")  [20  1  "pile-driver"]
+ ("P2")  [13  1  "pile-driver"]
+ ("UE")  [10  1  "other"]
+ ("SOF") [0  0  ""] 
+ ("S1")  [8  2  "carpentry"]
+ ("S2")  [4  2  "carpentry"]
+ ("S3")  [4  2  "carpentry"]
+ ("S4")  [4  2  "carpentry"]
+ ("S5")  [4  2  "carpentry"]
+ ("S6")  [10  2  "carpentry"] 
+ ("B1")  [1  1  "concrete-mixer"]
+ ("B2")  [1  1  "concrete-mixer"]
+ ("B3")  [1  1  "concrete-mixer"]
+ ("B4")  [1  1  "concrete-mixer"]
+ ("B5")  [1  1  "concrete-mixer"]
+ ("B6")  [1  1  "concrete-mixer"]
+ ("AB1") [1  1  "other"]
+ ("AB2") [1  1  "other"]
+ ("AB3") [1  1  "other"]
+ ("AB4") [1  1  "other"]
+ ("AB5") [1  1  "other"]
+ ("AB6") [1  1  "other"]
+ ("M1")  [16  1  "bricklaying"]
+ ("M2")  [8  1   "bricklaying"]
+ ("M3")  [8  1   "bricklaying"]
+ ("M4")  [8  1   "bricklaying"]
+ ("M5")  [8  1   "bricklaying"]
+ ("M6")  [20  1  "bricklaying"] 
+ ("EOM") [0  6  "other"]
+ ("L")   [2  0  "crane"]
+ ("T1")  [12  3  "crane"]
+ ("T2")  [12  3  "crane"]
+ ("T3")  [12  3  "crane"]
+ ("T4")  [12  3  "crane"]
+ ("T5")  [12  3  "crane"]
+ ("UA")  [10  1  "other"]
+ ("V1")  [15  1  "caterpillar"]
+ ("V2")  [10  1  "caterpillar"] 
+ ("PE")  [0  6  "other"] 
+]
+
+PRECS: [
+ ("A1" 1) "PA"
+ ("A2" 1) "PA"
+ ("A3" 1) "PA"
+ ("A4" 1) "PA"
+ ("A5" 1) "PA"
+ ("A6" 1) "PA"
+ ("P1" 1) "A3"
+ ("P2" 1) "A4"
+ ("UE" 1) "PA"
+ ("S1" 1) "A1" ("S1" 2) "SOF" 
+ ("S2" 1) "A2"  "SOF" 
+ ("S3" 1) "P1"  "SOF" 
+ ("S4" 1) "P2"  "SOF" 
+ ("S5" 1) "A5"  "SOF" 
+ ("S6" 1) "A6"  "SOF" 
+ ("B1" 1) "S1"
+ ("B2" 1) "S2"
+ ("B3" 1) "S3"
+ ("B4" 1) "S4"
+ ("B5" 1) "S5"
+ ("B6" 1) "S6"
+ ("AB1" 1) "B1"
+ ("AB2" 1) "B2"
+ ("AB3" 1) "B3"
+ ("AB4" 1) "B4"
+ ("AB5" 1) "B5"
+ ("AB6" 1) "B6"
+ ("M1" 1) "AB1"
+ ("M2" 1) "AB2"
+ ("M3" 1) "AB3"
+ ("M4" 1) "AB4"
+ ("M5" 1) "AB5"
+ ("M6" 1) "AB6" 
+ ("EOM" 1) "M1" ("EOM" 2) "M2" ("EOM" 3) "M3" ("EOM" 4) "M4" ("EOM" 5) "M5" ("EOM" 6) "M6"
+ ("T1" 1) "M1" ("T1" 2) "M2" ("T1" 3) "L"
+ ("T2" 1) "M2" ("T2" 2) "M3" ("T2" 3) "L"
+ ("T3" 1) "M3" ("T3" 2) "M4" ("T3" 3) "L"
+ ("T4" 1) "M4" ("T4" 2) "M5" ("T4" 3) "L"
+ ("T5" 1) "M5" ("T5" 2) "M6" ("T5" 3) "L"
+ ("UA" 1) "UE"
+ ("V1" 1) "T1"
+ ("V2" 1) "T5"
+ ("PE" 1) "T2" ("PE" 2) "T3" ("PE" 3) "T4" ("PE" 4) "UA" ("PE" 5) "V1" ("PE" 6) "V2" 
+]

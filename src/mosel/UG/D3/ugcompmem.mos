@@ -1,0 +1,30 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file ugcompmem.mos
+   ``````````````````
+   Compilation a model to memory.
+   
+   (c) 2014 Fair Isaac Corporation
+       author: S. Heipcke, Sep. 2014
+*******************************************************!)
+
+model "Compile burglar.mos to memory"
+ uses "mmjobs", "mmsystem"
+
+ declarations
+  modBurg: Model
+ end-declarations
+
+                                   ! Compile the model to memory
+ if compile("", "burglar2.mos", "mem:bimfile")<>0 then exit(1); end-if
+ load(modBurg, "mem:bimfile")      ! Load the bim file
+ fdelete("mem:bimfile")
+ run(modBurg)                      ! Start model execution
+ wait                              ! Wait for model termination
+ dropnextevent                     ! Ignore termination event message
+
+end-model 
+
+

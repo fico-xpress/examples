@@ -1,0 +1,69 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file unioninout1.mos
+   ````````````````````
+   Reading/writing unions from/to text files.
+   
+   (c) 2021 Fair Isaac Corporation
+       author: S. Heipcke, Apr. 2021
+*******************************************************!)
+model "Union handling (Text file)"
+uses 'mmsystem'
+
+ parameters
+  CSTR= 'uniondatain.dat'
+  CSTR_OUT= 'uniondataout.dat'
+ end-parameters
+ 
+ declarations
+   L,L2: list of any
+   LU: list of text or real
+   LU2: list of text or real or boolean
+ end-declarations
+
+! Date and time formats
+ setparam("timefmt", "%0H:%0M:%0S")
+ setparam("datefmt", "%0d-%N-%0y")
+
+! Reading data of different types from a text file
+ initializations from CSTR
+   L 
+   L2
+ end-initializations
+
+ write("L orig: ")
+ forall(i in L) write (i,": ", i.typeid, "; ")
+ writeln
+! Date and time types are read in textual form 
+ L(6).date:=date(L(6).string)
+ L(7).time:=time(L(7).string)
+ write("L new:  ")
+ forall(i in L) write (i,": ", i.typeid, "; ")
+ writeln
+
+ initializations from CSTR
+!   LU as "L"         ! This will fail on Boolean constants
+   LU
+   LU2 as "L"
+ end-initializations
+! List defined with a restricted set of types
+ write("LU:     ")
+ forall(i in LU) write (i,": ", i.typeid, "; ")
+ writeln
+ write("LU2:    ")
+ forall(i in LU2) write (i,": ", i.typeid, "; ")
+ writeln
+
+ ! Contents formated as 'text'
+ write("L2:     ")
+ forall(i in L2) write (i,": ", i.typeid, "; ")
+ writeln
+
+ ! Writing data of type 'any' to a text file
+ initializations to CSTR_OUT
+   L
+   LU
+ end-initializations
+end-model

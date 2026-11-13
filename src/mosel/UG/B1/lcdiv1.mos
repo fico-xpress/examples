@@ -1,0 +1,33 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file lcdiv1.mos 
+   ``````````````` 
+   Using the `while` loop.
+ 
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2001, rev. Jun. 2022
+*******************************************************!)
+
+model Lcdiv1
+
+ declarations
+  A,B: integer
+ end-declarations
+
+ write("Enter two integer numbers:\n  A: ")
+ readln(A)
+ write("  B: ")
+ readln(B)
+
+ while (A <> B) do
+   if A>B then 
+     A:=A-B 
+   else B:=B-A 
+   end-if
+ end-do
+
+ writeln("Largest common divisor: ", A)
+
+end-model

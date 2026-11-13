@@ -1,0 +1,134 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file prodplan_robust.mos
+   ````````````````````````
+   Production planning of liquid gases under energy uncertainty
+
+   (c) 2014 Fair Isaac Corporation
+       author: P. Belotti, Apr. 2014, rev. Jun. 2015
+*******************************************************!)
+
+model robust_prodplan
+  uses "mmrobust"
+
+  parameters
+    plan_data = "prodplan_robust.dat"
+  end-parameters
+
+  declarations
+    NDAYS:    integer                      ! Planning horizon
+    PERDAY:   integer                      ! Number of periods per day
+    NPERIODS: integer                      ! Total number of periods
+
+    PERIODS,PERIODS0: range                ! Time periods
+    GASES: set of string                   ! Set of products
+
+    PROD_CAP: array(GASES) of real         ! Production capacity every day
+    INV_CAP:  array(GASES) of real         ! Inventory capacity
+    INV_0:    array(GASES) of real         ! Initial inventory
+
+    PROD_COST: real                        ! Production cost
+    INV_COST:  real                        ! Inventory cost
+
+    DEMAND: array (PERIODS, GASES) of real ! Demand of each gas every day
+
+    MAX_NINTERR: integer                   ! Maximum number of interruptions 
+                                           ! (as per contract)
+  end-declarations
+
+!**** Initialize data ****
+  initializations from plan_data
+    NDAYS PERDAY
+    PROD_CAP  INV_CAP
+    PROD_COST INV_COST INV_0
+    DEMAND
+    MAX_NINTERR
+  end-initializations
+
+  NPERIODS := NDAYS * PERDAY
+  PERIODS0 := 0..NPERIODS
+
+!**** Problem formulation ****
+  declarations
+    produce:   array(PERIODS, GASES) of mpvar   ! Production every day
+    inventory: array(PERIODS0, GASES) of mpvar  ! Inventory level every day,
+                                                ! including initial level
+
+    interruption: array(PERIODS) of uncertain   ! Is power cut at this time?
+    RobProd: array(PERIODS, GASES) of robustctr ! Robust constraint dealing with uncertainty
+  end-declarations
+
+!**** Constraints ****
+
+  ! Start inventory
+  forall(g in GASES)
+    inventory (0,g) = INV_0 (g)
+
+  ! Inventory balance
+  forall(t in PERIODS, g in GASES) do
+
+    RobProd(t,g) :=  inventory(0,g) + sum(tp in PERIODS | tp <= t) 
+      ((1 - interruption(tp)) * produce(tp,g) - DEMAND(tp,g)) >= 0
+
+    inventory (0,g) + sum (tp in PERIODS | tp <= t) 
+      (produce(tp,g) - DEMAND(tp,g)) <= inventory(t,g)
+
+    inventory(t,g) <= INV_CAP(g)
+    produce(t,g)   <= PROD_CAP(g)
+
+  end-do
+
+  ! Interruptions of production
+  forall (t in PERIODS) do
+    interruption (t) <= 1
+    interruption (t) >= 0
+  end-do
+
+  sum(t in PERIODS) interruption (t) <= MAX_NINTERR
+  interruption(1) = 0
+
+!**** Solving ****
+  setparam("robust_uncertain_overlap", true)
+
+  ! Set verbosity level
+  setparam("xprs_verbose", true)
+
+  ! Objective function: total cost of production and storage
+  minimize(sum (t in PERIODS, g in GASES) 
+             (PROD_COST * produce (t,g) + INV_COST * inventory(t,g)))
+
+!**** Solution reporting ****
+  writeln("\nNumber of interruptions: ", MAX_NINTERR)
+  writeln("\nOptimal solution has cost ", getobjval)
+
+  COLWIDTH := 6
+
+  forall(g in GASES) do
+
+    writeln("\nProduction of ", g)
+
+    write(strfmt ("Time",-COLWIDTH))
+    forall(t in PERIODS0) write (strfmt(t,COLWIDTH))
+
+    write("\n", strfmt("Dem",-2*COLWIDTH))
+    forall(t in PERIODS) write(strfmt(DEMAND(t,g),COLWIDTH,1))
+
+    write("\n", strfmt("Prod",-2*COLWIDTH))
+    forall(t in PERIODS) write(strfmt (produce(t,g).sol,COLWIDTH,1))
+
+    write("\n", strfmt("Inv*",-COLWIDTH))
+    forall(t in PERIODS0) 
+      write (strfmt(inventory(0,g).sol + 
+            sum (tp in PERIODS | tp <= t)
+              (produce(tp,g).sol - DEMAND(tp,g)),COLWIDTH,1))
+    writeln("\n\nWorst-case interruptions for ", g, ": ")
+
+    forall(t in PERIODS | getsol(interruption(t),RobProd(t,g)) > 0)
+      write (t, " ")
+
+    writeln
+  end-do
+
+end-model

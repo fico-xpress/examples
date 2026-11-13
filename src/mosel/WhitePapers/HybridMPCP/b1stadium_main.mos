@@ -1,0 +1,148 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file b1stadium_main.mos
+   ```````````````````````
+   Construction of a stadium
+   (See "Applications of optimization with Xpress-MP",
+        Section 7.1 Construction of a stadium)
+
+   1. Calculate the earliest completion time with the given
+      durations of the operations.
+   2. Reduce the completion time of the project such that the total 
+      profit calculated as
+        BONUS_per_week_finished_earlier - COST_of_finishing_earlier
+      is maximized.
+   
+   The first problem is solved merely by posting the precedence
+   constraints in a CP model. Since there are no side-constraints, the 
+   earliest possible completion time is the earliest start of the last, 
+   fictitiuous task N. We get it for free (i.e. without enumeration) 
+   thanks to the propagation of constraints.
+   
+   For the formulation of the second problem the definition of the
+   CP model is changed: durations are turned into variables and start 
+   times are bounded by the previously calculated earliest completion 
+   time. The feasible start time intervals are again determined by 
+   constraint propagation. 
+   The complete problem is then formulated and solved as an LP problem, 
+   taking the lower bounds on start times from the CP model. Doing so
+   we may switch off the preprocessing of the LP model - the CP constraint
+   propagation is used as preprocessor.
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, March 2005, rev. Jul. 2017
+*****************************************************************!)
+model "B-1 Stadium construction (CP + LP) main model"
+ uses "mmxprs", "mmjobs"
+
+ forward procedure print_CP_solution(num: integer)
+
+ declarations
+  N = 19                              ! Number of tasks in the project 
+                                      ! (last = fictitious end task)
+  TASKS = 1..N
+  ARC: dynamic array(range,range) of integer  ! Matrix of the adjacency graph 
+  DUR: array(TASKS) of integer        ! Duration of tasks
+  BONUS: integer                      ! Bonus per week finished earlier
+  MAXW: array(TASKS) of integer       ! Max. reduction of tasks (in weeks)
+  COST: array(TASKS) of real          ! Cost of reducing tasks by a week 
+  lbstart,ubstart: array(TASKS) of integer  ! Bounds on start dates of tasks
+  HORIZON: integer                    ! Time horizon 
+  bestend: integer                    ! CP solution value
+
+  CPmodel: Model                      ! Reference to the CP model
+  msg: Event                          ! Termination message sent by submodel
+ end-declarations
+
+ initializations from 'Data/b1stadium.dat'
+  DUR ARC MAXW BONUS COST
+ end-initializations
+
+ HORIZON:= sum(o in TASKS) DUR(o)
+
+! **** First CP model ****
+
+ res:= compile("b1stadium_sub.mos")   ! Compile the CP model
+ load(CPmodel, "b1stadium_sub.bim")   ! Load the CP model
+ setworkdir(CPmodel, ".")
+ run(CPmodel, "MODE=1,HORIZON=" + HORIZON)  ! Solve first version of CP model
+ wait                                 ! Wait until subproblem finishes
+ msg:= getnextevent                   ! Get the termination event message
+ if getclass(msg)<>EVENT_END then     ! Check message type
+  writeln("Submodel 1 is infeasible")
+  exit(1)
+ end-if
+ 
+ initializations from "raw:"
+  lbstart as "shmem:lbstart" ubstart as "shmem:ubstart"
+ end-initializations
+
+ bestend:= lbstart(N)
+ print_CP_solution(1)
+
+! **** Second CP model ****
+
+ run(CPmodel, "MODE=2,HORIZON=" + bestend)  ! Solve second version of CP model
+ wait                                 ! Wait until subproblem finishes
+ msg:= getnextevent                   ! Get the termination event message
+ if getclass(msg)<>EVENT_END then     ! Check message type
+  writeln("Submodel 2 is infeasible")
+  exit(2)
+ end-if
+ 
+ ! Retrieve solution from memory
+ initializations from "raw:"
+  lbstart as "shmem:lbstart" ubstart as "shmem:ubstart"
+ end-initializations
+
+ print_CP_solution(2)
+  
+! **** LP model for second problem ****
+ declarations
+  start: array(TASKS) of mpvar        ! Start times of tasks
+  save: array(TASKS) of mpvar         ! Number of weeks finished early
+ end-declarations 
+
+! Objective function: total profit
+ Profit:= BONUS*save(N) - sum(i in 1..N-1) COST(i)*save(i)
+
+! Precedence relations between tasks
+ forall(i,j in TASKS | exists(ARC(i,j)))  
+  Precm(i,j):= start(i) + DUR(i) - save(i) <= start(j)
+
+! Total duration
+ start(N) + save(N) = bestend
+
+! Limit on number of weeks that may be saved
+ forall(i in 1..N-1) save(i) <= MAXW(i)
+
+! Bounds on start times deduced by constraint propagation
+ forall(i in 1..N-1) do
+  lbstart(i) <= start(i); start(i) <= ubstart(i)
+ end-do
+
+! Solve the second problem: maximize the total profit
+ setparam("XPRS_VERBOSE", true)
+ setparam("XPRS_PRESOLVE", 0)   ! We use constraint propagation as preprocessor
+ maximize(Profit) 
+ 
+! Solution printing
+ writeln("Total profit: ", getsol(Profit))
+ writeln("Total duration: ", getsol(start(N)), " weeks")
+ forall(i in 1..N-1)
+  write(strfmt(i,2), ": ", strfmt(getsol(start(i)),-3),
+   if(i mod 6 = 0,"\n",""))
+ writeln
+
+!*********************************************************************
+ procedure print_CP_solution(num: integer)
+  writeln("CP solution (version ", num, "):")
+  writeln("Earliest possible completion time: ", lbstart(N), " weeks")
+  forall(i in 1..N-1) 
+   write(i, ": ", lbstart(i), if(lbstart(i)<ubstart(i), "-"+ubstart(i), ""),
+        if(i mod 6 = 0, "\n", ", "))
+ end-procedure
+  
+end-model

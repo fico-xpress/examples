@@ -1,0 +1,303 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file sched_main.mos
+   ```````````````````
+   Scheduling with resource dependent durations and cost, subject 
+   to given release dates and due dates.
+   
+   Combined MIP-CP problem solving: cut generation for MIP model
+   by solving CP subproblems at nodes in the MIP branching tree.
+
+   *** This model cannot be run with a Community Licence 
+       for the provided data instance ***
+
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, March 2005, rev. July 2023
+*****************************************************************!)
+model "Schedule (MIP + CP) main problem"
+ uses "mmsystem", "mmxprs", "mmjobs" 
+ 
+ parameters 
+  DATAFILE = "Data/sched_3_12.dat" 
+  VERBOSE = 1
+ end-parameters 
+ 
+ forward procedure define_MIP_model
+ forward procedure setup_cutmanager
+ forward function generate_cuts: boolean 
+ forward procedure print_solution 
+
+ declarations
+  NP: integer                             ! Number of operations (products) 
+  NM: integer                             ! Number of machines
+ end-declarations
+
+ initializations from DATAFILE
+  NP NM
+ end-initializations
+
+ declarations
+  PRODS = 1..NP                           ! Set of products
+  MACH = 1..NM                            ! Set of machines
+	
+  REL: array(PRODS) of integer            ! Release dates of orders
+  DUE: array(PRODS) of integer            ! Due dates of orders
+  MAX_LOAD: integer                       ! max_p DUE(p) - min_p REL(p)
+  COST: array(PRODS,MACH) of integer      ! Processing cost of products
+  DUR: array(PRODS,MACH) of integer       ! Processing times of products
+  starttime: real                         ! Measure program execution time
+  ctcut: integer                          ! Counter for cuts 
+  solstart: array(PRODS) of integer
+                                          ! **** MIP model:
+  use: array(PRODS,MACH) of mpvar         ! 1 if p uses machine m, otherwise 0
+  Cost: linctr                            ! Objective function
+
+  totsolve,totCP: real                    ! Time measurement
+  ctrun: integer                          ! Counter of CP runs
+  CPmodel: Model                          ! Reference to the CP sequencing model
+  ev: Event                               ! Event
+  EVENT_SOLVED=2                          ! Event codes sent by submodels
+  EVENT_FAILED=3
+ end-declarations 
+ 
+ ! Read data from file 
+ initializations from DATAFILE 
+  REL DUE COST DUR 
+ end-initializations
+
+! **** Problem definition ****
+ define_MIP_model                         ! Definition of the MIP model
+ res:=compile("sched_sub.mos")            ! Compile the CP model
+ load(CPmodel, "sched_sub.bim")           ! Load the CP model
+
+! **** Solution algorithm ****
+ starttime:= gettime
+ setup_cutmanager                         ! Settings for the MIP search
+
+ totsolve:= 0.0
+ initializations to "raw:"
+  totsolve as "shmem:solvetime"
+  REL as "shmem:REL" DUE as "shmem:DUE"
+ end-initializations
+
+ minimize(Cost)                           ! Solve the problem
+
+ writeln("Number of cuts generated: ", ctcut) 
+ writeln("(", gettime-starttime, "sec) Best solution value: ", getobjval)
+ initializations from "raw:"
+  totsolve as "shmem:solvetime"
+ end-initializations
+ writeln("Total CP solve time: ", totsolve) 
+ writeln("Total CP time: ", totCP) 
+ writeln("CP runs: ", ctrun)
+ 
+!----------------------------------------------------------------- 
+! Define the MIP model
+ procedure define_MIP_model
+
+ ! Objective: total processing cost
+  Cost:= sum(p in PRODS, m in MACH) COST(p,m) * use(p,m) 
+
+ ! Each order needs exactly one machine for processing 
+  forall(p in PRODS) sum(m in MACH) use(p,m) = 1 
+
+ ! Valid inequalities for strengthening the LP relaxation 
+  MAX_LOAD:= max(p in PRODS) DUE(p) - min(p in PRODS) REL(p) 
+  forall(m in MACH) sum(p in PRODS) DUR(p,m) * use(p,m) <= MAX_LOAD
+
+  forall(p in PRODS, m in MACH) use(p,m) is_binary 
+  
+ end-procedure
+ 
+!----------------------------------------------------------------- 
+! Xpress Optimizer settings for using the cut manager
+ procedure setup_cutmanager
+  setparam("XPRS_CUTSTRATEGY", 0)           ! Disable automatic cuts
+  feastol:= getparam("XPRS_FEASTOL")        ! Get Optimizer zero tolerance
+  setparam("zerotol", feastol * 10)         ! Set comparison tolerance of Mosel
+  setparam("XPRS_MIPDUALREDUCTIONS", 0)     ! Prevent dual reductions cutting off
+                                            ! the optimal solution (cuts are only
+                                            ! generated on the fly, so the solver
+                                            ! does not see the whole model)
+  setparam("XPRS_SBBEST", 0)                ! Turn strong branching off
+  setparam("XPRS_HEUREMPHASIS", 0)          ! Disable MIP heuristics
+  setcallback(XPRS_CB_OPTNODE, ->generate_cuts) ! Define the optnode callback 
+  setcallback(XPRS_CB_INTSOL, ->print_solution) ! Define the integer sol. cb.
+  setparam("XPRS_COLORDER", 2)
+  case VERBOSE of
+  1: do
+      setparam("XPRS_VERBOSE", true)
+      setparam("XPRS_MIPLOG", -200)    
+     end-do
+  2: do
+      setparam("XPRS_VERBOSE", true)
+      setparam("XPRS_MIPLOG", -100)    
+     end-do
+  3: do                                     ! Detailed MIP output
+      setparam("XPRS_VERBOSE", true)
+      setparam("XPRS_MIPLOG", 3)
+     end-do
+  end-case
+  
+ end-procedure
+
+!----------------------------------------------------------------- 
+! Define and solve the sequencing problem for one machine
+ function solve_CP_problem(m: integer, ProdMach: set of integer, 
+                           mode: integer): boolean
+  declarations
+   DURm: dynamic array(range) of integer
+   sol: dynamic array(range) of integer
+   solvetime: real
+  end-declarations 
+
+ ! Data for CP model
+  forall(p in ProdMach) DURm(p):= DUR(p,m)
+  initializations to "raw:"
+   ProdMach as "shmem:ProdMach" 
+   DURm as "shmem:DURm"
+  end-initializations
+  
+ ! Solve the problem and retrieve the solution if it is feasible
+  startsolve:= gettime
+  returned:= false
+  if(getstatus(CPmodel)=RT_RUNNING) then
+    fflush
+    writeln("CPmodel is running")
+    fflush
+    exit(1)
+  end-if
+  
+  ctrun+=1
+  run(CPmodel, "NP=" + NP + ",VERBOSE=" + VERBOSE + ",MODE=" + mode)
+  wait                                  ! Wait for a message from the submodel
+  ev:= getnextevent                     ! Retrieve the event
+  if getclass(ev)=EVENT_SOLVED then
+   returned:= true   
+   if mode = 2 then   
+    initializations from "raw:"
+     sol as "shmem:solstart"
+    end-initializations
+    forall(p in ProdMach) solstart(p):=sol(p)
+   end-if
+  elif getclass(ev)<>EVENT_FAILED then
+   writeln("Problem with Kalis")
+   exit(2)
+  end-if
+  wait
+  dropnextevent                         ! Ignore "submodel finished" event
+  totCP+= (gettime-startsolve) 
+ end-function
+
+!-----------------------------------------------------------------
+! Collect the operations assigned to machine m
+ procedure products_on_machine(m: integer, ProdMach: set of integer) 
+
+  forall(p in PRODS) do
+   val:=getsol(use(p,m))
+   if (val > 0 and val < 1) then
+   ProdMach:={} 
+    break 
+   elif val>0.5 then 
+    ProdMach+={p} 
+   end-if 
+  end-do
+  
+ end-procedure
+ 
+!-----------------------------------------------------------------
+! Generate a cut for machine m if the sequencing subproblem is infeasible
+ function generate_cut_machine(m: integer): boolean 
+  declarations 
+   ProdMach: set of integer
+  end-declarations 
+
+ ! Collect the operations assigned to machine m
+  products_on_machine(m, ProdMach)
+  
+ ! Solve the sequencing problem (CP model): if solved, save the solution,
+ ! otherwise add an infeasibility cut to the MIP problem 
+  size:= getsize(ProdMach)
+  returned:= false
+  if (size>1) then 
+   if not solve_CP_problem(m, ProdMach, 1) then
+    Cut:= sum(p in ProdMach) use(p,m) - (size-1) 
+    if VERBOSE > 2 then
+     writeln(m,": ", ProdMach, " <= ", size-1)
+    end-if
+    addcut(1, CT_LEQ, Cut) 
+    returned:= true 
+   end-if 
+  end-if 
+  
+ end-function
+
+!----------------------------------------------------------------- 
+! Cut generation callback function 
+ function generate_cuts: boolean 
+  returned:=false; ctcutold:=ctcut
+
+  forall(m in MACH) do 
+   if generate_cut_machine(m) then 
+    ctcut+=1 
+   end-if 
+  end-do
+  if ctcut-ctcutold>0 and VERBOSE>1 then
+   writeln("Node ", getparam("XPRS_NODES"), ": ", ctcut-ctcutold, 
+           " cut(s) added")
+  end-if
+
+ end-function
+
+!-----------------------------------------------------------------
+! Solution callback function
+ procedure print_solution 
+  declarations 
+   ProdMach: set of integer
+  end-declarations 
+  
+  writeln("(",gettime-starttime, "sec) Solution ", 
+          getparam("XPRS_MIPSOLS"), ": Cost: ", getsol(Cost)) 
+
+  if VERBOSE > 1 then
+   forall(p in PRODS) do
+    forall(m in MACH) write(getsol(use(p,m))," ")
+    writeln
+   end-do
+  end-if
+
+  if VERBOSE > 0 then
+   forall(m in MACH) do
+    ProdMach:= {}
+  
+  ! Collect the operations assigned to machine m
+    products_on_machine(m, ProdMach)
+   
+    Size:= getsize(ProdMach)
+    if Size > 1 then
+   ! (Re)solve the CP sequencing problem
+     if not solve_CP_problem(m, ProdMach, 2) then
+      writeln("Something wrong here: ", m, ProdMach)
+     end-if
+    elif Size=1 then
+     elem:=min(p in ProdMach) p
+     solstart(elem):=REL(elem)
+    end-if
+   end-do
+
+ ! Print out the result
+   forall(p in PRODS) do
+    msol:=sum(m in MACH) m*getsol(use(p,m))
+    writeln(p, " -> ", msol,": ", strfmt(solstart(p),2), " - ", 
+            strfmt(DUR(p,round(msol))+solstart(p),2), "  [", 
+            REL(p), ", ", DUE(p), "]")
+   end-do
+   writeln("Time: ", gettime - starttime, "sec")
+   writeln 
+   fflush  
+  end-if    
+ end-procedure
+
+end-model

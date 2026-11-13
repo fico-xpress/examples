@@ -1,0 +1,41 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file recorddef2.mos 
+   ``````````````````` 
+   Defining and initializing records.
+   - Records within records,
+     selection of fields in initializations -
+ 
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Sep. 2007, rev. Sep. 2018
+*******************************************************!)
+
+model "Defining records"
+
+ public declarations 
+  R = 1..10
+
+  mydata = public record                      ! Define a named record
+   name: string
+   values: array(R) of real
+  end-record
+
+  B: dynamic array(T:range) of public record  ! Define an unnamed record
+   val: real
+   rd: mydata                          ! Record field containing a record
+  end-record
+ end-declarations
+ 
+ initializations from "recorddef2.dat"
+  B(rd) as "B"
+  B(val) as "C"
+  B(rd(name)) as "D"
+  B(rd(values)) as "E"
+  B(rd(values)) as "F"
+ end-initializations
+
+ writeln(B)
+
+end-model 

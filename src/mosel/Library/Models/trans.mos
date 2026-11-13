@@ -1,0 +1,46 @@
+(!*******************************************************
+  * Mosel Example Problems                              *
+  * ======================                              *
+  *                                                     *
+  * file trans.mos                                      *
+  * ``````````````                                      *
+  * Example for the use of the Mosel language           *
+  * (Network problem: transport from depots to          *
+  *  customers)                                         *
+  *                                                     *
+  * (c) 2008 Fair Isaac Corporation                     *
+  *     author: S. Heipcke, 2001                        *
+  *******************************************************!)    
+
+model Transport                     ! Start a new model
+
+uses "mmxprs"                       ! Load the optimizer
+                                  
+public declarations
+ Suppliers: set of string           ! Set of suppliers
+ Customers: set of string           ! Set of customers
+ COST: dynamic array(Suppliers,Customers) of real  ! Unit cost of sending from depot d
+                                        ! to customer c
+ AVAIL: array(Suppliers) of real    ! Availability of products
+ DEMAND: array(Customers) of real   ! Demand by customers
+
+ x: dynamic array(Suppliers,Customers) of mpvar ! Flow from supplier s to customer c 
+end-declarations
+
+                                    ! Read data from file
+initializations from "Models/trans.dat"
+ COST AVAIL DEMAND
+end-initializations
+
+ forall(s in Suppliers, c in Customers| COST(s,c)>0)
+  create(x(s,c))
+ 
+                                    ! Objective: minimize total cost
+ Min:= sum(s in Suppliers, c in Customers) COST(s,c)*x(s,c) 
+
+ forall(s in Suppliers) L(s):= sum(c in Customers) x(s,c) <= AVAIL(s)
+ forall(c in Customers) D(c):= sum(s in Suppliers) x(s,c) >= DEMAND(c) 
+
+ minimize(Min)
+  
+end-model

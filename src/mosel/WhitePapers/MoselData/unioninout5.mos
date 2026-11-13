@@ -1,0 +1,79 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file unioninout5.mos
+   ````````````````````
+   Reading/writing unions from/to spreadsheets.
+   - Using 'initializations from' with the xls/xlsx driver -
+   
+   (c) 2021 Fair Isaac Corporation
+       author: S. Heipcke, Apr. 2021, rev. Feb. 2024
+*******************************************************!)
+model "Union handling (generic spreadsheet)"
+ uses "mmsheet", "mmsystem"
+
+ parameters
+  CSTR_IN= 'mmsheet.xls:uniondata.xls'
+!  CSTR_IN= 'mmsheet.xlsx:uniondata.xlsx'
+  CSTR_OUT= 'mmsheet.xls:uniondataout.xls'
+!  CSTR_OUT= 'mmsheet.xlsx:uniondataout.xlsx'
+ end-parameters
+
+ 
+ declarations
+   L,L2,L3: list of any
+   LU: list of text or real
+   LU2: list of text or real or boolean
+ end-declarations
+
+! Date and time formats (make sure to use the default format of mmsystem,
+! not the format used for display in the spreadsheet)
+ setparam("timefmt", "%0H:%0M:%0S")
+ setparam("datefmt", "%.y-%0m-%0d")
+ setparam("datetimefmt", "%.y-%0m-%0dT%0H:%0M:%0S")
+
+! Reading data of different types from a spreadsheet file
+ initializations from CSTR_IN
+   L as "skiph;[A:A]"
+   L2 as "skiph;[C:C]"
+   L3 as "skiph;[E:E]"
+   LU as "skiph;[C:C]"   ! This would fail to read from [A:A] due to missing boolean type
+   LU2 as "skiph;[A:A]"   
+ end-initializations
+
+ write("L orig: ")
+ forall(i in L) write (i,": ", i.typeid, "; ")
+ writeln
+! Date and time types are read in textual form 
+ L(5).date:=date(L(5).string)
+ L(6).time:=time(L(6).string)
+ write("L new:  ")
+ forall(i in L) write (i,": ", i.typeid, "; ")
+ writeln
+
+! List defined with a restricted set of types
+ write("LU:     ")
+ forall(i in LU) write (i,": ", i.typeid, "; ")
+ writeln
+ write("LU2:    ")
+ forall(i in LU2) write (i,": ", i.typeid, "; ")
+ writeln
+
+ ! Contents formated as 'text'
+ write("L2:     ")
+ forall(i in L2) write (i,": ", i.typeid, "; ")
+ writeln
+
+ ! Contents formated as 'text' enforced via preceding apostrophe
+ write("L3:     ")
+ forall(i in L3) write (i,": ", i.typeid, "; ")
+ writeln
+
+ ! Writing data of type 'any' to a spreadsheet file
+ initializations to CSTR_OUT
+   L as "[A:A]"
+   LU as "[R1C3:R1C"+(2+LU.size)+"]"
+ end-initializations
+
+end-model

@@ -1,0 +1,111 @@
+(!******************************************************
+   Mosel graph examples
+   ==================== 
+
+   file routes.mos
+   ```````````````
+   Iterative display of routes with subtours,
+   demonstrating interaction between model and
+   display via 'pause' to inspect a graph and 
+   stop algorithm by 'closing' event.
+
+   - Using SVG animation -
+     (only visible with browsers supporting SVG animation)
+   
+   Uses functions from the mmsvg library to draw
+   a "User graph" in SVG format.
+   
+   (c) 2017 Fair Isaac Corporation
+       author: S. Heipcke, Jul. 2017, rev. Sep. 2017
+*******************************************************!)
+model routes
+  uses "mmsvg"
+ 
+  declarations
+    RT: range
+    solroute = record
+      sol: real
+      tours: dynamic array(RT) of list of integer
+    end-record
+    Routes: array(Sols:range) of solroute
+    XPOS,YPOS: array(RP:range) of integer
+    tpath: text
+  end-declarations
+
+  initializations from "routes.dat"
+    Routes  [XPOS,YPOS] as "POS"
+  end-initializations
+
+  svgrefresh
+  forall(s in Sols) do
+   ! Interrupt loop if window is closed
+    if svgclosing then break; end-if
+   ! Delete previous graph contents 
+    svgerase
+   
+    ct:=0
+    forall(ct as counter, t in RT | exists(Routes(s).tours(t)) ) do
+      svgaddgroup("t"+t, "Tour "+t)
+      svgaddline(sum(i in Routes(s).tours(t)) [XPOS(i),YPOS(i)])
+    end-do
+    svgaddgroup("N", "Nodes", SVG_GRAY)
+    svgsetstyle("SVG_STROKEWIDTH", 2)
+    forall(p in RP) svgaddpoint(XPOS(p),YPOS(p))
+    svgaddgroup("msg", "", SVG_BLACK)
+    svgaddtext(15, 5, "Total tour length: " + Routes(s).sol + 
+      if(ct>1, " ("+ct+" subtours)", " (solution)"))
+
+   ! Add SVG animation for final tour 
+   ! (only visible in browsers with SVG support)
+    if ct=1 then
+      tf:= min(t in RT | exists(Routes(s).tours(t)) ) t
+      tlist:= gethead(Routes(s).tours(tf),-1)
+      prevx:=XPOS(Routes(s).tours(tf).first)
+      prevy:=YPOS(Routes(s).tours(tf).first)
+      svgaddfile("./truck.gif", "truck.gif")     ! Upload graphic file
+      svgaddimage("t"+tf, "truck.gif", prevx-10, prevy-10, 30, 30)
+
+      tpath:="m"               ! Define a motion path with relative positions
+      forall(i in tlist) do
+        tpath+=text(" ")+(XPOS(i)-prevx)+" "+(-(YPOS(i)-prevy))
+        prevx:=XPOS(i); prevy:=YPOS(i)
+      end-do
+      tpath+=" Z"              ! Return to the initial point
+      svgsetstyle(svggetlastobj, SVG_ANIMATE,
+       '<animateMotion repeatCount="indefinite" path="'+tpath+'" dur="10s"/>')
+      svgsave("tour.svg")
+    end-if
+
+   ! Display tours
+    svgrefresh
+
+   ! Pause if there is more than 1 tour
+    if ct>1 then svgpause; end-if
+  end-do
+
+ ! Wait for display window to close 
+  svgwaitclose("Close browser window to terminate model execution.")
+end-model
+
+
+(! Generate input data for TSP solving
+  procedure gendata(num:integer)
+    declarations
+      XPOS,YPOS: array(RP:range) of integer
+      DIST: dynamic array(RP,RP) of integer
+    end-declarations
+  
+    setrandseed(7)
+    forall(p in 1..num) do
+      XPOS(p):=25+round(450*random)
+      YPOS(p):=25+round(450*random)
+    end-do
+    forall(n,m in RP | n<m)
+      DIST(n,m):=round(1.5*sqrt((XPOS(n)-XPOS(m))^2 + (YPOS(n)-YPOS(m))^2)) 
+
+    initializations to "routes"+num+".dat"
+      [XPOS,YPOS] as "POS"  DIST
+    end-initializations  
+  end-procedure
+!)
+ 

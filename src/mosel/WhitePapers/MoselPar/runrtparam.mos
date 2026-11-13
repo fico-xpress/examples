@@ -1,0 +1,29 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file runrtparam.mos
+   ```````````````````
+   Running a model from another Mosel model,
+   passing runtime parameters to the submodel.
+       
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, May 2006
+*******************************************************!)
+
+model "Run model rtparams"
+ uses "mmjobs"
+
+ declarations
+  modPar: Model
+ end-declarations
+                                   ! Compile the model file
+ if compile("rtparams.mos")<>0 then exit(1); end-if
+ load(modPar, "rtparams.bim")      ! Load the bim file
+                                   ! Start model execution
+ run(modPar, "PARAM1=" + 2 + ",PARAM2=" + 3.4 + 
+             ",PARAM3='a string'" + ",PARAM4=" + true)
+ wait                              ! Wait for model termination
+ dropnextevent                     ! Ignore termination event message
+
+end-model 

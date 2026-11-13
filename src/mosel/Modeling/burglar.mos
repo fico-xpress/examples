@@ -1,0 +1,45 @@
+(!*******************************************************
+  * Mosel Example Problems                              *
+  * ======================                              *
+  *                                                     *
+  * file burglar.mos                                    *
+  * ````````````````                                    *
+  * Example for the use of the Mosel language           *
+  * (Burglar problem)                                   *
+  *                                                     *
+  * (c) 2008 Fair Isaac Corporation                     *
+  *     author: S. Heipcke, 2001                        *
+  *******************************************************!)
+
+model Burglar                       ! Start a new model
+
+uses "mmxprs"                       ! Load the optimizer library
+
+declarations
+ Items=1..8                         ! Index range for items
+
+ VALUE: array(Items) of real        ! Value of items
+ WEIGHT: array(Items) of real       ! Weight of items
+ WTMAX=102                          ! Max weight allowed for haul
+
+ x: array(Items) of mpvar           ! 1 if we take item i; 0 otherwise
+end-declarations
+
+!   Item:   1   2   3   4   5   6   7   8
+ VALUE :: [15,100, 90, 60, 40, 15, 10,  1]
+ WEIGHT:: [ 2, 20, 20, 30, 40, 30, 60, 10]
+ 
+ MaxVal:= sum(i in Items) VALUE(i)*x(i)  ! Objective: maximize total value
+
+                                    ! Weight restriction
+ WtMax:= sum(i in Items) WEIGHT(i)*x(i) <= WTMAX 
+
+ forall(i in Items) x(i) is_binary  ! All x are 0/1
+  
+ maximize(MaxVal)                   ! Solve the MIP-problem
+
+                                    ! Print out the solution
+ writeln("Solution:\n Objective: ", getobjval)
+ forall(i in Items)  writeln(" x(", i, "): ", x(i).sol)
+
+end-model

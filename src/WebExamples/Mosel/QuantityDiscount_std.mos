@@ -1,0 +1,51 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file QuantityDiscount_std.mos
+   `````````````````````````````
+   -- Multiple cases within a loop --
+
+   (c) 2019-2026 Fair Isaac Corporation
+       author: S.Heipcke
+*******************************************************!)
+model "Quantity Discount"
+
+    uses "mmsheet"
+
+    parameters
+        DATA_FILE_PREFIX = "00"
+    end-parameters
+    writeln("#E:IMPORT")
+
+    writeln("#S:READ")
+    declarations
+        P: range
+        V: array(P) of integer
+        W: array(P) of real
+        S: real
+    end-declarations
+
+    initializations from "mmsheet.csv:" + DATA_FILE_PREFIX + "_H_QuantityDiscount_V.csv"
+        V as "[]"
+    end-initializations
+    writeln("#E:READ")
+
+    writeln("#S:PROC")
+    forall(p in P)
+        case V(p) of
+            0:          W(p) := 1.50
+            1:          W(p) := 1.45
+            2..5:       W(p) := 1.30
+            6..50:      W(p) := 1.25
+            else        W(p) := 1.20
+        end-case
+
+    S := sum(p in P) V(p) * W(p)
+    writeln("#E:PROC")
+
+    writeln("#S:TEST")
+    setparam("realfmt", "%.2f")
+    writeln(S)
+    writeln("#E:TEST")
+end-model

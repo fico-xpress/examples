@@ -1,0 +1,29 @@
+! SH, FICO, Jan. 2020
+model "gen carton data"
+declarations
+  M= 5                    ! machine (m = 1,...,M);
+  CX= 15                  ! maximum number of configurations on each
+                          !   machine (c = 0,1, ,,, c(m)), where c = 0 means
+                          !   setting up;
+  G= 16                   ! groups of orders (g = 1, ... ,G); and
+  RM=1..M
+  RG=1..G
+  RCX=1..CX
+
+  C: array(RM) of integer     ! the number of configurations of machine m;
+ 
+  H: dynamic array(RM,RCX,RCX) of real! the number of shifts required to change
+                              !   from configuration c to k on machine m;
+  R: dynamic array(RM,RCX,RG) of real ! the production rate (number of cartons of
+                              !   group g produced on machine m in
+                              !   configuration c per shift)
+ 
+end-declarations
+C::[9, 6, 11, 5, 13]
+setrandseed(3)
+forall(m in RM, c,k in 1..C(m) |c<>k) H(m,c,k):=1+round(2.8*random)
+forall(m in RM, c in 1..C(m), g in RG) R(m,c,g):=round(6*random)
+initializations to "carton.dat"
+ H R
+end-initializations
+end-model

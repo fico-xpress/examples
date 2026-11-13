@@ -1,0 +1,176 @@
+(!****************************************************************
+   Mosel example problems
+   ======================
+
+   file sudoku_graph.mos
+   `````````````````````
+   Sudoku puzzle - data read from file.
+   - Drawing SVG graphs -
+
+   (c) 2020 Fair Isaac Corporation
+       author: S. Heipcke, Aug 2020
+*****************************************************************!)
+
+model "sudoku (MIP)"
+  uses "mmxprs", "mmsystem", "mmsvg"
+
+  parameters
+    DATAFILE = "sudokug290705.dat"
+    COMPLETE=true     ! Whether to use complete data set
+  end-parameters
+
+  forward procedure printsolution
+  forward procedure drawboard(ifsol: boolean)
+
+  declarations
+    XS = {'A','B','C','D','E','F','G','H','I'}
+    N = XS.size
+    YS = 1..9
+    M = YS.size
+    VALS = 1..9
+    VALUE: dynamic array(XS,YS) of integer
+    v: array(XS,YS) of mpvar
+    b: array(XS,YS,VALS) of mpvar
+    DummyObj: linctr
+  end-declarations
+
+  initializations from "Data/"+DATAFILE
+    VALUE
+  end-initializations
+
+ ! Fix variables to the given values
+  if COMPLETE then
+    forall(x in XS, y in YS | exists(VALUE(x,y))) v(x,y) = VALUE(x,y)
+  else
+   ! Incomplete fixing:
+    ct:=0
+    forall(ct as counter, x in XS, y in YS | exists(VALUE(x,y)))
+      if ct>1: v(x,y) = VALUE(x,y)
+  end-if
+
+ ! Associate binaries with cell variables
+  forall(x in XS, y in YS) do
+    forall(i in VALS) b(x,y,i) is_binary
+    v(x,y) = sum(i in VALS) i*b(x,y,i)
+    sum(i in VALS) b(x,y,i) = 1
+  end-do
+
+  starttime:=gettime
+
+ ! All-different values in rows
+  forall(y in YS, i in VALS) sum(x in XS) b(x,y,i) = 1
+
+ ! All-different values in columns
+  forall(x in XS, i in VALS) sum(y in YS) b(x,y,i) = 1
+
+ ! All-different values in 3x3 squares
+  forall(k in 0..2, i in VALS) do
+    sum(x in {'A','B','C'}, y in {1+3*k,2+3*k,3+3*k}) b(x,y,i) = 1
+    sum(x in {'D','E','F'}, y in {1+3*k,2+3*k,3+3*k}) b(x,y,i) = 1
+    sum(x in {'G','H','I'}, y in {1+3*k,2+3*k,3+3*k}) b(x,y,i) = 1
+  end-do
+
+ ! Solve the problem
+  DummyObj:= 0
+  drawboard(false)
+  setparam("XPRS_verbose", true)
+! setparam("XPRS_presolve",false)  ! Uncomment to see effect of presolving
+                                   ! Stop after LP relaxation
+  setparam("XPRS_MIPSTOPSTAGE", XPRS_MIPSTOPSTAGE_INITIALRELAXATION)
+  minimize(DummyObj)
+  drawboard(false)
+
+  setparam("XPRS_MIPSTOPSTAGE", XPRS_MIPSTOPSTAGE_NONE)  
+                                   ! Reset to allow continuation of MIP solve
+  minimize(XPRS_CONT, DummyObj)    ! Continue to full MIP solve
+  if getprobstat=XPRS_OPT then
+    printsolution
+    drawboard(true)
+  end-if
+
+ ! Wait for display window to close
+  svgwaitclose("Close browser window to terminate model execution.")
+
+  writeln("Total time: ", gettime-starttime)
+
+!**************************** Subroutines ****************************
+! Solution printing
+  procedure printsolution
+    writeln("Solution:")
+    write("   "); forall(x in XS) write(x," "); writeln
+    forall(y in YS) do
+      write(y, ": ")
+      forall(x in XS) write(v(x,y).sol," ")
+      writeln
+    end-do
+    returned:=true
+  end-procedure
+
+! **** Match Sudoku coordinates conventions (origin in upper left corner)
+! **** with SVG conventions (origin in lower left corner)
+  function posy(y: real): real
+    returned:=M+1-y
+  end-function
+
+! **** Drawing status in SVG format ****
+  public procedure drawboard(ifsol: boolean)
+   ! Interrupt loop if window is closed
+    if svgclosing then return; end-if
+
+    svgerase
+
+   ! Draw the board
+    svgaddgroup("B", "Board", SVG_BLACK)
+    forall(i in 1..N+1) do
+      svgaddline(i-0.4, 0.6, i-0.4, N+0.6)
+      if (i-1) mod 3 = 0 then svgsetstyle(svggetlastobj, SVG_STROKEWIDTH,3); end-if
+    end-do
+    forall(j in 1..M+1) do
+      svgaddline(0.6, j-0.4, M+0.6, j-0.4)
+      if (j-1) mod 3 = 0 then svgsetstyle(svggetlastobj, SVG_STROKEWIDTH,3); end-if
+    end-do
+    svgaddrectangle(0.6, 0.6, N, M)
+    svgsetstyle(svggetlastobj, SVG_STROKEWIDTH,3)
+
+  ! Draw the values
+    svgaddgroup("S", if(ifsol, "Solution", 
+              if(getparam("XPRS_LPSTATUS")=1, "Integral values in LP solution",
+              "Initial values")))
+    svgsetstyle(SVG_FONTSIZE,"x-large")
+    svgaddgroup("V", "Values")
+    svgsetstyle(SVG_FONTSIZE,"xx-small")
+    svgsetstyle(SVG_FILL,SVG_WHITE)
+    svgsetstyle(SVG_FILLOPACITY,1)
+
+    forall(y in YS) do
+     xct:=0
+     forall(x in XS, xct as counter)
+      if ifsol then
+        svgaddtext("S", xct-0.1,posy(y+0.1), text(v(x,y).sol))
+      else
+        if exists(VALUE(x,y)) then
+          svgaddtext("S", xct-0.1,posy(y+0.1), text(VALUE(x,y)))
+        elif (or(i in 1..9) b(x,y,i).sol = 1) then
+          svgaddtext("S", xct-0.1,posy(y+0.1), text(v(x,y).sol))
+        else
+          svgaddrectangle("V",xct-0.4,posy(y+0.4),1,1)
+          svgsetstyle(svggetlastobj,SVG_FILL,SVG_GREY)
+          svgsetstyle(svggetlastobj,SVG_FILLOPACITY,0.25)
+          svgsetstyle(svggetlastobj,SVG_STROKEWIDTH,0)
+          forall(i in 1..9) do
+            xpos:=xct-0.25+((i-1)mod 3)*0.25
+            ypos:=posy(y-0.25+((i-1) div 3)*0.25)
+            svgaddtext("V", xpos,ypos, text(i))
+          end-do
+        end-if
+      end-if
+    end-do
+
+    svgsetgraphviewbox(0,0, N+3, M+3)
+    svgsetgraphscale(35)
+    svgrefresh
+
+    svgpause                           ! Pause at every iteration
+  end-procedure
+
+end-model

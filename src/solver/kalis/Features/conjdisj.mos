@@ -1,0 +1,31 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file conjdisj.mos
+   `````````````````
+   Logical and/or constraints.
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+       Creation: 2005, rev. Mar. 2013
+*****************************************************************!)
+model "Logical constraints"
+ uses "kalis"
+
+! Default bounds for all variables
+ setparam("KALIS_DEFAULT_LB", 0); setparam("KALIS_DEFAULT_UB", 1)
+
+ declarations
+  a,b: cpvar  
+ end-declarations
+ 
+ setname(a,"a")
+ setname(b,"b")
+ 
+ writeln(a,b)
+ (a >= 1) and (b >= 1) or (a <= 0) and (b >= 1)
+ 
+ while (cp_find_next_sol)  
+  writeln("a:", getsol(a), " b:", getsol(b))
+
+end-model

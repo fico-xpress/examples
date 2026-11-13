@@ -1,0 +1,100 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file folioxml.mos
+   `````````````````
+   Modeling a small LP problem 
+   to perform portfolio optimization.
+   -- Reading/writing data in XML format --
+   
+  (c) 2010 Fair Isaac Corporation
+      author: S.Heipcke, July 2010, rev. July 2013
+*******************************************************!)
+
+model "Portfolio optimization with LP"
+ uses "mmxprs"
+ uses "mmxml"                        ! XML interface functions
+
+ parameters
+  DATAFILE= "folio.xml"              ! File with problem data
+  OUTFILE= "result.xml"              ! Output file 
+  MAXRISK = 1/3                      ! Max. investment into high-risk values
+  MAXVAL = 0.3                       ! Max. investment per share
+  MINAM = 0.5                        ! Min. investment into N.-American values
+ end-parameters
+
+ declarations
+  SHARES: set of string              ! Set of shares
+  RISK: set of string                ! Set of high-risk values among shares
+  NA: set of string                  ! Set of shares issued in N.-America
+  RET: array(SHARES) of real         ! Estimated return in investment
+
+  AllData, ResData: xmldoc           ! XML document
+  Share,Root,Sol: integer            ! XML nodes
+  NodeList: list of integer
+ end-declarations
+
+! Reading data from an XML file
+ load(AllData, DATAFILE)
+
+ getnodes(AllData, "portfolio/share", NodeList) 
+ RISK:= union(l in NodeList | getattr(AllData,l,"risk")="high") 
+         {getstrattr(AllData,l,"name")} 
+ NA:= union(l in NodeList | getattr(AllData,l,"region")="NA") 
+         {getstrattr(AllData,l,"name")} 
+ 
+(! Alternatively:
+ getnodes(AllData, "portfolio/share[@risk='high']/attribute::name", NodeList)
+ RISK:=union(r in NodeList) {getstrvalue(AllData,r)}
+ getnodes(AllData, "portfolio/share[@region='NA']/attribute::name", NodeList)
+ NA:=union(r in NodeList) {getstrvalue(AllData,r)}
+ getnodes(AllData, "portfolio/share", NodeList) 
+!)
+
+ forall(l in NodeList)
+   RET(getstrattr(AllData,l,"name")):= getintattr(AllData, l, "ret") 
+
+
+ declarations
+  frac: array(SHARES) of mpvar       ! Fraction of capital used per share
+ end-declarations
+
+! Objective: total return
+ Return:= sum(s in SHARES) RET(s)*frac(s) 
+
+! Limit the percentage of high-risk values
+ sum(s in RISK) frac(s) <= MAXRISK
+
+! Minimum amount of North-American values
+ sum(s in NA) frac(s) >= MINAM
+
+! Spend all the capital
+ sum(s in SHARES) frac(s) = 1
+ 
+! Upper bounds on the investment per share
+ forall(s in SHARES) frac(s) <= MAXVAL
+
+! Solve the problem
+ maximize(Return)
+
+! Solution printing
+ writeln("Total return: ", getobjval)
+ forall(s in SHARES) 
+  writeln(strfmt(s,-12), ": \t", strfmt(getsol(frac(s))*100,5,2), "%")
+
+
+! Create solution representation in XML format
+ Root:=addnode(ResData, 0, XML_ELT, "result")    ! Create root node "result"
+ Sol:= addnode(ResData, Root, XML_ELT, "solution") ! Add a "solution" node
+ setattr(ResData, Sol, "value", getobjval)       ! ... with attribute "value"
+ forall(s in SHARES) do
+   Share:=addnode(ResData, Sol, XML_ELT,"share") ! Add a node to "solution"
+   setattr(ResData, Share, "name", s)            ! ... with attribute "name"
+   setvalue(ResData, Share, frac(s).sol)         ! ... and solution value
+ end-do
+ 
+ save(ResData, OUTFILE)        ! Save solution to XML format file
+ save(ResData, Sol, "")        ! Display XML format solution on screen
+
+end-model 

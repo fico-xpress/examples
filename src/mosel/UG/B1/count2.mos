@@ -1,0 +1,37 @@
+(!*******************************************************
+   Mosel Example Problems
+   ======================
+
+   file count2.mos
+   ```````````````
+   Using counters.
+   - Create a 'NODE' entry for every node that has
+     at least 2 arcs
+   - Combining 'count' and 'as counter'   
+   
+   (c) 2009 Fair Isaac Corporation
+       author: S. Heipcke, June 2009
+*******************************************************!)
+model "counters 2"
+ uses "mmsystem"
+ 
+ declarations
+  I: set of integer
+  ARC: dynamic array(I,I) of boolean
+  NODE: dynamic array(NSet: set of integer) of integer 
+ end-declarations
+ 
+ initializations from "count2.dat"
+  ARC
+ end-initializations
+ 
+ ctnode:=0
+ forall(ctnode as counter, j in I | 
+        count(i in I | exists(ARC(i,j))) +
+        count(i in I | exists(ARC(j,i))) >= 2) create(NODE(j))
+		   
+ writeln("Number of nodes created: ", ctnode) 
+ writeln("Nodes: ", NSet)
+ writeln("I: ", I)
+  
+end-model

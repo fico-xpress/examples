@@ -1,0 +1,155 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file datesinout4.mos
+   ````````````````````
+   Reading/writing dates from/to Oracle databases.
+   - Using OCI -
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Nov. 2007, rev. Aug. 2023
+*******************************************************!)
+
+model "Dates and times (OCI)"
+ uses "mmsystem", "mmoci"
+ options keepassert
+
+ parameters
+  DB="myname/mypassword@dbname"     ! Login to Oracle database (not provided)
+ end-parameters
+
+ declarations
+  T: time
+  D: date
+  DT: datetime
+  Dates: array(1..5) of date
+  DList: list of date
+ end-declarations
+
+ setparam("OCIdebug",true)
+ OCIlogon(DB)
+ assert(getparam("OCIsuccess"))
+ writeln("Connection number: ",getparam("OCIconnection"))
+
+! Read in dates / time (select the format used by the database)
+ setparam("timefmt", "%0d-%N-%0Y %0h.%0M.%0S.%0s %P")
+ setparam("datefmt", "%0d-%N-%0Y")
+ setparam("datetimefmt", "%0d-%N-%0Y %0h.%0M.%0S.%0s %P")
+
+ T:=time(OCIreadstring("select * from Time1"))
+ D:=date(OCIreadstring("select * from Date1"))
+ DT:=datetime(OCIreadstring("select * from DateTime1"))
+
+ OCIexecute("select * from Dates", Dates)
+ OCIexecute("select * from Dates", DList)
+ 
+ setparam("timefmt", "%h:%0M %p")
+ writeln(D, ", ", T)
+ writeln(DT)
+ writeln(Dates)
+ writeln(DList)
+
+! Read date / time from strings
+ setparam("timefmt", "%Hh%0Mm")
+ setparam("datefmt", "%dm%0my%0y")
+ setparam("datetimefmt", "%dm%0my%0y, %Hh%0Mm")
+
+ T:=time(OCIreadstring("select * from Time2"))
+ D:=date(OCIreadstring("select * from Date2"))
+ DT:=datetime(OCIreadstring("select * from DateTime2"))
+
+ writeln(D, ", ", T)
+ writeln(DT)
+
+! Use Mosel's default format
+ setparam("timefmt", "")
+ setparam("datefmt", "")
+ setparam("datetimefmt", "")
+
+ writeln(D, ", ", T)
+ writeln(DT)
+
+ OCIexecute("delete from TimeOut")      ! Cleaning up previous results
+ OCIexecute("delete from DateOut")
+ OCIexecute("delete from DateTimeOut")
+
+! The following assumes that the output fields have types date/timestamp;
+! if they are just strings (as with 'datesinout.mos') we do not need the
+! conversion to Oracle format with TO_... :
+ OCIexecute("insert into TimeOut values (TO_TIMESTAMP(:1,'HH24:MI:SS'))", [T])
+ assert(getparam("OCIsuccess"))
+ OCIexecute("insert into DateOut values (TO_DATE(:1,'YYYY-MM-DD'))", [D])
+ assert(getparam("OCIsuccess"))
+ OCIexecute("insert into DateTimeOut values (TO_TIMESTAMP(:1,'YYYY-MM-DD\"T\"HH24:MI:SS'))", [DT])
+ assert(getparam("OCIsuccess"))
+
+ OCIlogoff
+
+end-model
+
+
+**************************************************
+
+
+! Creation of input and output tables in an Oracle database:
+
+
+ declarations
+  tsucc: array ({false,true}) of string
+ end-declarations
+
+ tsucc(false):="failed"; tsucc(true):="succeeded"
+
+ OCIexecute("create table Date1 (DateValue date)")
+ writeln(" - Create Date1 (",tsucc(getparam("OCIsuccess")),")")
+ OCIexecute("insert into Date1 (DateValue) values (:1)", ['20-Feb-2002'])
+ writeln(" - Insert values in Date1 (",tsucc(getparam("OCIsuccess")),",",
+        getparam("OCIrowcnt"),'/',getparam("OCIrowxfr")," rows)")
+
+ OCIexecute("create table Time1 (DateValue timestamp(3))")
+ writeln(" - Create Time1 (",tsucc(getparam("OCIsuccess")),")")
+ OCIexecute("insert into Time1 (DateValue) values (:1)", ['1-Jan-0 4:00:00pm'])
+ writeln(" - Insert values in Time1 (",tsucc(getparam("OCIsuccess")),",",
+        getparam("OCIrowcnt"),'/',getparam("OCIrowxfr")," rows)")
+ OCIexecute("delete from Time1")
+ writeln(" - Delete from Time1 (",tsucc(getparam("OCIsuccess")),")")
+
+ OCIexecute("create table DateTime1 (DateValue timestamp(3))")
+ writeln(" - Create DateTime1 (",tsucc(getparam("OCIsuccess")),")")
+ OCIexecute("insert into DateTime1 (DateValue) values (:1)", ['20-Feb-2002 4:00:00pm'])
+ writeln(" - Insert values in DateTime1 (",tsucc(getparam("OCIsuccess")),",",
+        getparam("OCIrowcnt"),'/',getparam("OCIrowxfr")," rows)")
+
+ OCIexecute("create table Dates (DateValue date)")
+ writeln(" - Create Dates (",tsucc(getparam("OCIsuccess")),")")
+ OCIexecute("insert into Dates (DateValue) values (:1)", ['21-Jan-1999','22-Feb-2000','23-Mar-2002','24-Apr-2005','25-May-2010'])
+ writeln(" - Insert values in Dates (",tsucc(getparam("OCIsuccess")),",",
+        getparam("OCIrowcnt"),'/',getparam("OCIrowxfr")," rows)")
+
+ OCIexecute("create table Date2 (DateValue varchar(10))")
+ writeln(" - Create Date2 (",tsucc(getparam("OCIsuccess")),")")
+ OCIexecute("insert into Date2 (DateValue) values (:1)", ['20m02y2002'])
+ writeln(" - Insert values in Date2 (",tsucc(getparam("OCIsuccess")),",",
+        getparam("OCIrowcnt"),'/',getparam("OCIrowxfr")," rows)")
+
+ OCIexecute("create table Time2 (DateValue varchar(12))")
+ writeln(" - Create Time2 (",tsucc(getparam("OCIsuccess")),")")
+ OCIexecute("insert into Time2 (DateValue) values (:1)", ['16h00m'])
+ writeln(" - Insert values in Time2 (",tsucc(getparam("OCIsuccess")),",",
+        getparam("OCIrowcnt"),'/',getparam("OCIrowxfr")," rows)")
+
+ OCIexecute("create table DateTime2 (DateValue varchar(25))")
+ writeln(" - Create DateTime2 (",tsucc(getparam("OCIsuccess")),")")
+ OCIexecute("insert into DateTime2 (DateValue) values (:1)", ['20m02y2002, 16h00m'])
+ writeln(" - Insert values in DateTime2 (",tsucc(getparam("OCIsuccess")),",",
+        getparam("OCIrowcnt"),'/',getparam("OCIrowxfr")," rows)")
+
+ OCIexecute("create table DateOut (DateValue date)")
+ writeln(" - Create DateOut (",tsucc(getparam("OCIsuccess")),")")
+
+ OCIexecute("create table TimeOut (DateValue timestamp(3))")
+ writeln(" - Create TimeOut (",tsucc(getparam("OCIsuccess")),")")
+
+ OCIexecute("create table DateTimeOut (DateValue timestamp(3))")
+ writeln(" - Create DateTimeOut (",tsucc(getparam("OCIsuccess")),")")

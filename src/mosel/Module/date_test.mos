@@ -1,0 +1,41 @@
+(!******************************************************
+   Mosel NI Examples
+   =================
+
+   File date_test.mos
+   ``````````````````
+   Using module date
+
+   (c) 2008 Fair Isaac Corporation
+       author: Y. Colombani, 2002
+*******************************************************!)
+
+model "Test date module"
+
+ uses "date"
+
+ declarations
+  today,d:date 
+ end-declarations
+
+!setparam("date_style",DATE_US)     ! Uncomment to use the US date style
+
+! Initialize dates
+ today:=getdatenow
+ d:=date("1/1/2000")                ! Or: "1/1/2000 00:00:00"
+ writeln("today is: ",today)
+ writeln("d is    : ",d)
+
+! Comparison of dates 
+ if d=today then
+  writeln("d and today are the same")
+ elif d<today then
+  writeln("d is before today")
+ else
+  writeln("d is after today")
+ end-if
+
+! Access some detailed info
+ writeln("The current year is ",today.year)
+
+end-model

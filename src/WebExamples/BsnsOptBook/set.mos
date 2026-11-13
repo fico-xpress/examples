@@ -1,0 +1,60 @@
+(!*********************************************************************
+   Mosel Example Problems
+   ======================
+
+   file set.mos
+   ````````````
+   Set covering problem 
+   
+     Example solution to exercise 7.6 in section 7.10 of
+     J. Kallrath: Business Optimization Using Mathematical Programming -
+     An Introduction with Case Studies and Solutions in Various Algebraic 
+     Modeling Languages. 2nd edition, Springer Nature, Cham, 2021 
+
+   author: S. Heipcke, June 2018
+
+   (c) Copyright 2020 Fair Isaac Corporation
+  
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+*********************************************************************!)
+
+model 'sets'
+  uses "mmxprs"
+
+  declarations
+    RI=1..20                   ! Set of items
+    d: array(RI) of mpvar      ! 1 if an item is used, 0 otherwise
+  end-declarations
+
+ ! Objective: minimise cost for selected items
+  Cost:= sum(i in 1..10) 100*d(2*i) + sum(i in 1..10) 50*d(2*i-1)
+
+  C1:= d(1) + d(8) + d(11) + d(17) >= 1          ! Satisfying container 1
+  C2:= d(2) + d(8) + d(9) + d(11) + d(12) >= 1   ! Satisfying container 2
+  C3:= d(3) + d(4) + d(5) + d(6) + d(15) >= 1    ! Satisfying container 3
+  C4:= d(7) + d(8) + d(12) + d(14) + d(16) >= 1  ! Satisfying container 4
+  C5:= d(6) + d(9) + d(12) + d(15) + d(20) >= 1  ! Satisfying container 5
+  C6:= d(10) + d(13) + d(18) + d(19) >= 1        ! Satisfying container 6
+  C7:= d(6) + d(8) + d(12) + d(15) >= 1          ! Satisfying container 7
+  C8:= d(12) + d(14) + d(16) + d(18) >= 1        ! Satisfying container 8
+  C9:= d(1) + d(5) + d(10) + d(20) >= 1          ! Satisfying container 9
+  C10:= d(7) + d(13) + d(17) + d(19) >= 1        ! Satisfying container 10
+
+  forall(i in RI) d(i) is_binary
+
+ ! Solve the problem
+  minimise(Cost)
+  writeln("Solution: Cost=", getobjval)
+  writeln("  Selected items: ", union(i in RI | d(i).sol=1) {i})
+end-model

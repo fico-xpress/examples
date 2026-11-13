@@ -1,0 +1,49 @@
+(!******************************************
+   Mosel Example Problems
+   ======================
+
+   File versionedpkg.mos
+   `````````````````````
+   Example package with versioning and
+   deprecation annotations.
+   -- Third version --
+
+   Compile into versionpkg.bim
+ 
+   Then run versionpkg_test.mos (with or without recompilation)
+
+   (c) 2023 Fair Isaac Corporation
+       author: S. Heipcke, Jun. 2023
+*******************************************!)
+package versionedpkg
+ version 3.1
+!@mc.version.compatible 1.0.0
+!@mc.version.atleast 3.0
+
+!@mc.version.since 2.0
+ public procedure myproc2
+  writeln("Output from proc2")
+ end-procedure
+
+!@mc.version.since 3.0.2
+ public procedure myproc3
+  writeln("Output from proc3")
+ end-procedure
+
+!@mc.version.deprecated 3.0.1
+!@mc.version.since 2.0
+ public procedure myoldproc
+  writeln("This subroutine is deprecated with v3.0.1")
+ end-procedure
+
+! Unversioned subroutine (defaults to current package version)
+ public procedure mynewproc
+  writeln("Output from newproc")
+ end-procedure
+
+!@mc.version.since 1.0.0
+ public procedure showpkgver
+   writeln("Using version ", getparam("model_version"), " of package 'versionedpkg'.")
+ end-procedure
+ 
+end-package

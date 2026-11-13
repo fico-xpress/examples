@@ -1,0 +1,75 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file c5fiber.mos
+   ````````````````
+   Planning the production of fiberglass
+ 
+   The next 6 weeks of fiberglass production needs to be
+   planned. Capacity is limited and varies by week. Production
+   and storage costs also change over time. Determine
+   the plan that minimizes total cost of production and
+   storage while meeting demand for the time period.
+
+   This problem introduces a transshipment flow formulation.
+   The demand and capacity data are represented as node weights
+   and are combined into a single array 'WEIGHT'. 'ARC' defines
+   the cost of flow between nodes. Note that since the array of
+   variables 'flow' is dynamic, it must be created after the data is 
+   read and only for node combinations where 'ARC' exists. Two new
+   functions are introduced here: 'isodd' determines if an integer
+   value is odd or even and 'getlast' returns the last entry of a
+   range or a list.  
+
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Mar. 2002, rev. Nov. 2017
+*******************************************************!)
+
+model "C-5 Fiberglass"
+ uses "mmxprs"
+
+ declarations   
+  NODES: range                           ! Production and demand nodes
+                                         ! odd numbers: production capacities
+                                         ! even numbers: demands
+
+  ARC: dynamic array(NODES,NODES) of real   ! Cost of flow on arcs
+  WEIGHT: array(NODES) of integer           ! Node weights (capacities/demand)
+
+  flow: dynamic array(NODES,NODES) of mpvar ! Flow on arcs   
+ end-declarations
+
+ initializations from 'c5fiber.dat'
+  ARC WEIGHT
+ end-initializations
+
+ forall(m,n in NODES | exists(ARC(m,n))) create(flow(m,n))
+
+! Objective: total cost of production and storage
+ Cost:= sum(m,n in NODES | exists(ARC(m,n))) ARC(m,n)*flow(m,n)
+
+! Satisfy demands (flow balance constraints)
+ forall(n in NODES | isodd(n)=FALSE)
+  if(n>2, flow(n-2,n), 0) + flow(n-1,n) = 
+   if(n<getlast(NODES), flow(n,n+2), 0) + WEIGHT(n)
+
+! Production capacities
+ forall(n in NODES | isodd(n)) flow(n,n+1) <= WEIGHT(n)
+
+! Solve the problem
+ minimize(Cost)
+ 
+! Solution printing
+ writeln("Total cost: ",getobjval)
+ write("Week")
+ forall(t in 1..integer(getlast(NODES)/2)) write(strfmt(t,5))
+ write("\nProd.")
+ forall(n in NODES | isodd(n)) 
+  write(strfmt(getsol(sum(m in NODES) flow(n,m)),5))
+ write("\nStock")
+ forall(n in NODES | not(isodd(n))) 
+  write(strfmt(getsol(sum(m in NODES) flow(n,m)),5))
+ writeln
+
+end-model

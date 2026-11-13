@@ -1,0 +1,60 @@
+(!******************************************************
+   Mosel NI Examples
+   =================
+
+   File euro_test.mos
+   ``````````````````
+   Using module euro
+
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2002
+*******************************************************!)
+
+model "Test euro module"
+
+ uses "euro"
+
+ declarations
+  R=1..10
+  AmountF: array(R) of FrFranc
+  AmountD: array(R) of DMark
+  AmountE: array(R) of Euro
+  f: FrFranc
+  d: DMark
+  e: Euro
+ end-declarations
+
+! Initialization from file 
+ initializations from "euro_test.dat"
+  AmountF as 'F' 
+  AmountD as 'D' 
+  AmountE as 'E'
+ end-initializations
+
+ writeln(AmountF)
+ writeln(AmountD)
+ writeln(AmountE)
+
+! Aggregate sum operator 
+ writeln("Total: ", sum(i in R) (AmountF(i)+AmountD(i)+AmountE(i)) ) 
+
+! Type conversions
+ writeln(FrFranc(AmountD(1)),"  ", DMark(AmountF(1)), "  ", 
+         Euro(DMark(AmountF(1))))
+
+ f:= AmountD(1)
+ d:= AmountF(1)
+ e:= d
+
+ writeln(f, "  ", d, "  ", e)
+ 
+! Currency symbols as type constructors 
+ writeln(FF, "  ", DM, "  ", EUR)
+
+ f:= 10*FF
+ d:= 100*DM - 49.99*DM
+ e:= 10*DM + 20*FF + 5*EUR
+ 
+ writeln(f, "  ", d, "  ", e)
+ 
+end-model

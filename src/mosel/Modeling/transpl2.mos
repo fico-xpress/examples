@@ -1,0 +1,63 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file transpl2.mos
+   `````````````````
+   Transportation problem with piecewise linear cost
+   functions represented via 'pwlin' constraints.
+
+   -- Based on an example presented in Chapter 20 of the book
+      R.Fourer, D.M. Gay, B.W. Kerninghan: AMPL: A modeling  
+      language for mathematical programming --
+
+   (c) 2020 Fair Isaac Corporation
+       author: Y.Colombani, Jun. 2020
+*******************************************************!)
+model Transpl2
+ uses 'mmxnlp','mmxprs'
+ options keepassert
+
+ declarations
+   ORIG: set of string               ! Set of origins
+   DEST: set of string               ! Set of destinations
+   SUPPLY: array(ORIG) of real       ! Amounts available at origins
+   DEMAND: array(DEST) of real       ! Amounts required at destinations
+   RATE: array(ORIG,DEST) of list of real  ! List of unit cost rates
+   LIMIT: array(ORIG,DEST) of list of real ! Price change points for rates
+
+   trans: array(ORIG,DEST) of mpvar  ! Transported quantities
+ end-declarations
+
+ initialisations from 'Data/transpl2.dat'
+   SUPPLY
+   DEMAND
+   RATE
+   LIMIT
+ end-initialisations
+
+ ! Validation of input data
+ assert(sum(i in ORIG) SUPPLY(i) = sum (j in DEST) DEMAND(j))
+
+ ! Objective function: minimize total cost, formulated via piecewise linear
+ ! expressions using slopes (=cost rates)
+ Total_Cost:=
+   sum(i in ORIG, j in DEST) 
+      pwlin(trans(i,j),LIMIT(i,j),RATE(i,j))
+
+ ! Use all supplies
+ forall(i in ORIG)
+   Supply(i):= sum(j in DEST) trans(i,j) = SUPPLY(i)
+
+ ! Satisfy all demands
+ forall(j in DEST)
+   Demand(j):= sum(i in ORIG) trans(i,j) = DEMAND(j)
+
+ ! Solve the problem and report on solution
+ minimise(Total_Cost)
+ writeln("Total cost: ", Total_Cost.sol)
+ forall(i in ORIG,j in DEST | trans(i,j).sol>0)
+   writeln(i, "->", j, ":", trans(i,j).sol,
+           " cost:", getsol(pwlin(trans(i,j),LIMIT(i,j),RATE(i,j))))
+end-model
+

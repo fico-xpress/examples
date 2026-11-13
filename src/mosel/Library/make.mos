@@ -1,0 +1,48 @@
+!***************************************
+! Mosel examples makefile              *
+!                                      *
+! (c) 2025-2026 Fair Isaac Corporation *
+!     author: Y. Colombani             *
+!***************************************
+! to build everything:
+!  mosel make
+! only C examples:
+!  mosel make TODO=c
+! only Java examples:
+!  mosel make TODO=java
+! to cleanup
+!  mosel make TODO=clean
+
+model make
+ uses 'makeutil'
+ declarations
+  allc=['mmexlib.c','mmexset.c','mmexlst.c','mmexrec.c','mmexarr.c','mmexas.c',
+        'mmexprob.c','mmexcomp.c','mmexctc.c','mmdispdso.c','mmdispmod.c','mmexdrvs.c',
+        'mmexcbdrv.c','mmcover.c']
+  allj=['mmexlib.java','mmexset.java','mmexlst.java','mmexrec.java','mmexas.java',
+        'mmexprob.java','mmdispdso.java','mmdispmod.java','mmexdrvs.java',
+        'mmexcbdrv.java','mmcover.java']
+  allm=['Models/burglari.mos','Models/chess2.mos','Models/trans.mos','Models/blend2.mos',
+        'Models/toolong.mos']
+ end-declarations
+
+ addenvpath("CLASSPATH",SYS_DOWN,".",MOSELDIR+"/lib/xprm.jar")
+ LIBS('all')+=['xprm']
+ 
+ forall(m in allm)
+  mos2bim(m,"Models")
+ 
+ if TODO='c' or TODO='all' or runmode='clean' then
+  forall(s in allc)
+   c2exe(s,'.')
+ end-if
+
+ if TODO='java' or TODO='all' or runmode='clean' then
+  if runmode='clean' then
+   cleanfiles("*.class")
+  else
+   forall(s in allj)
+    runcmd("javac",s)
+  end-if
+ end-if
+end-model

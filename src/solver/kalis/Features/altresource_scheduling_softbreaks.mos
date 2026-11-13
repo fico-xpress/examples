@@ -1,0 +1,182 @@
+(!****************************************************************
+   CP example problems
+   ===================
+
+   file altresource_scheduling_softbreaks.mos
+   ``````````````````````````````````````````
+   Scheduling jobs with resource choice and variable durations.
+   Additional soft breaks (pre-emptive breaks) on resources taken into account.
+
+   (c) 2022 Artelys S.A. and Fair Isaac Corporation
+       Creation: Apr. 2022
+*****************************************************************!)
+model "Scheduling with alternative resources"
+ uses "kalis", "mmsystem"
+
+ setparam("KALIS_DEFAULT_LB", 0)
+ setparam("KALIS_VERBOSE_LEVEL", 1)
+
+ declarations
+  JOBS: set of string                       ! Index set of jobs
+  TEAMS: set of string                      ! Index set of teams (resources)
+  DURATIONS: array(JOBS, TEAMS) of integer  ! Durations of JOBS for each team
+  POSSIBLE_TEAMS: array(JOBS) of set of string  ! Possible team for each task
+  PRECEDENCES: list of list of string       ! Pairs of precedence constraints
+  SOFT_BREAKS: array(TEAMS) of list of list of integer  ! Start and end times 
+                                            ! of soft breaks for each team
+  ALLOW_START_IN_IDLE: boolean
+
+  job: array(JOBS) of cptask                ! Jobs
+  team: array(TEAMS) of cpresource          ! Teams
+
+  procedure print_and_check_solution
+  function get_actual_duration(j: string, t: string, start: integer): integer
+ end-declarations
+
+ ! **************** Data ****************
+ ! -1 duration indicates the team cannot process the task
+ DURATIONS::(["J0", "J1", "J2", "J3", "J4", "J5", "J6", "J7", "J8", "J9",
+     "J10", "J11", "J12", "J13", "J14", "J15", "J16", "J17"],
+    ["T1", "T2", "T3"])[
+       2, -1,  2,
+      16, 14, 15,
+       9, -1,  8,
+       8,  5,  8,
+      10, 11,  8,
+       6,  5,  7,
+      -1,  3,  4,
+       2,  1,  2,
+       9,  6,  9,
+       5,  7, -1,
+       3, -1,  1,
+       2,  3,  3,
+       1, -1,  1,
+       7,  4,  7,
+       4,  6,  4,
+       3,  2,  1,
+       9,  9, -1,
+       1,  2,  3]
+
+ forall(j in JOBS)
+  POSSIBLE_TEAMS(j) := union(t in TEAMS | DURATIONS(j, t) <> -1) {t}
+
+ PRECEDENCES:= [ ["J1", "J0"], ["J2", "J1"], ["J3", "J1"], ["J13", "J1"],
+       ["J4", "J2"], ["J5", "J3"], ["J6", "J3"], ["J8", "J3"],
+       ["J9", "J3"], ["J14", "J3"], ["J5", "J4"], ["J7", "J5"],
+       ["J8", "J5"], ["J10", "J5"], ["J12", "J6"], ["J15", "J7"],
+       ["J11", "J8"], ["J15", "J10"], ["J16", "J11"],
+       ["J14", "J13"], ["J15", "J13"], ["J17", "J16"]]
+
+ SOFT_BREAKS::(["T1", "T2", "T3"]) [[[10, 25], [42, 52]], [[15, 37]], 
+       [[25, 35], [45, 58]]]
+ ALLOW_START_IN_IDLE := true
+
+ ! **************** Problem formulation ****************
+ ! Define discrete resources
+ forall(t in TEAMS) do
+  set_resource_attributes(team(t), KALIS_DISCRETE_RESOURCE, 1)
+  team(t).name := t
+ end-do
+
+ ! Define possible teams for each task
+ forall(j in JOBS) do
+  job(j).name := j
+  requires(job(j), union(t in POSSIBLE_TEAMS(j)) {resusage(team(t), 1)})
+ end-do
+
+ ! Define associated duration for each task
+ forall(j in JOBS) do
+  ! Initialize duration bounds
+  setdomain(getduration(job(j)),
+      min(t in POSSIBLE_TEAMS(j)) DURATIONS(j, t),
+      max(t in POSSIBLE_TEAMS(j)) DURATIONS(j, t))
+
+  forall(t in POSSIBLE_TEAMS(j)) do
+   ! Set nominal duration
+   setduration(team(t), job(j), DURATIONS(j, t))
+   ! Update the actual duration with idle times
+   forall(b in SOFT_BREAKS(t))
+    update_duration_with_idle_times(team(t), job(j), b.first, b.last, 
+     ALLOW_START_IN_IDLE)
+  end-do
+ end-do
+ ! Display all constraints involving the duration of task 'J0'
+ cp_show_var_constraints(getduration(job("J0")))
+
+ ! Define precedences
+ forall(j in JOBS)
+  setpredecessors(job(j), union(p in PRECEDENCES | p(1) = j) {job(p.last)})
+
+ cp_close_schedule
+
+ ! **************** Solving ****************
+ ! Perform constraint propagation
+ if not cp_propagate then
+  writeln("Problem is infeasible")
+  exit(1)
+ end-if
+
+ setparam("KALIS_MAX_COMPUTATION_TIME", 10)
+
+ ! Solve the problem
+ if cp_schedule(getmakespan)=0 then
+  writeln("No solution")
+  exit(0)
+ end-if
+
+ ! Solution printing
+ print_and_check_solution
+
+! **************** Subroutine definitions ****************
+ procedure print_and_check_solution
+  declarations
+   starts: array(JOBS) of integer
+   ends: array(JOBS) of integer
+   operating_teams: array(JOBS) of string
+  end-declarations
+
+  ! Display the solution
+  writeln("makespan=", getsol(getmakespan))
+  forall(j in JOBS) do
+   starts(j) := getsol(getstart(job(j)))
+   ends(j) := getsol(getend(job(j)))
+   forall(t in POSSIBLE_TEAMS(j) | getsol(getassignment(job(j),team(t)))>0) do
+    operating_teams(j) := t
+    break
+   end-do
+   writeln(formattext("%3s: %2d - %2d team=%s", j, starts(j), ends(j),
+    operating_teams(j)))
+  end-do
+
+  ! Check solution
+  forall(j in JOBS | operating_teams(j) not in TEAMS)
+   writeln("Error: ", j, " doesn't have an operating team.")
+
+  forall(p in PRECEDENCES | starts(getfirst(p)) < ends(getlast(p)))
+   writeln("Error: Precedence constraint ", p, " is violated.")
+
+  forall(j in JOBS | starts(j) + get_actual_duration(j, operating_teams(j),
+                     starts(j)) <> ends(j))
+   writeln("Error: Job ", j, " has a wrong duration.")
+
+  if max(j in JOBS) ends(j) <> getsol(getmakespan) then
+   writeln("Error: Objective value is different from computed makespan value.")
+  end-if
+ end-procedure
+
+ ! **** Return the actual duration of a job given its team and start
+ function get_actual_duration(j: string, t: string, start: integer): integer
+  expected_end := start + DURATIONS(j, t)
+  forall(b in SOFT_BREAKS(t)) do
+    if start >= b.last then
+     next
+    end-if
+    ! Adding soft break duration
+    if expected_end > b.first then
+     expected_end += b.last - maxlist(start, b.first)
+    end-if
+  end-do
+  returned := expected_end - start
+ end-function
+
+end-model

@@ -1,0 +1,150 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file sequencing.mos
+   ```````````````````
+   TYPE:         Sequencing jobs on a machine (single machine scheduling)
+   DIFFICULTY:   3
+   FEATURES:     MIP problem with 3 different objectives; `procedure' 
+                 for solution printing, `if-then'
+   DESCRIPTION:  A set of tasks (or jobs) is to be processed on a single 
+                 machine. The execution of tasks is non-preemptive (that is, 
+                 an operation may not be interrupted before its completion). 
+                 For every task its release date, due date, and duration are 
+                 given. 
+                 The model shows how to minimize the total processing time, 
+                 the average processing time, and the total tardiness (that 
+                 is, the amount of time by which the completion of jobs 
+                 exceeds their respective due dates).     
+   FURTHER INFO: `Applications of optimization with Xpress-MP', 
+                 Section 7.4 `Sequencing jobs on a bottleneck machine'
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2002, rev. Sep. 2017
+*******************************************************!)
+
+model "Sequencing"
+ uses "mmxprs", "mmsvg", "mmsystem"
+
+ forward procedure print_sol(obj:integer)
+ forward procedure draw_sol(obj:integer)
+ 
+ declarations   
+  NJ = 7                          ! Number of jobs
+  JOBS=1..NJ
+
+  REL: array(JOBS) of integer     ! Release dates of jobs
+  DUR: array(JOBS) of integer     ! Durations of jobs
+  DUE: array(JOBS) of integer     ! Due dates of jobs
+
+  rank: array(JOBS,JOBS) of mpvar ! =1 if job j at position k
+  start: array(JOBS) of mpvar     ! Start time of job at position k
+  comp: array(JOBS) of mpvar      ! Completion time of job at position k
+  late: array(JOBS) of mpvar      ! Lateness of job at position k
+  finish: mpvar                   ! Completion time of the entire schedule
+ end-declarations
+ 
+ initializations from 'sequencing.dat'
+  DUR REL DUE
+ end-initializations
+
+! One job per position
+  forall(k in JOBS) OneJobPos(k):= sum(j in JOBS) rank(j,k) = 1
+
+! One position per job 
+  forall(j in JOBS) OnePosJob(j):= sum(k in JOBS) rank(j,k) = 1
+
+! Sequence of jobs
+  forall(k in 1..NJ-1)
+   Prec(k):= start(k+1) >= start(k) + sum(j in JOBS) DUR(j)*rank(j,k)
+
+! Start times
+  forall(k in JOBS) Start(k):= start(k) >= sum(j in JOBS) REL(j)*rank(j,k)
+
+! Completion times
+  forall(k in JOBS) 
+   Complete(k):= comp(k) = start(k) + sum(j in JOBS) DUR(j)*rank(j,k)
+
+! Lateness
+ forall(k in JOBS) 
+  Late(k):= late(k) >= comp(k) - sum(j in JOBS) DUE(j)*rank(j,k) 
+
+ forall(j,k in JOBS) rank(j,k) is_binary 
+
+ YFACT:=3
+ svgsetgraphviewbox(0,0,max(j in JOBS)DUE(j)+10, 12*YFACT)
+ svgsetgraphscale(10)
+
+! Objective function 1: minimize latest completion time
+ forall(k in JOBS) Finish(k):= finish >= comp(k)
+ minimize(finish)
+ print_sol(1)
+ draw_sol(1)
+
+! Objective function 2: minimize average completion time
+ minimize(sum(k in JOBS) comp(k))
+ print_sol(2)
+ draw_sol(2)
+
+! Objective function 3: minimize total tardiness
+ minimize(sum(k in JOBS) late(k))
+ print_sol(3)
+ draw_sol(3)
+
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+
+!-----------------------------------------------------------------
+
+! Solution printing
+ procedure print_sol(obj:integer)
+  writeln("Objective ", obj, ": ", getobjval,
+          if(obj>1, "  completion time: " + getsol(finish), "") ,
+          if(obj<>2, "  average: " + getsol(sum(k in JOBS) comp(k)), ""),
+          if(obj<>3, "  lateness: " + getsol(sum(k in JOBS) late(k)), ""))
+  write(strfmt("",6))
+  forall(k in JOBS) write(strfmt(getsol(sum(j in JOBS) j*rank(j,k)),4))
+  write("\n",strfmt("Rel",-6))
+  forall(k in JOBS) write(strfmt(getsol(sum(j in JOBS) REL(j)*rank(j,k)),4))
+  write("\n",strfmt("Dur",-6))
+  forall(k in JOBS) write(strfmt(getsol(sum(j in JOBS) DUR(j)*rank(j,k)),4))
+  write("\n",strfmt("Start",-6))
+  forall(k in JOBS) write(strfmt(getsol(start(k)),4))
+  write("\n",strfmt("End",-6))
+  forall(k in JOBS) write(strfmt(getsol(comp(k)),4))
+  write("\n",strfmt("Due",-6))
+  forall(k in JOBS) write(strfmt(getsol(sum(j in JOBS) DUE(j)*rank(j,k)),4))
+  if(obj=3) then
+   write("\n",strfmt("Late",-6))
+   forall(k in JOBS) write(strfmt(getsol(late(k)),4))
+  end-if
+  writeln
+ end-procedure
+
+!-----------------------------------------------------------------
+
+! Solution drawing
+ procedure draw_sol(obj:integer)
+   if obj>1 and svgclosing then exit(0); end-if
+!   svgerase("msg")
+
+   if obj=1 then svgaddgroup("msg", "Objective", SVG_BLACK); end-if
+   svgaddtext("msg",0,YFACT*3*obj-1,formattext("Objective %d: %g %s%s%s", obj, getobjval,
+          if(obj>1, "  completion time: " + getsol(finish), ""),
+          if(obj<>2, "  average: " + getsol(sum(k in JOBS) comp(k)), ""),
+          if(obj<>3, "  lateness: " + getsol(sum(k in JOBS) late(k)), "")))
+   forall(j in JOBS) do
+     pos:=round(getsol(sum(k in JOBS) k*rank(j,k)))
+     if obj=1 then 
+       svgaddgroup("J"+j, "Job "+j)
+       svgsetstyle(SVG_FILL,SVG_CURRENT)
+     end-if
+     svgaddrectangle("J"+j, start(pos).sol,YFACT*3*obj,comp(pos).sol-start(pos).sol, YFACT)
+   end-do
+
+   svgrefresh
+   if obj<3 then svgpause; end-if
+ end-procedure
+
+end-model 
+ 

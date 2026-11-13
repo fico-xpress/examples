@@ -1,0 +1,50 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file SparseGrouping_std.mos
+   ```````````````````````````
+   -- Multiple cases within a loop over a sparse array --
+
+   (c) 2019-2026 Fair Isaac Corporation
+       author: S.Heipcke
+*******************************************************!)
+model "Sparse Grouping"
+
+    !S:IMPORT
+    uses "mmsheet"
+
+    parameters
+        DATA_FILE_PREFIX = "00"
+    end-parameters
+    writeln("#E:IMPORT")
+
+    writeln("#S:READ")
+    declarations
+        ISet: range
+        C: dynamic array(ISet,ISet,ISet,ISet) of real
+        G: dynamic array(ISet,ISet,ISet,ISet) of integer
+    end-declarations
+
+    initializations from "mmsheet.csv:skiph;" + DATA_FILE_PREFIX + "_H_SparseGrouping_C.csv"
+        C as "[]"
+    end-initializations
+    writeln("#E:READ")
+
+    writeln("#S:PROC")
+    forall(i,j,k,l in ISet | exists(C(i,j,k,l)))
+        if C(i,j,k,l) < 100 then
+            G(i,j,k,l) := 1
+        elif C(i,j,k,l) < 1000 then
+            G(i,j,k,l) := 2
+        else
+            G(i,j,k,l) := 3
+        end-if
+    writeln("#E:PROC")
+
+    writeln("#S:TEST")
+    forall(i,j,k,l in ISet | exists(G(i,j,k,l)) ) do
+        writeln(i, " ", j, " ", k, " ", l, " ", G(i,j,k,l))
+    end-do
+    writeln("#E:TEST")
+end-model

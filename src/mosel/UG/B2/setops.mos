@@ -1,0 +1,30 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file setops.mos
+   ```````````````
+   Performing set operations.
+ 
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2001
+*******************************************************!)
+
+model "Set example"
+
+ declarations 
+  Cities={"rome", "bristol", "london", "paris", "liverpool"}
+  Ports={"plymouth", "bristol", "glasgow", "london", "calais", "liverpool"}
+  Capitals={"rome", "london", "paris", "madrid", "berlin"}
+ end-declarations
+
+ Places:= Cities+Ports+Capitals        ! Create the union of all 3 sets 
+ In_all_three:= Cities*Ports*Capitals  ! Create the intersection of all 3 sets 
+ Cities_not_cap:= Cities-Capitals      ! Create the set of all cities that
+                                       ! are not capitals
+
+ writeln("Union of all places: ", Places)
+ writeln("Intersection of all three: ", In_all_three)
+ writeln("Cities that are not capitals: ", Cities_not_cap)
+
+end-model

@@ -1,0 +1,49 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file threedimarr2.mos
+   `````````````````````
+   Reading 3-dimensional arrays.
+   - Using SQL commands -
+       
+   (c) 2014 Fair Isaac Corporation
+       author: S. Heipcke, Jan. 2014, rev. Aug. 2023
+*******************************************************!)
+
+model "ThreeDimArr (SQL)"
+ uses "mmodbc", "mmsystem"
+
+ parameters
+!  CSTR = "threedim.xls"      ! Use Excel spreadsheet `threedim.xls'
+  CSTR = "threedim.mdb"       ! Use Access database `threedim.mdb' 
+!  CSTR = 'threedim.sqlite'   ! Use SQLite database `threedim.sqlite' directly
+                              ! Use SQLite database `threedim.sqlite' via ODBC
+!  CSTR = 'DSN=sqlite;DATABASE=threedim.sqlite'
+ end-parameters
+
+ declarations
+  I: range
+  J: set of string
+  K = 1..5	              ! The last index set must be defined in the model
+  A: dynamic array(I,J,K) of real
+  Idx3: text
+ end-declarations
+
+ SQLconnect(CSTR)
+ if not getparam("SQLsuccess"): setioerr("Database connection failed")
+
+ setparam("SQLndxcol", false) ! Partially indexed data
+ 
+ forall(k in K) Idx3+= (", Index3_"+k )
+ SQLexecute("select Index1, Index2" + Idx3 + " from Tab_23", A)
+ SQLdisconnect
+
+ writeln("A: ")
+ forall(i in I, j in J, k in K | exists(A(i,j,k)))
+  writeln("A(", i, ",", j, ",", k, "): ", A(i,j,k))
+
+  
+end-model
+
+

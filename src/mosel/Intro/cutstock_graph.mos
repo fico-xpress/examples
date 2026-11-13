@@ -1,0 +1,270 @@
+(!*******************************************************
+   Mosel Example Problems
+   ======================
+
+   file cutstock.mos
+   `````````````````
+   TYPE:         Cutting stock problem
+   DIFFICULTY:   5
+   FEATURES:     MIP problem solved by column generation, 
+                 working with multiple problems, using 'sethidden',
+                 setting Optimizer and Mosel control parameters
+   DESCRIPTION:  A paper mill produces rolls of paper of a fixed width that 
+                 are subsequently cut into smaller rolls according to the 
+                 customer orders. The rolls can be cut into NWIDTHS different 
+                 sizes. The orders are given as demands for each width. 
+                 The objective of the paper mill is to satisfy the demand 
+                 with the smallest possible number of paper rolls in order 
+                 to minimize the losses. 
+                 Starting with just a basic set of cutting patterns a 
+                 column generation heuristic is employed to find more 
+                 profitable cutting patterns. This heuristic solves a 
+                 second optimization problem (a knapsack problem) that is
+                 independent of the main, cutting stock problem.     
+   FURTHER INFO: "Mosel User Guide", Section 11.2 "Column generation";
+                 Xpress Whitepaper "Embedding Optimization Algorithms".
+                 Similar problem:
+                 `Applications of optimization with Xpress-MP', 
+                 Section 9.6 `Cutting steel bars for desk legs'
+       
+   (c) 2008 Fair Isaac Corporation
+       authors: Bob Daniel, S. Heipcke, J. Tebboth, 2001, rev. Nov. 2017
+  *******************************************************!)
+
+model "Cutting stock"
+ uses "mmxprs", "mmsvg"
+
+ parameters
+  DATAFILE="cutstock.dat"
+  NWIDTHS = 15
+ end-parameters
+
+ forward procedure column_gen
+ forward function knapsack(C:array(range) of real, 
+                           A:array(range) of real, 
+                           B:real, 
+                           xbest:array(range) of integer,
+                           pass: integer): real
+ forward procedure print_pat(dj:real, vx: array(range) of integer)
+ forward function draw_pat(dj:real, vx: array(range) of integer, iter:integer):boolean
+
+(!
+The column generation algorithm requires the solution of a knapsack problem.
+We define the constraints of the knapsack problem globally because Mosel 
+does not delete them at the end of a function (due to its principle of incremental model formulation).
+!)
+
+ declarations
+  WIDTHS = 1..NWIDTHS                  ! Range of widths
+  RP: range                            ! Range of cutting patterns
+  MAXWIDTH: integer                    ! Maximum roll width
+  EPS = 0.001                          ! Zero tolerance
+
+  WIDTH: array(WIDTHS) of real         ! Possible widths
+  DEMAND: array(WIDTHS) of integer     ! Demand per width
+  PATTERN: array(WIDTHS, RP) of integer  ! (Basic) cutting patterns
+  PGRAPH: array(WIDTHS) of string      ! Graph for width
+
+  use: dynamic array(RP) of mpvar      ! Rolls per pattern
+  soluse: dynamic array(RP) of real    ! Solution values for variables `use' 
+  Dem: array(WIDTHS) of linctr         ! Demand constraints
+  MinRolls: linctr                     ! Objective function
+ 
+  KnapCtr, KnapObj: linctr             ! Knapsack constraint+objective
+  x: array(WIDTHS) of mpvar            ! Knapsack variables
+ end-declarations
+
+ initializations from DATAFILE
+  WIDTH DEMAND MAXWIDTH
+ end-initializations
+                                       ! Make basic patterns
+ forall(j in WIDTHS) PATTERN(j,j) := floor(MAXWIDTH/WIDTH(j))
+
+ forall(j in WIDTHS) do
+  create(use(j))                       ! Create NWIDTHS variables `use'
+  use(j) is_integer                    ! Variables are integer and bounded
+  use(j) <= integer(ceil(DEMAND(j)/PATTERN(j,j)))
+ end-do
+
+! Objective: minimize the number of rolls
+ MinRolls:= sum(j in WIDTHS) use(j)     
+
+! Satisfy all demands
+ forall(i in WIDTHS) 
+  Dem(i):= sum(j in WIDTHS) PATTERN(i,j) * use(j) >= DEMAND(i)  
+
+ column_gen                            ! Column generation at top node
+
+ minimize(MinRolls)                    ! Compute the best integer solution
+                                       ! for the current problem (including
+                                       ! the new columns) 
+ writeln("Best integer solution: ", getobjval, " rolls")
+ write("  Rolls per pattern: ")
+ forall(i in RP) write(getsol(use(i)),", ")
+ writeln
+
+ svgerase("msg")
+ forall(i in RP) svgaddtext("msg", MAXWIDTH+15, 2*i, text(getsol(use(i))))
+ svgaddtext("msg", MAXWIDTH+10, 0, "Total: "+getobjval)
+ svgrefresh
+ svgsave("cutstock.svg")
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+ 
+!************************************************************************
+!  Column generation loop at the top node:                               
+!    solve the LP and save the basis                                     
+!    get the solution values                                             
+!    generate new column(s) (=cutting pattern)                           
+!    load the modified problem and load the saved basis                  
+!************************************************************************
+ procedure column_gen
+
+  declarations
+   dualdem: array(WIDTHS) of real 
+   xbest: array(WIDTHS) of integer
+   ubnd, zbest, objval: real
+   bas: basis
+  end-declarations
+
+  setparam("zerotol", EPS)             ! Set Mosel comparison tolerance     
+  setparam("XPRS_PRESOLVE", 0)         ! Switch presolve off
+  npatt:=NWIDTHS
+  npass:=1
+  svgrefresh
+  forall(j in WIDTHS) do
+    PGRAPH(j):="W"+j
+    svgaddgroup(PGRAPH(j), "Width "+WIDTH(j))
+    svgsetstyle(SVG_FILL,SVG_CURRENT)
+    svgsetstyle(SVG_STROKE,SVG_GREY)
+    forall(i in 1..PATTERN(j,j))
+      svgaddrectangle(10+(i-1)*WIDTH(j),j*2,WIDTH(j),1)
+  end-do
+  svgaddgroup("msg", "", SVG_BLACK)
+  svgsetgraphviewbox(5,-1,MAXWIDTH+30,100)
+  svgsetgraphscale(5)
+
+  while(true) do
+    minimize(XPRS_LIN, MinRolls)       ! Solve the LP 
+
+    savebasis(bas)                     ! Save the current basis 
+    objval:= getobjval                 ! Get the objective value      
+
+                                       ! Get the solution values 
+    forall(j in 1..npatt)  soluse(j):=getsol(use(j))
+    forall(i in WIDTHS)  dualdem(i):=getdual(Dem(i))
+                                       ! Solve a knapsack problem
+    zbest:= knapsack(dualdem, WIDTH, MAXWIDTH, xbest, npass) - 1.0
+
+    write("Pass ", npass, ": ")   
+    if zbest = 0 then
+      writeln("no profitable column found.\n")
+      break
+    else 
+      print_pat(zbest, xbest)          ! Print the new pattern
+      npatt+=1
+      if not draw_pat(zbest, xbest, npatt) then break; end-if
+      create(use(npatt))               ! Create a new var. for this pattern
+      use(npatt) is_integer
+
+      MinRolls+= use(npatt)            ! Add new var. to the objective
+      ubnd:=0
+      forall(i in WIDTHS)                 
+        if xbest(i) > 0 then
+         Dem(i)+= xbest(i)*use(npatt)  ! Add new var. to demand constr.s
+         ubnd:= maxlist(ubnd, ceil(DEMAND(i)/xbest(i) )) 
+        end-if
+      use(npatt) <= ubnd               ! Set upper bound on the new var.
+
+      loadprob(MinRolls)               ! Reload the problem 
+      loadbasis(bas)                   ! Load the saved basis 
+    end-if
+    npass+=1
+  end-do
+
+  writeln("Solution after column generation: ", objval, " rolls, ",
+          getsize(RP), " patterns")
+  write("   Rolls per pattern: ")
+  forall(i in RP) write(soluse(i),", ")
+  writeln   
+ 
+  setparam("XPRS_PRESOLVE", 1)         ! Switch presolve on
+
+ end-procedure
+
+!************************************************************************
+!  Solve the integer knapsack problem                              
+!    z = max{cx : ax<=b, x in Z^N}                                     
+!  with b=MAXWIDTH, N=NWIDTHS                                             
+! 
+! We reset the knapsack constraints to 0 at the end of this function
+! so that they do not unnecessarily increase the size of the main 
+! problem. The same is true in the other sense: hiding the demand 
+! constraints while solving the knapsack problem makes life easier
+! for the optimizer, but is not essential for getting the correct 
+! solution.
+!************************************************************************
+ function knapsack(C:array(range) of real,
+                   A:array(range) of real, 
+                   B:real, 
+                   xbest:array(range) of integer,
+                   pass: integer):real
+
+! Hide the demand constraints
+  forall(j in WIDTHS) sethidden(Dem(j), true)
+
+! Define the knapsack problem
+  KnapCtr := sum(j in WIDTHS) A(j)*x(j) <= B
+  KnapObj := sum(j in WIDTHS) C(j)*x(j)
+
+! Integrality condition
+  if pass=1 then
+   forall(j in WIDTHS) x(j) is_integer
+  end-if
+
+  maximize(KnapObj)
+  returned:=getobjval
+  forall(j in WIDTHS) xbest(j):=round(getsol(x(j)))
+
+! Reset knapsack constraint and objective, unhide demand constraints 
+  KnapCtr := 0
+  KnapObj := 0  
+  forall(j in WIDTHS) sethidden(Dem(j), false)
+
+ end-function
+
+!************************************************************************
+
+ procedure print_pat(dj:real, vx: array(range) of integer)
+  declarations 
+   dw: real
+  end-declarations
+  
+  writeln("New pattern found with marginal cost ", dj)
+  write("   Widths distribution: ")
+  dw:=0
+  forall(i in WIDTHS) do 
+    write(WIDTH(i), ":", vx(i), "  ")
+    dw += WIDTH(i)*vx(i)
+  end-do 
+  writeln("Total width: ", dw)
+ end-procedure
+
+!************************************************************************
+
+ function draw_pat(dj:real, vx: array(range) of integer, iter:integer):boolean
+  if svgclosing then returned:=false; return; end-if
+  svgerase("msg")
+  returned:=true
+  cum:=10.0
+  forall(i in WIDTHS, j in 1..vx(i)) do
+    svgaddrectangle(PGRAPH(i), cum, 2*iter, WIDTH(i), 1)
+    cum+=WIDTH(i)
+  end-do  
+  forall(j in 1..iter) svgaddtext("msg", MAXWIDTH+15, 2*j, text(soluse(j)))
+  svgaddtext("msg", MAXWIDTH+10, 0, "Total: "+dj)
+
+  svgrefresh
+  svgpause
+ end-function
+
+end-model

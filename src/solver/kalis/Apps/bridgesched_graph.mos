@@ -1,0 +1,175 @@
+(!****************************************************************
+
+   CP example problems
+   ===================
+   
+   file bridgescheduling.mos
+   `````````````````````````
+   Project scheduling problem with disjunctive resource constraints. 
+   - Graphical solution representation -        
+ 
+   We wish to schedule a set of tasks for the construction of a     
+   bridge. Each task uses a particular resource (excavator,        
+   pileDriver, ...) and can only start after the completion of its 
+   predecessor(s). A resource can only be used by one task at a    
+   time (disjunctive resources).                                   
+   The aim is to minimize the total duration of the schedule (PE).    
+
+   *** This model cannot be run with a Community Licence 
+       for the provided data instance ***
+
+   Copyright(C) 2008 Artelys S.A. and Fair Isaac Corporation
+                     Creation: 2005, rev. Apr. 2022
+*****************************************************************!)
+
+model "Bridge Scheduling (CP)"
+ uses "kalis", "mmsvg"
+ 
+ forward procedure show_solution
+
+ declarations       
+  RESOURCES: set of string            ! Set of resources
+  TASKS: set of string                ! Set of tasks   
+  DUR  : array(TASKS) of integer      ! Durations of tasks      
+  USE  : array(TASKS) of string       ! Resource used by a task
+  NPREC: array(TASKS) of integer      ! Number of predecessors of a task
+  PRECS: array(TASKS,range) of string ! Predecessors of each task
+
+  SetEE, SetES, SetSS, SetSE: range   ! Index sets of distance data
+  DISTEE: array(SetEE,1..2) of string ! End-to-end max. distance
+  DISTES: array(SetES,1..2) of string ! End-to-start max. distance
+  DISTSS: array(SetSS,1..2) of string ! Start-to-start min. distance
+  DISTSE: array(SetSE,1..2) of string ! Start-to-end min. distance
+ end-declarations
+
+ initializations from "Data/bridgescheduling.dat"
+  [DUR, NPREC, USE] as "TASKDATA"
+  PRECS
+  DISTEE DISTES DISTSS DISTSE
+ end-initializations
+
+ forall(t in TASKS | USE(t)<>"") RESOURCES += {USE(t)}
+
+ setparam("KALIS_DEFAULT_LB", 0)
+ setparam("KALIS_DEFAULT_UB", sum(t in TASKS) DUR(t))
+  
+ declarations       
+  start: array(TASKS) of cpvar              ! Start times of tasks 
+  Disj,Disj_crane,Disj_brick: set of cpctr  ! Disjunction constraints   
+  Strategy: array(range) of cpbranching     ! Branching strategy
+ end-declarations
+
+!******************************************************************
+! **** Create disjunctions between tasks using the same resource ****
+ procedure disjunctive_constraints(r:string)
+  declarations
+   usedby: set of cpvar
+   durby : array(cpvar) of integer
+  end-declarations
+
+  nbr := 0     
+  forall (t in TASKS | USE(t) = r) do
+   usedby += {start(t)}
+   durby(start(t)) := DUR(t)
+   nbr += 1
+  end-do  
+  if (r="crane") then
+   disjunctive(usedby,durby,Disj_crane,0)
+  elif (r="bricklaying") then 
+   disjunctive(usedby,durby,Disj_brick,0)    
+  else   
+   disjunctive(usedby,durby,Disj,0)
+  end-if      
+ end-procedure
+
+
+! **** Distance constraints between starts or ends of certain task pairs ****
+ procedure distance_constraints
+  forall(i in SetEE)                    ! End-to-end max. distance
+   start(DISTEE(i,1)) + DUR(DISTEE(i,1)) + 4 >= start(DISTEE(i,2)) +
+                                                DUR(DISTEE(i,2))
+  forall(i in SetES)                    ! End-to-start max. distance
+   start(DISTES(i,1)) + DUR(DISTES(i,1)) + 3 >= start(DISTES(i,2)) 
+  forall(i in SetSS)                    ! Start-to-start min. distance
+   start(DISTSS(i,1)) + 6 <= start(DISTSS(i,2))
+  forall(i in SetSE)                    ! Start-to-end min. distance
+   start(DISTSE(i,1)) + DUR(DISTSE(i,1)) - 2 <= start(DISTSE(i,2))
+ end-procedure 
+
+!******************************************************************
+! **** Model definition *****
+ setparam("kalis_auto_propagate", false)  ! Do not post constraints at definition
+
+ forall(t in TASKS) setname(start(t),t) ! Set variable names        
+
+! Precedences between a task and its predecessors 
+ forall(t in TASKS, i in 1..NPREC(t))
+  start(PRECS(t,i)) + DUR(PRECS(t,i)) <= start(t)
+
+! Disjunctions between tasks using the same resource
+ forall(r in RESOURCES) disjunctive_constraints(r)
+  
+! Define min/max distance between certain starts and ends of task pairs
+ distance_constraints
+
+! Post all constraints
+ if not cp_propagate then
+  writeln("Problem is infeasible")
+  exit(1)
+ end-if 
+
+! Define the branching strategy: branch first on bottleneck resources  
+ Strategy(1) := settle_disjunction(Disj_crane)
+ Strategy(2) := settle_disjunction(Disj_brick)
+ Strategy(3) := split_domain(KALIS_LARGEST_MAX, KALIS_MIN_TO_MAX) 
+ cp_set_branching(Strategy) 
+
+ setparam("KALIS_MAX_COMPUTATION_TIME", 5)
+
+ if not cp_minimize(start("PE")) then
+  writeln("Problem is infeasible")
+  exit(1)
+ elif getparam("KALIS_SEARCH_LIMIT")=KALIS_SLIM_BY_TIME then
+  writeln("Search time limit reached")
+ else 
+  writeln("Optimal solution found")
+ end-if
+ 
+ ct:= 0 
+ forall(t in TASKS) do
+  write(t, "=", getsol(start(t)), if(ct mod 10=9, ",\n", ", "))
+  ct+=1
+ end-do
+ writeln("\nMakespan: ", getsol(start("PE")))
+ 
+ cp_show_stats
+  
+ show_solution
+
+!******************************************************************
+! **** Graphical representation of solutions ****
+ procedure show_solution    
+  ind:= 1
+  forall(r in RESOURCES) do
+   svgaddgroup(r, r)
+   svgsetstyle(SVG_FILL,SVG_CURRENT)
+   svgsetstyle(SVG_STROKE,SVG_GRAY)
+   forall(ind as counter, t in TASKS | USE(t) = r) do      
+    svgaddtext((2*getsol(start(t))+DUR(t))/2 -0.5 , ind+1.5, t) 
+    svgaddrectangle(getsol(start(t)), ind, if(DUR(t)=0,0.1,DUR(t)), 0.9)
+   end-do  
+  end-do
+
+  svgsetgraphscale(5)
+  svgsetgraphviewbox(0,0,getsol(start("PE"))+10,ind+5)
+  svgsetgraphlabels("Time", "Resources")
+
+  svgsave("bridge.svg")
+  svgrefresh
+  svgwaitclose("Close browser window to terminate model execution.", 1)
+ end-procedure
+ 
+end-model 
+
+
+  

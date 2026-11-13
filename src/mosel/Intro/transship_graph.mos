@@ -1,0 +1,112 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file transship.mos
+   ``````````````````
+   TYPE:         Production planning with time-dependent production cost
+                 (transshipment flow formulation)
+   DIFFICULTY:   3
+   FEATURES:     MIP problem, representation of multi-period production 
+                 as flow; encoding of arcs, `exists', `create', `isodd', 
+                 `getlast', inline `if'
+   DESCRIPTION:  A company wishes to plan the production of a product
+                 for the next six weeks. The weekly demand is known for 
+                 the entire planning period. The production capacity and 
+                 the production and storage costs take different values 
+                 depending on the time period. Which is the production 
+                 plan that minimizes the total cost of production and 
+                 storage?
+   FURTHER INFO: `Applications of optimization with Xpress-MP', 
+                 Section 8.5 `Planning the production of fiberglass'   
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2002, rev. Nov. 2017
+*******************************************************!)
+
+model "Transshipment"
+ uses "mmxprs", "mmsvg"
+
+ declarations   
+  NODES: range                           ! Production and demand nodes
+                                         ! odd numbers: production capacities
+                                         ! even numbers: demands
+
+  ARC: dynamic array(NODES,NODES) of real  ! Cost of flow on arcs
+  WEIGHT: array(NODES) of integer          ! Node weights (capacities/demand)
+
+  flow: dynamic array(NODES,NODES) of mpvar ! Flow on arcs   
+ end-declarations
+
+ initializations from 'transship.dat'
+  ARC WEIGHT
+ end-initializations
+
+ forall(m,n in NODES | exists(ARC(m,n))) create(flow(m,n))
+
+! Objective: total cost of production and storage
+ Cost:= sum(m,n in NODES | exists(ARC(m,n))) ARC(m,n)*flow(m,n)
+
+! Satisfy demands (flow balance constraints)
+ forall(n in NODES | isodd(n)=FALSE)
+  Balance(n):=
+   if(n>2, flow(n-2,n), 0) + flow(n-1,n) = 
+    if(n<getlast(NODES), flow(n,n+2), 0) + WEIGHT(n)
+
+! Production capacities
+ forall(n in NODES | isodd(n)) flow(n,n+1) <= WEIGHT(n)
+
+! Solve the problem
+ minimize(Cost)
+ 
+! Solution printing
+ writeln("Total cost: ",getobjval)
+ write("Week")
+ forall(t in 1..integer(getlast(NODES)/2)) write(strfmt(t,5))
+ write("\nProd.")
+ forall(n in NODES | isodd(n)) 
+  write(strfmt(getsol(sum(m in NODES) flow(n,m)),5))
+ write("\nStock")
+ forall(n in NODES | not isodd(n)) 
+  write(strfmt(getsol(sum(m in NODES) flow(n,m)),5))
+ writeln
+
+! Solution drawing
+ svgsetgraphviewbox(0,0,integer(getlast(NODES))+1,6)
+ svgsetgraphscale(20)
+ svgsetgraphlabels("Time","")
+
+ svgaddgroup("Prod", "Production", SVG_GREEN) 
+ forall(t in 1..integer(getlast(NODES)/2)) 
+  if(getsol(sum(m in NODES) flow(t*2-1,m))>0) then
+   svgaddarrow(t*2, 4, t*2, 1)
+   svgaddtext(t*2, 2.5, 
+                text(getsol(sum(m in NODES) flow(t*2-1,m))))
+  end-if
+  
+ svgaddgroup("Store", "Storage", svgcolor(0,0,120)) 
+ forall(t in 1..integer(getlast(NODES)/2)-1)
+  if (getsol(sum(m in NODES) flow(t*2,m))>0) then
+   svgaddarrow(t*2, 1, (t+1)*2, 1)
+   svgaddtext(t*2+1, 1.1, 
+                text(getsol(sum(m in NODES) flow(t*2,m))))
+  end-if
+  
+ svgaddgroup("Cap", "Capacities", SVG_ORANGE) 
+ svgsetstyle(SVG_TEXTANCHOR, "middle")
+ forall(n in NODES | isodd(n)) do
+  svgaddpoint(n+1, 4)
+  svgaddtext(n+1, 4.2, string(WEIGHT(n)))
+ end-do
+ 
+ svgaddgroup("Dem", "Demands", SVG_BROWN) 
+ svgsetstyle(SVG_TEXTANCHOR, "middle")
+ forall(n in NODES | not isodd(n)) do
+  svgaddpoint(n, 1)
+  svgaddtext(n, 0.5, string(WEIGHT(n)))
+ end-do
+
+ svgsave("transship.svg")
+ svgrefresh
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+end-model

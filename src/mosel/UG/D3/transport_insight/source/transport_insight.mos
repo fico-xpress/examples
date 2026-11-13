@@ -1,0 +1,194 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   =================================
+
+   file transport_insight.mos
+   ``````````````````````````
+   Solution display in Insight application.
+
+   (c) 2012 Fair Isaac Corporation
+       author: S.Heipcke, Sep. 2012, rev. Dec. 2020
+*******************************************************!)
+
+model "Transport"
+ uses "mmxprs", "mmsystem", "mmsvg"
+ uses "mminsight"
+
+ version 1.0.2
+
+ forward procedure readdata
+ forward function solveproblem: boolean
+ forward procedure drawsolution(ifdisplay: boolean)
+
+ !@insight.manage=input
+ public declarations
+  !@insight.alias Customer regions
+  REGION: set of string                 ! Set of customer regions
+  !@insight.alias Plants
+  PLANT: set of string                  ! Set of plants
+  !@insight.alias Demand
+  DEMAND: array(REGION) of real         ! Demand at regions
+  !@insight.alias Production capacity
+  PLANTCAP: array(PLANT) of real        ! Production capacity at plants
+  !@insight.alias Unit production cost
+  PLANTCOST: array(PLANT) of real       ! Unit production cost at plants
+  !@insight.alias Capacity on each route
+  TRANSCAP: dynamic array(PLANT,REGION) of real
+                                        ! Capacity on each route plant->region
+  !@insight.alias Distance per route
+  DISTANCE: dynamic array(PLANT,REGION) of real
+                                        ! Distance of each route plant->region
+  !@insight.alias Fuel cost per unit distance
+  FUELCOST: real                        ! Fuel cost per unit distance
+  !@insight.update.afterexecution=true
+  ! @insight.hidden=true
+  SELCUST: array(REGION) of boolean     ! Customer selection for display
+  ! @insight.hidden=true
+  !@insight.update.afterexecution=true
+  CURRENTPLANT: string                  ! Plant selection for display
+ end-declarations
+
+ !@insight.manage=result
+ public declarations
+  !@insight.alias Production capacity limits
+  MaxCap: array(PLANT) of linctr        ! Capacity constraints
+  !@insight.alias Amount shipped
+  flow: dynamic array(PLANT,REGION) of mpvar    ! Flow on each route
+  RunDate: string                       ! Date for display
+  !@insight.hidden=true
+  MincostSol: real
+  !@insight.hidden=true
+  pltotal: array(PLANT) of real         !@insight.alias Total
+  !@insight.hidden=true
+  rgtotal: array(REGION) of real
+ end-declarations
+
+ !@insight.resultdata.delete=on-execute
+
+! Handling of Insight execution modes
+! (whether to read data from file or use scenario data)
+ case insightgetmode of
+  INSIGHT_MODE_LOAD: do
+     readdata             ! Initialize data from file
+     exit(0)              ! Stop model run after data input
+    end-do
+  INSIGHT_MODE_RUN: do
+     insightpopulate      ! Inject scenario data
+     if solveproblem then   ! State and solve the optimization problem
+      drawsolution(false)
+     end-if
+    end-do
+  INSIGHT_MODE_NONE: do
+     readdata             ! Non-Insight runs: initialize data from file
+     if solveproblem then   ! State and solve the optimization problem
+      drawsolution(true)
+     end-if
+    end-do
+  else
+    writeln_("Unknown run mode")
+    exit(1)
+ end-case
+
+!***********************************************************************
+ ! **** State and solve the optimization problem
+ function solveproblem: boolean
+ ! Create the flow variables that exist
+  forall(p in PLANT, r in REGION | exists(TRANSCAP(p,r)) ) create(flow(p,r))
+
+ ! Objective: minimize total cost
+  MinCost:= sum(p in PLANT, r in REGION | exists(flow(p,r)))
+             (FUELCOST * DISTANCE(p,r) + PLANTCOST(p)) * flow(p,r)
+
+ ! Limits on plant capacity
+  forall(p in PLANT) MaxCap(p):= sum(r in REGION) flow(p,r) <= PLANTCAP(p)
+
+ ! Satisfy all demands
+  forall(r in REGION) sum(p in PLANT) flow(p,r) = DEMAND(r)
+
+ ! Bounds on flows
+  forall(p in PLANT, r in REGION | exists(flow(p,r)))
+   flow(p,r) <= TRANSCAP(p,r)
+
+  insightminimize(MinCost)      ! Solve problem through Xpress Insight
+
+  setparam("datetimefmt", "%0d-%N-%y, %0H:%0M:%0S")
+  RunDate:= string(datetime(SYS_NOW))
+
+  if getprobstat=XPRS_OPT then
+   writeln("Solution: ", getobjval)
+
+ ! Result objects accessed by Xpress Insight
+   MincostSol:= getobjval
+   pltotal:= array(p in PLANT) sum(r in REGION) flow(p,r).sol
+   rgtotal:= array(r in REGION) sum(p in PLANT) flow(p,r).sol
+
+   returned:=true
+  else
+   writeln("No solution found")
+   returned:=false
+  end-if
+ end-function
+
+ ! **** Data input from file
+ procedure readdata
+  initializations from 'transprt.dat'
+       DEMAND
+       [PLANTCAP,PLANTCOST] as 'PLANTDATA'
+       [DISTANCE,TRANSCAP] as 'ROUTES'
+       FUELCOST
+  end-initializations
+ end-procedure
+
+ ! **** Create an SVG graphic representing the solution
+ procedure drawsolution(ifdisplay: boolean)
+  declarations
+   YP: array(PLANT) of real           ! y-coordinates of plants
+   YR: array(REGION) of real          ! y-coordinates of sales regions
+  end-declarations
+
+  ! Scale the size of the displayed graph
+  svgsetgraphviewbox(0.2,0.4,4,getsize(REGION)-0.55)
+  svgsetgraphsize(490,490)
+  svgsetgraphscale(100)
+ 
+  ! Determine y-coordinates for plants and regions
+  ct:= floor((getsize(REGION)-getsize(PLANT))/2)
+  forall(p in PLANT, ct as counter) YP(p):= ct
+writeln(YP)
+  ct:=0
+  forall(r in REGION, ct as counter) YR(r):= ct-0.5
+
+  ! Draw the plants
+  svgaddgroup("PGr", "Plants", svgcolor(0,63,95))
+  svgsetstyle(SVG_FONTSIZE, 20)
+  forall(p in PLANT) svgaddtext(0.2, YP(p)-0.05, p)
+
+  ! Draw the sales regions
+  svgaddgroup("RGr", "Regions", svgcolor(0,157,169))
+  svgsetstyle(SVG_FONTSIZE, 20)
+  forall(r in REGION) svgaddtext(3.1, YR(r)-0.05, r)
+
+  ! Draw all transport routes
+  svgaddgroup("TGr", "Routes", SVG_GREY)
+  forall(p in PLANT, r in REGION | exists(TRANSCAP(p,r)) )
+   svgaddline(1, YP(p), 3, YR(r))
+
+  ! Draw the routes used by the solution
+  svgaddgroup("SGr", "Solution", SVG_ORANGE)
+  forall(p in PLANT, r in REGION | exists(flow(p,r)) and getsol(flow(p,r)) > 0)
+   svgaddarrow(1, YP(p), 3, YR(r))
+
+  ! Generate the SVG graphic file
+  svgsave("transport.svg")
+
+  ! Don't try to display the graphic if this model is run within Insight
+  if ifdisplay then
+   svgrefresh
+   svgwaitclose("Close browser window to terminate model execution.", 1)
+  else
+   ! Upload the graphic as attachment
+   insightputscenattach("transport.svg",true)
+   insightsetscenattachtags("transport.svg", ["resultgraph"])
+  end-if
+ end-procedure
+end-model

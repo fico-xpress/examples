@@ -1,0 +1,44 @@
+(!******************************************
+   Mosel Example Problems
+   ======================
+
+   File solarrayanypkg.mos
+   ```````````````````````
+   Example package providing the procedure
+     solarray(array of mpvar, array of real)
+   for getting solutions into an array.
+   -- Implementation via union types and reflection --
+
+   (c) 2022 Fair Isaac Corporation
+       author: S. Heipcke, Jan 2022
+*******************************************!)
+
+package solarrayanypkg 
+ uses "mmreflect"
+
+ ! Utility routine checking whether 2 arrays have the same index set types
+ function checkindices(x:any, s:any): boolean
+   returned:= x.array.nbdim=s.array.nbdim and     
+     and(i in 1.. x.array.nbdim) 
+       x.array.index(i).eltype=s.array.index(i).eltype
+ end-function
+
+ ! Generic implementation of solarray routine
+ public procedure solarray(x:any, s:any)
+   declarations
+     it: iterator
+   end-declarations
+   if x is array of mpvar and s is array of real then
+     if checkindices(x,s) then
+       inititer(it,x.array)
+       reset(s.array)
+       while (nextcell(it)) s.array(it).real:= x.array(it).mpvar.sol
+     else
+       writeln("SOLARRAY: array indices don't match")
+     end-if
+   else
+     writeln("SOLARRAY: arguments must be arrays of type mpvar / real")
+   end-if
+ end-procedure 
+ 
+end-package

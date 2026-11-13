@@ -1,0 +1,122 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file recurse.mos 
+   ```````````````` 
+   Solving a non-linear problem by Sequential Linear 
+   Programming.
+ 
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2001, rev. Jun. 2022
+*******************************************************!)
+
+model Recurse
+ uses "mmxprs"
+
+ forward procedure solverecurse
+
+ declarations
+  T=6                                ! Time horizon
+  QUARTERS=1..T                      ! Range of time periods
+  P,R,V: array(QUARTERS) of real     ! Payments
+  B: array(QUARTERS) of real         ! Initial guess as to balances b(t)
+  X: real                            ! Initial guess as to interest rate x
+
+  interest: array(QUARTERS) of mpvar ! Interest
+  net: array(QUARTERS) of mpvar      ! Net
+  balance: array(QUARTERS) of mpvar  ! Balance
+  x: mpvar                           ! Interest rate
+  dx: mpvar                          ! Change to x
+  eplus, eminus: array(QUARTERS) of mpvar  ! + and - deviations
+ end-declarations
+
+ X:= 0.00
+ B:: [1, 1, 1, 1, 1, 1]
+ P:: [-1000, 0, 0, 0, 0, 0]
+ R:: [206.6, 206.6, 206.6, 206.6, 206.6, 0]
+ V:: [-2.95, 0, 0, 0, 0, 0]
+
+                                     ! net = payments - interest
+ forall(t in QUARTERS) net(t) = (P(t)+R(t)+V(t)) - interest(t)	
+
+                                     ! Money balance across periods
+ forall(t in QUARTERS) balance(t) = if(t>1, balance(t-1), 0) - net(t)	
+                   
+ forall(t in 2..T)                   ! Approximation of interest 
+  Interest(t):= 
+   -(365/92)*interest(t) + X*balance(t-1) + B(t-1)*dx + eplus(t) - eminus(t) = 0
+                          
+ Def:= X + dx = x                    ! Define the interest rate: x = X + dx
+                                     
+ Feas:= sum(t in QUARTERS) (eplus(t)+eminus(t))  ! Objective: get feasible
+
+ interest(1) = 0                     ! Initial interest is zero
+ forall (t in QUARTERS) net(t) is_free
+ forall (t in 1..T-1) balance(t) is_free
+ balance(T) = 0                      ! Final balance is zero
+ dx is_free
+
+ minimize(Feas)                      ! Solve the LP-problem
+
+ solverecurse                        ! Recursion loop
+ 
+                                     ! Print the solution
+ writeln("\nThe interest rate is ", x.sol)
+ write(strfmt("t",5), strfmt(" ",4))
+ forall(t in QUARTERS) write(strfmt(t,5), strfmt(" ",3))
+ write("\nBalances ")
+ setparam("realfmt", "%8.2f")
+ forall(t in QUARTERS) write(balance(t).sol)
+ write("\nInterest ")
+ forall(t in QUARTERS) write(interest(t).sol)
+ writeln
+ 
+!************************************************************************
+!  Recursion loop: we recurse on X and the balance(t)'s.
+!    The 'B(t-1)' in rows Interest(t) get the prior value of balance(t-1)
+!    The 'X' in rows Interest(t) get the prior value of x
+!    The 'X' in row Def gets the prior value of x
+!    We say we have converged when the change in dx is less than 1.0E-6
+!************************************************************************
+ procedure solverecurse
+
+  declarations
+   TOLERANCE=0.000001                 ! Convergence tolerance
+   variation: real                    ! Variation of x
+   BC: array(QUARTERS) of real
+   bas: basis                         ! LP basis
+  end-declarations
+
+  setparam("zerotol", TOLERANCE)      ! Set Mosel comparison tolerance
+  variation:=1.0
+  ct:=0
+
+  while(variation>0) do
+   savebasis(bas)                     ! Save the current basis
+   ct+=1
+   forall(t in 2..T) 
+     BC(t-1):= getsol(balance(t-1))   ! Get solution values for balance(t)'s
+   XC:= getsol(x)                     ! and x
+   write("Round ", ct, " x:", getsol(x), " (variation:", variation,"), ")
+   writeln("Simplex iterations: ", getparam("XPRS_SIMPLEXITER"))
+
+   forall(t in 2..T) do               ! Update coefficients
+     Interest(t)+= (BC(t-1)-B(t-1))*dx
+     B(t-1):=BC(t-1)
+     Interest(t)+= (XC-X)*balance(t-1)
+   end-do
+   Def+= XC-X  
+   X:=XC
+   oldxval:=XC                        ! Store solution value of x
+
+   loadprob(Feas)                     ! Reload the problem into the optimizer
+   loadbasis(bas)                     ! Reload previous basis
+   minimize(Feas)                     ! Re-solve the LP-problem 
+
+   variation:= abs(getsol(x)-oldxval) ! Change in dx
+  end-do
+ 
+ end-procedure 
+
+end-model

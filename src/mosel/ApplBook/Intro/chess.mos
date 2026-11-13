@@ -1,0 +1,42 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file chess.mos
+   ``````````````
+   Production of chess boards   
+
+   A small company manufactures two different sizes of boxwood
+   chess sets. The small set requires 3 lathehours and 1 kg 
+   of boxwood. The large set requires 2 lathehours and 3 kg 
+   of boxwood. There are 160 lathe-hours and 200 kg available  
+   per week. Each large (resp. small) chess set produced and 
+   sold yields a profit of $20 (resp. $5). How many sets of 
+   each kind should be made each week to maximize total profit?
+   
+   A simple LP model is implemented. After optimization, 
+   'getobjval' returns the optimal objective function value 
+   while 'getsol' returns the decision variables optimal values. 
+
+   (c) 2008 Fair Isaac Corporation
+       author: R.C. Daniel, Jul. 2002
+*******************************************************!)
+
+model Chess
+ uses "mmxprs"
+ 
+ declarations
+  xs, xl: mpvar                   ! Decision variables: produced quantities
+ end-declarations
+
+ Profit:=  5*xs + 20*xl           ! Objective function
+ Boxwood:= 1*xs + 3*xl <=  200    ! kg of boxwood
+ Lathe:=   3*xs + 2*xl <=  160    ! Lathehours
+ 
+ maximize(Profit)                 ! Solve the problem
+
+ writeln("LP Solution:")          ! Solution printing
+ writeln(" Objective: ", getobjval)
+ writeln("Make ", getsol(xs), " small sets")
+ writeln("Make ", getsol(xl), " large sets")
+end-model

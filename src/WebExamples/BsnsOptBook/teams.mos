@@ -1,0 +1,71 @@
+(!*********************************************************************
+   Mosel Example Problems
+   ======================
+
+   file teams.mos
+   ``````````````
+   Teams problem 
+   
+     Example solution for exercise 6.4 in section 6.11 of
+     J. Kallrath: Business Optimization Using Mathematical Programming -
+     An Introduction with Case Studies and Solutions in Various Algebraic 
+     Modeling Languages. 2nd edition, Springer Nature, Cham, 2021 
+
+   author: S. Heipcke, Mar 2020
+
+   (c) Copyright 2020 Fair Isaac Corporation
+  
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+*********************************************************************!)
+
+model 'teams'
+  uses "mmxprs"
+
+  declarations
+    MEN={'Al','Bill','Leo','Nigel'}
+    WOMEN={'Edwina', 'Patsy', 'Sharon', 'Tina'}
+    RIGHTHAND={'Leo', 'Nigel', 'Sharon', 'Tina'}
+    ALL=MEN+WOMEN
+    select: array(ALL) of mpvar    ! Players selected for the team
+    bf, bm: mpvar
+  end-declarations
+
+  ! A team has 4 players
+  sum(p in ALL) select(p)=4
+
+  ! The team must contain at least one man and one woman
+  sum(p in MEN) select(p)>=1
+  sum(p in WOMEN) select(p)>=1
+
+  ! If a team has at least two male players, then at least three players 
+  ! in the team must be right-handed
+  bm is_binary
+  sum(p in MEN) select(p)>=2*bm
+  indicator(-1, bm, sum(p in MEN) select(p)<=1)
+  sum(p in RIGHTHAND) select(p)>=3*bm
+
+  ! If a team has at least two female players, then at least three players 
+  ! in the team must be left-handed.
+  bf is_binary
+  sum(p in WOMEN) select(p)>=2*bf
+  indicator(-1, bf, sum(p in WOMEN) select(p)<=1)
+  sum(p in ALL-RIGHTHAND) select(p)>=3*bf
+
+  forall(p in ALL) select(p) is_binary
+
+  ! Solving: Just get feasible
+  minimise(0)
+  write("Team: ")
+  writeln(union(p in ALL | select(p).sol>0) {p})
+end-model  

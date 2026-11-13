@@ -1,0 +1,289 @@
+(!*******************************************************
+   Mosel Example Problems
+   ======================
+
+   file mandelhttp.mos
+   ```````````````````
+   Mandelbrot function: f(z) = z^2 + c with z,c complex numbers.
+
+   Main model communicating with HTML GUI and coordinating
+   all submodels.
+   On each node in the list NODESLIST we start K model instances.
+   Each submodel instance is sent a rectangular area for which
+   to calculate the pixel color values. The results are passed
+   back via a file (located at the same place as this model,
+   no write access to remote instances is required).
+   Once the result has been displayed, the submodel is
+   restarted for a new data set.
+
+   - Testing HTTP -
+   
+   (c) 2013 Fair Isaac Corporation
+       author: Y. Colombani, S. Heipcke, May 2013
+  *******************************************************!)
+
+model mandelbrothttp
+  uses 'mmhttp','mmsystem';
+
+  parameters
+    CONFIG=0                    ! Color scheme and zoom
+                                ! >>>>> Try values 0,1,2,3,4
+    K = 2                       ! Number of submodels per Mosel instance
+    NUMPX = 1000                ! Graphic size in pixels
+    NUM = 0                     ! Model ID
+    CWIDTH =1000                ! Window height (>=NUMPX)
+    CHEIGHT =1000               ! Window width (>=NUMPX)
+    SW =100                     ! Size of subproblems in pixels
+  end-parameters
+
+!!! Configure this list with machines in your local network, 
+!!! there must be at least 1 entry in this list.
+  NODELIST:=["",""] 
+  MAXND:= 8                     ! Maximum node number expected by HTML display
+  while (NODELIST.size*K>MAXND) do
+    writeln("Removing node ", gettail(NODELIST,1))
+    cuttail(NODELIST,1)
+  end-do
+  if NODELIST.size=0 then
+    writeln("Empty node list."); exit(1)
+  end-if  
+
+  public declarations
+    M: integer                  ! Number of remote Mosel instances
+    A: range
+    B: range
+    NODES: array(B) of string
+  end-declarations
+ 
+  forall(n in NODELIST, M as counter) NODES(M):=n
+  A:= 1..M*K
+  finalise(A)
+  finalise(B)
+
+  public declarations
+    modPar: array(A) of Model
+    moselInst: array(B) of Mosel
+    modid: array(set of integer) of integer  ! Model index for model IDs
+    modstartct, modendct, config: integer
+    nbrunning:integer
+    running:boolean
+    active:array(A) of boolean
+    nodnam:array(A) of string
+    ev: Event
+
+    XMin,XMax,YMin,YMax,HX,HY:real
+    OffsetX,OffsetY:integer
+    MAX_ITER: integer
+    stoppressed: integer
+    SQUARE: array(Squares:range,1..4) of integer
+    RS=0..(SW*SW*3)
+    solrec=public record
+            x,y:integer
+            h,w:integer
+	    points:array(RS) of integer
+	   end-record
+    datanode= public record
+            act:array(A) of boolean
+            name:array(A) of string
+           end-record
+    solutions:list of solrec
+    waitimg:list of integer
+    finished:boolean
+  end-declarations 
+ 
+!***************** Subroutines ******************
+
+!**********************
+!* Setup configuration
+!**********************
+  procedure set_mandelbrot_config(c: integer)
+    if c = 0 then
+      XMin:=-1.5; XMax:=0.5
+      YMin:=-1; YMax:=1
+    elif c = 1 then
+      XMin:=-0.90; XMax:=-0.915
+      YMin:=-0.245; YMax:=-0.23 
+    elif c = 2 then
+      XMin:=-0.9; XMax:=-0.98
+      YMin:=-0.3; YMax:=-0.22
+    elif c = 3 then
+      XMin:=-0.91; XMax:=-0.94
+      YMin:=-0.3; YMax:=-0.27
+    elif c = 4 then
+      XMin:=-0.926; XMax:=-0.934
+      YMin:=-0.264; YMax:=-0.256
+    end-if 
+
+    HX:=(XMax-XMin)/NUMPX
+    HY:=(YMax-YMin)/NUMPX
+    OffsetX:=-round(XMin/HX)
+    OffsetY:=-round(YMin/HY)
+
+    forall(s,t in 1..ceil(NUMPX/SW), sqct as counter) do
+      SQUARE(sqct,1):= round(XMin/HX)+(s-1)*SW 
+      SQUARE(sqct,2):= minlist(round(XMin/HX)+s*SW-1,round(XMax/HX)) 
+      SQUARE(sqct,3):= round(YMin/HY)+(t-1)*SW 
+      SQUARE(sqct,4):= minlist(round(YMin/HY)+t*SW-1,round(YMax/HY))
+    end-do
+  end-procedure
+
+!***************
+!* Start solve
+!***************
+  procedure cmdstart(r:integer)
+   initialisations from httpreqfile(r)
+    config
+   end-initialisations
+   stoppressed:=-1
+   set_mandelbrot_config(config)
+   writeln("Starting with config ",config)
+                                   ! Start first lot of remote model executions
+   modstartct:=0
+   nbrunning:=0
+   modendct:=0
+   forall(n in 1..minlist(M*K,getsize(Squares))) do
+     modstartct+=1
+     nbrunning+=1
+     active(n):=true
+     run(modPar(n), "MINX="+SQUARE(modstartct,1) + ",MAXX="+
+                    SQUARE(modstartct,2) + ",MINY="+ SQUARE(modstartct,3) +
+                    ",MAXY="+SQUARE(modstartct,4) + ",NUM="+modstartct +
+                    ",HX="+HX + ",HY="+HY + ",NUMPX="+NUMPX +
+                    ",CONFIG="+config)
+   end-do
+   running:=true
+   httpreply(r)
+  end-procedure
+
+!***************************************************
+!* Return an array indicating activity of each node
+!***************************************************
+  procedure updnodes(r:integer)
+   declarations
+    tosend:datanode
+   end-declarations
+   tosend.act:=active
+   tosend.name:=nodnam
+   httpreplyjson(r,tosend)
+  end-procedure
+
+!*******************
+!* Save a solution
+!*******************
+  procedure save_sol(num: integer)
+    declarations
+      sol:solrec
+    end-declarations
+
+    initializations from "bin:solmod"+num+".txt"
+      sol
+    end-initializations
+
+    sol.x+=OffsetX
+    sol.y+=OffsetY
+    solutions+=[sol]
+    fdelete("solmod"+num+".txt") 
+  end-procedure
+
+!**********************************
+!* Process solution/request queues
+!**********************************
+  procedure updatequeues
+   declarations
+    sol:solrec
+    req:integer
+   end-declarations
+   if solutions.size>0 and waitimg.size>0 then
+    req:=getfirst(waitimg)
+    cuthead(waitimg,1)
+    sol:=getfirst(solutions)
+    cuthead(solutions,1)
+    httpreplyjson(req,sol)
+   end-if
+  end-procedure
+
+!***************** Main ******************
+
+! Start child nodes
+  forall(i in B)
+    if connect(moselInst(i), NODES(i))<>0 then exit(2); end-if
+
+  if compile("g","mandelhttpsub.mos","tmp:ms.bim")<>0 then exit(3); end-if
+  forall(j in A) do                ! Load models
+    load(moselInst(j mod M + 1), modPar(j), "rmt:tmp:ms.bim")  
+    modid(getid(modPar(j))):= j
+  end-do
+
+! Update node names
+  forall(i in A)
+    nodnam(i):=if(NODES(i mod M + 1)<>"", NODES(i mod M + 1), "(local)")
+
+  stoppressed:=-1
+  forall(i in A) active(i):=false
+
+!  setparam("http_browser",'C:\Program Files (x86)\Internet explorer\iexplore.exe')
+  setparam("http_startwb",true)
+  setparam("http_listen","127.0.0.1")
+  setparam("http_defport",2533)
+  setparam("http_defpage","mandelhttp.html")
+  httpstartsrv(".","mosel/")
+  repeat
+    wait
+    ev:=getnextevent
+    if ev.class=EVENT_HTTPNEW then
+      req:=integer(ev.value)
+      case string(httpreqlabel(req)) of
+        "end": do finished:=true; httpreply(req); end-do
+        "updnodes": updnodes(req)
+        "cmdstart": cmdstart(req)
+        "cmdstop":
+	   do
+	    stoppressed:=req
+	    writeln("Stopping")
+	   end-do
+        "updimg":
+	   if running or getsize(solutions)>0 then
+	    waitimg+=[req]
+	   else
+            httpreplyjson(req)
+	   end-if
+         else
+    	  httpreply(req)
+       end-case
+    elif getclass(ev)=EVENT_END then
+      modendct+=1 
+      num:=modid(getfromid(ev))
+      active(num):=false
+      save_sol(num) 
+      if modstartct<getsize(Squares) and (stoppressed<0) then
+        modstartct+=1
+        active(num):=true
+        run(modPar(num), "MINX="+SQUARE(modstartct,1) + ",MAXX="+
+                    SQUARE(modstartct,2) + ",MINY="+ SQUARE(modstartct,3) +
+                    ",MAXY="+SQUARE(modstartct,4) + ",NUM="+num +
+                    ",HX="+HX + ",HY="+HY + ",NUMPX="+NUMPX + 
+                    ",CONFIG="+config)
+      else
+        nbrunning-=1
+      end-if
+      if (modendct>=getsize(Squares)) or (nbrunning<1) then
+        updatequeues
+        if stoppressed>=0 then
+          httpreply(stoppressed)
+          stoppressed:=-1
+          while (waitimg.size>0) do
+            req:=getfirst(waitimg)
+            httpreplyjson(req)
+            cuthead(waitimg,1)
+          end-do
+          solutions:=[]
+        end-if
+        modendct:=0
+        running:=false
+        writeln("Ready to start again")
+      end-if
+    end-if
+    updatequeues
+  until finished
+  
+end-model

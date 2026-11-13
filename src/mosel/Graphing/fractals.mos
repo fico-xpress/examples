@@ -1,0 +1,104 @@
+(!******************************************************
+   Mosel graph examples
+   ==================== 
+
+   file fractals.mos
+   `````````````````
+   Display fractals using 'line' objects
+   1: fractal tree by drawing two branches recursively
+   2: triangle-shaped fractal using recursivity
+   
+   Uses functions from the mmsvg library to draw
+   a "User graph" in SVG format.
+   
+   (c) 2017 Fair Isaac Corporation
+       Creation: Jul. 2017, rev. Sep. 2017
+*******************************************************!)
+
+model fractals
+  uses "mmsvg", "mmsystem"
+
+  parameters
+    NTREE=10
+    NTRIANG=8
+  end-parameters  
+
+!**********************ALG=1: tree-shaped fractal****************************
+
+  declarations
+    level: array(RN: range) of string
+  end-declarations
+
+  procedure branchtree(x:real, y:real, d:real, t:real, depth:integer)
+    if depth>=0 then
+      svgaddline(level(depth+1),x,y,x+cos(t),y+sin(t))
+      branchtree(x+cos(t),y+sin(t),d-d/10+d/5*random,t-0.55+1.2*random,depth-1)
+      branchtree(x+cos(t),y+sin(t),d-d/10+d/5*random,t-0.55+1.2*random,depth-1)
+    end-if
+  end-procedure
+
+  procedure drawtree(N:integer)
+    setrandseed(3)
+    forall(i in 1..N) do
+      level(i):="level_"+(N+1-i)
+      svgaddgroup(level(i),"Level "+(N+1-i), svgcolor(50+round(100*random), 50+(15*i mod 200), 50+round(100*random)))
+    end-do
+
+    branchtree(0,0,40,1.57,N-1)
+
+    svgsetgraphscale(50)
+    svgsave("fractaltree.svg")
+  end-procedure
+
+!**********************ALG=2: triangle-shaped fractal************************
+
+  declarations
+    rf=0.48               ! Reduction factor for next level
+    SINANGLE=0.5          ! Pre-computed for speed
+    COSANGLE=0.866
+    fractal: array(DEPTHS: range) of string
+  end-declarations
+
+  procedure branchtriangle(x:real, y:real, d:real, depth:integer)
+    if depth>=0 then
+      svgaddline(fractal(depth),x,y,x,y+d)
+      svgaddline(fractal(depth),x,y,x+COSANGLE*d,y-d*SINANGLE)
+      svgaddline(fractal(depth),x,y,x-COSANGLE*d,y-d*SINANGLE)
+      branchtriangle(x,y+d,d*rf,depth-1)
+      branchtriangle(x+COSANGLE*d,y-d*SINANGLE,d*rf,depth-1)
+      branchtriangle(x-COSANGLE*d,y-d*SINANGLE,d*rf,depth-1)
+    end-if
+  end-procedure
+
+  procedure drawtriangle(DEPTH:integer)
+    forall(d in 0..DEPTH) do
+      fractal(d):="fractal_"+d
+      svgaddgroup(fractal(d), "Depth "+d,svgcolor(d*30,200-15*d,255-d*25))
+    end-do
+
+    branchtriangle(0,0,40,DEPTH)
+
+    svgsetgraphscale(5)
+    svgsave("fractaltriang.svg")
+  end-procedure
+ 
+!*************************************************************************
+ 
+  drawtree(NTREE)
+
+ ! Draw the first graph 
+  svgrefresh
+ ! Display graph for 3 seconds 
+ ! sleep(3000)
+ ! Alternatively, pause display until user hits 'enter'
+  svgpause
+  svgerase
+
+  drawtriangle(NTRIANG)
+
+ ! Draw the second graph 
+  svgrefresh
+
+ ! Wait for display window to close 
+  svgwaitclose("Close browser window to terminate model execution.", 1)
+end-model

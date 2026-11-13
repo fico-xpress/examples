@@ -1,0 +1,266 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file bpack.mos 
+   ``````````````
+   Encapsulate any kind of binary file into a .bim file.
+   The binary gets extracted when running the resulting .bim file.
+   - Using the 'datablock' functionality -
+ 
+   Compilation into an executable (requires a C compiler): 
+   mosel comp bpack.mos -o deploy.exe:bpack
+
+   Usage:
+     bpack mybinaryfile.ext
+       (results in a file mybinaryfile_ext.bim)
+     mosel run mybinaryfile_ext.bim
+       (to extract the original binary file from the .bim)
+
+   Usage without generation of an executable:
+     mosel bpack.mos -- mybinaryfile.ext
+
+   (c) 2019 Fair Isaac Corporation
+       author: Y. Colombani, 25 Apr 2019, rev. Jan. 2023
+*******************************************************!)
+model bpack
+ version 0.1.0
+ uses 'mmsystem','deploy','mmjobs'
+
+ public declarations
+  !@doc.descr Source of the model file used for the generation of a .bim that contains the specified binary file
+   SRC=`
+model bextract
+ uses 'mmsystem'
+
+ include "mem:srcfile"
+
+ write("Extract '",F,"' ?[Y/n] ");fflush
+ a:="Y"
+ readln(a)
+ if a.size>=1 and (getchar(a,1)=89 or getchar(a,1)=121) then
+   if getfstat(F)<>0 then
+     write("File already exists: overwrite it?[y/N] ");fflush
+     a:="N"
+     readln(a)
+     if a.size<1 or (getchar(a,1)<>89 and getchar(a,1)<>121) then
+       writeln("Operation aborted.")
+       exit(1)
+     end-if
+   else
+     fcopy(datablock(FSRC),F_BINARY,F,F_BINARY)
+     exit(getsysstat)
+   end-if
+ else
+   writeln("Operation aborted.")
+   exit(0)
+ end-if
+end-model 
+`
+ end-declarations
+
+ declarations
+  ! Internal subroutines
+   procedure banner                     ! Display a banner
+   procedure showhelp                   ! Display help text
+   function basename(f:text):text       ! Aux. routine returning basename
+   function build_kls:text              ! Build KLS parameter
+   procedure readkeys(f:string)         ! Read public keys from a file
+
+   fname:text                           ! Name of binary file to encapsulate
+   flags:text                           ! Compilation flags
+   kls:list of text                     ! List of public keys
+   pke:text                             ! Private key (for signing)
+   pass:text                            ! Encryption password
+   silent:boolean                       ! Whether to report activity
+   force:boolean                        ! Whether to overwrite existing files
+ end-declarations
+
+ ! Handling of run mode (Mosel model or executable) and runtime parameters
+ if argc=1 then
+  banner
+  showhelp
+  exit(0)
+ else
+  repeat
+   if argv(2)="-V" then
+    banner
+    exit(0)
+   elif argv(2)="-s" then
+    silent:=true
+   elif argv(2)="-f" then
+    force:=true
+   elif argv(2)="-S" then
+    flags+="-S"
+   elif argv(2)="-E" then
+    flags+="-E"
+   elif argv(2)="-T" then
+    flags+="-T"
+   elif argv(2)="-k" then
+    if argc>2 then
+     shiftargv
+     kls+=[text(argv(2))]
+    end-if
+   elif argv(2)="-kf" then
+    if argc>2 then
+     shiftargv
+     readkeys(argv(2))
+    end-if
+   elif argv(2)="-pwd" then
+    if argc>2 then
+     shiftargv
+     pass:=argv(2)
+    end-if
+   elif argv(2)="-pk" then
+    if argc>2 then
+     shiftargv
+     pke:=argv(2)
+    end-if
+   else
+    break
+   end-if
+   shiftargv
+  until argc<2
+
+  if argc<2 or getchar(argv(2),1)=45 then
+   banner
+   showhelp
+   exit(1)
+  else
+   fname:=argv(2)
+  end-if
+ end-if
+
+ ! Remove leading or trailing blanks from input filename
+ trim(fname)
+
+ if fname.size=0 or bittest(getfstat(fname),SYS_TYP)<>SYS_REG then
+   if not silent then
+    writeln("File '",fname,"' not found or invalid")
+   end-if
+   exit(1)
+ else
+   if getfsize(fname)=0 and not silent then
+     writeln("Warning: file '",fname,"' is empty")
+   end-if
+   dst:=pathsplit(SYS_FNAME,fname)
+  ! Write binary file contents into an 'include' file for the generated model
+   fopen("mem:srcfile",F_OUTPUT)
+   writeln("declarations\nFSRC='",fname,"'\nF='",dst,"'\nend-declarations\n")
+   fclose(F_OUTPUT)
+  ! Create the Mosel model file name from the original filename
+   asproc(regreplace(dst,'\.','_'))
+   dst+=".bim"
+  ! Check whether it is acceptable to overwrite an existing file
+   if getfstat(dst)<>0 and not force then
+    if silent then
+     exit(2)
+    else
+     write("File '",dst,"' already exists, overwrite it?[y/N] ");fflush
+     ans:="N"
+     readln(ans)
+     if ans.size<1 or (getchar(ans,1)<>89 and getchar(ans,1)<>121) then
+       writeln("Operation aborted.")
+       exit(1)
+     end-if
+    end-if
+   end-if
+  ! Compile the resulting generated model
+   if compile(flags,"text:SRC",dst,"Produced by BPACK "+getparam("model_version"),pass,pke,build_kls)<>0 then
+     if not silent then
+      writeln("Compilation failed. Aborting")
+     end-if
+     exit(1)
+   elif not silent then
+     writeln("File recorded in '",dst,"'. Execute the following to restore it:")
+     writeln(" mosel run ",dst)
+     if findtext(flags,"S",1)>0 then
+      if pke.size>0 then
+       writeln("The file is signed with the private key '",pke,"'.")
+      else
+       writeln("The file is signed with your personal private key.")
+      end-if
+     end-if
+     if findtext(flags,"E",1)>0 then
+      if pass.size>0 then
+       writeln("The file is encrypted using password '",pass,"'.")
+      elif kls.size>0 then
+       writeln("The file is encrypted using the following public keys: ",kls,".")
+      else
+       writeln("The file is encrypted using your personal public key.")
+      end-if
+     end-if
+   end-if
+ end-if
+ 
+
+!***********************
+!* Display Banner
+!***********************
+ procedure banner
+   writeln("FICO Xpress ",basename(argv(1))," v",getparam("model_version"))
+   writeln("(c) Copyright Fair Isaac Corporation 2019-2024. All rights reserved")
+   writeln(_("Link date"),": ",getparam("parser_date")," ",getparam("parser_time"))
+ end-procedure
+
+!***********************
+!* Display some help
+!***********************
+ procedure showhelp
+   writeln_("\nUsage: ",basename(argv(1))," -V|[-s] [-f] [-S] [-E] [-k key] [-kf kfile] [-pwd pass] filename\n")
+   write_(`
+  -V: display banner and exit
+  -s: silent mode
+  -f: overwrite existing file
+  -S: sign the generated bim file
+  -E: encrypt the generated bim file
+  -k key: add public key 'k' for encryption
+  -kf kfile: add public keys from file 'kfile' for encryption
+  -pwd pass: use 'pass' for encryption
+  -pk priv: use 'priv' key for signing
+
+ By default a bim file including the provided file is created.
+ The provided file can be extracted by running the resulting bim file.
+`)
+ end-procedure
+
+!**********************************************************************
+!* Extract the basename of a path (i.e. strip directory and extension)
+!**********************************************************************
+ function basename(f:text):text
+   returned:=pathsplit(SYS_FNAME,f)
+   asproc(pathsplit(SYS_EXTN,returned,returned))
+ end-function
+
+!********************************************
+!* Produce the kls file from a list of texts
+!********************************************
+function build_kls:text
+ if kls.size>0 then
+  returned:="mem:pkeys"
+  fopen(returned,F_APPEND)
+  forall(k in kls)
+   writeln(k)
+  fclose(F_OUTPUT)
+ end-if
+end-function
+
+!******************************
+!* Get public keys from a file
+!******************************
+procedure readkeys(f:string)
+ declarations
+  l:text
+ end-declarations
+
+ fopen(f,F_INPUT)
+ while(readtextline(l)>0) do
+  trim(l)
+  if l.size>0 and getchar(l,1)<>35 then
+   kls+=[text(l)]
+  end-if
+ end-do
+ fclose(F_INPUT)
+end-procedure
+
+end-model

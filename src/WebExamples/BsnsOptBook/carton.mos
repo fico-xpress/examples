@@ -1,0 +1,163 @@
+(!*********************************************************************
+   Mosel Example Problems
+   ======================
+
+   file carton.mos
+   ```````````````
+   Carton scheduling problem 
+   
+     Example discussed in section 10.3 of
+     J. Kallrath: Business Optimization Using Mathematical Programming -
+     An Introduction with Case Studies and Solutions in Various Algebraic 
+     Modeling Languages. 2nd edition, Springer Nature, Cham, 2021 
+
+   author: S. Heipcke, June 2018
+
+   (c) Copyright 2020 Fair Isaac Corporation
+  
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+*********************************************************************!) 
+model 'carton'
+  uses 'mmsystem', 'mmxprs'
+
+  declarations
+    M= 5                    ! Number of machines (m = 1,...,M)
+    CX= 15                  ! Maximum number of configurations on each
+                            !   machine (c = 0,1,... c(m)), where c = 0 means
+                            !   setting up
+    G= 16                   ! Groups of orders (g = 1, ... ,G)
+    T= 20                   ! Shifts, where t = 0 means the last shift of
+                            !   the preceeding week.
+    RM=1..M
+    RT=1..T
+    RG=1..G
+    RCX=1..CX
+
+    C: array(RM) of integer     ! Number of configurations of machine m
+    S: array(RT) of real        ! Setting up cost (per machine, per shift)
+    P: array(RG) of real        ! Penalty cost of not meeting an order
+                                !   (per carton)
+    D: array(RG) of real        ! Demand for cartons in group g
+    O: array(RT) of real        ! Overtime cost (per machine, per shift)
+    H: array(RM,RCX,RCX) of real! Number of shifts required to change
+                                !   from configuration c to k on machine m
+    R: array(RM,RCX,RG) of real ! Production rate (number of cartons of
+                                !   group g produced on machine m in
+                                !   configuration c per shift)
+    I: array(RM) of integer     ! Initial configuration of machine m
+    OT: array(RT) of real       ! Set of overtime shifts  
+    SU: array(RT) of real       ! Set of shifts in which setting up is
+                                !   permitted
+    REQ: array(RM,RCX) of real  ! 0 if and only if configuration is not required
+
+  end-declarations
+
+  initializations from "carton.dat"
+    C  OT  SU  D  H  R  I
+  end-initializations
+
+  forall(t in  2..T) O(t):= 400.00
+  forall(t in  2..T) S(t):= 300.00 + OT(t)*O(t)
+  forall(g in  RG) P(g):= 1000.00
+  forall(m in RM,c in 1..C(m)) REQ(m,c):= sum(g in RG) R(m,c,g)*D(g)
+
+
+ ! Configuration: equal to unity if machine m is in configuration c 
+ ! in shift t and zero otherwise
+  declarations
+    x: dynamic array(RM, RCX, RT) of mpvar
+  end-declarations
+  forall(m in  RM,c in  RCX,t in  RT| (c=1 and SU(t)<>0) or
+        (c<>1 and REQ(m,c)<>0) or (I(m)=c))
+    create(x(m,c,t))
+
+ ! Overtime production: equal to unity if machine m is producing
+ ! in configuration c in overtime shift t
+  declarations
+    y: dynamic array(RM, RCX, RT) of mpvar
+  end-declarations
+  forall(m in  RM,c in  RCX,t in  RT| OT(t)<>0 and ((c=1 and SU(t)<>0) or
+         (c<>1 and REQ(m,c)<>0) or (I(m)=c)))
+    create(y(m,c,t))
+
+ ! Shortfall of order group g (in cartons)
+  declarations
+    z: array(RG) of mpvar
+  end-declarations
+
+ ! Objective: minimise the sum of setting up, shortfall and overtime costs
+  Cost:= sum(m in  RM,t in  2..T) S(t)*x(m,1,t) + 
+    sum(g in  RG) P(g)*z(g) +
+    sum(m in  RM,c in  2..C(m),t in 2..T| OT(t)<>0) O(T)*y(m,c,t)
+
+  ! Subject to the following constraints.
+  ! The overtime production can only be in the current
+  ! configuration for each machine
+  forall(m in  RM,c in  1..C(m),t in  RT)
+    OTime(m,c,t):= y(m,c,t)<= x(m,c,t)
+
+  ! No machine, m, can be in two distinct producing configurations, 
+  ! say k and c, u shifts apart if it takes u or more shifts 
+  ! to change from one configuration to the other
+  forall(m in  RM,c in  2..C(m),u in  1..4,t in 1..(T-u))
+    Chgvr(m,c,u,t):=
+      sum(k in  2..C(m)| k<>c and H(m,k,c)>=u) x(m,k,t) + x(m,c,t+u)<= 1
+
+  ! The weekly demand, less the shortfall in production cannot exceed
+  ! the number of cartons produced, so
+  forall(g in RG)
+    Demnd(g):=
+      sum(m in  RM,c in  2..C(m),t in RT| OT(t)=0) R(m,c,g)*x(m,c,t) +
+      sum(m in  RM,c in 2..C(m),t in  RT) R(m,c,g)*y(m,c,t) +
+      z(g)>= D(g)
+
+  ! Each machine must be in exactly one configuration (including setting up) 
+  ! in each shift
+  forall(m in  RM,t in  2..T)
+    Xcnvx(m,t):= sum(c in  1..C(m)) x(m,c,t) = 1
+  forall(m in  RM,t in  2..T | OT(t)<>0)
+    Ycnvx(m,t):= sum(c in  1..C(m)) y(m,c,t) = 1
+
+  ! The model must begin in the configuration of each machine
+  ! at the end of the previous week
+  forall(m in  RM,c= I(m),t= 1) x(m,c,t) = 1
+  forall(m in  RM,c in  1..C(m),t= 1| c<>I(m)) x(m,c,t) = 0
+
+  ! The configuration variables are binary
+  forall(m in  RM,c in  1..C(m),t in  2..T | exists(x(m,c,t)))
+    x(m,c,t) is_binary
+  forall(m in  RM,c in  1..C(m),t in  2..T | exists(y(m,c,t)))
+    y(m,c,t) is_binary
+     
+  ! Display the solver logging output
+  setparam("Xprs_verbose",true)
+
+  ! Solve the problem
+  minimise(Cost)
+  writeln("Solution: Cost=", getobjval)
+  writeln("Quantities:")
+  forall(g in RG)
+    writeln(formattext("Group %2d: %4.1f (%4.1f) shortfall: %4.1f", g, 
+            Demnd(g).act-z(g).sol, D(g), z(g).sol))
+  writeln("Configuration of machines:")
+  write("Period:  I  ")
+  forall(t in RT) write(strfmt(t,2),if(OT(t)>0,"* ","  "))
+  writeln
+  forall(m in RM) do
+    write("Mach ", m, ":  ", I(m), " ")
+    forall(t in RT)
+      write(formattext("%3.0f ",round(getsol(sum(c in  1..C(m)) c*x(m,c,t)))))
+    writeln
+  end-do
+end-model

@@ -1,0 +1,41 @@
+NDAYS:  5
+PERDAY: 3
+
+PROD_COST: 4
+INV_COST:  3
+
+MAX_NINTERR: 4
+
+! Products: Liquid Nitrogen (LIN), Liquid Oxygen (LOX)
+INV_CAP: [
+("LIN") 60
+("LOX") 27
+]
+
+PROD_CAP: [
+("LIN") 29
+("LOX") 5.5
+]
+
+INV_0: [
+("LIN") 20
+("LOX") 20
+]
+
+DEMAND: [
+( 1 "LIN")  6   ( 1 "LOX")  2
+( 2 "LIN") 14   ( 2 "LOX")  5
+( 3 "LIN") 10   ( 3 "LOX")  3
+( 4 "LIN")  8   ( 4 "LOX")  4
+( 5 "LIN") 11   ( 5 "LOX")  8
+( 6 "LIN") 15   ( 6 "LOX")  4
+( 7 "LIN") 10   ( 7 "LOX")  8
+( 8 "LIN")  9   ( 8 "LOX")  7
+( 9 "LIN") 10   ( 9 "LOX")  5
+(10 "LIN")  9   (10 "LOX")  4
+(11 "LIN") 10   (11 "LOX")  3
+(12 "LIN") 12   (12 "LOX")  3
+(13 "LIN") 11   (13 "LOX")  5
+(14 "LIN") 15   (14 "LOX")  9
+(15 "LIN")  9   (15 "LOX")  7
+]

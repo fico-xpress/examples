@@ -1,0 +1,66 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file euler.mos
+   ``````````````
+   Constructing a Eulerian circuit (a closed circuit 
+   that uses every given arc exactly once).
+   - Working with lists -
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Oct. 2006
+*******************************************************!)
+
+model "Eulerian circuit"
+
+ public declarations
+  NODES = 1..12                        ! Set of nodes
+  UNUSED: array(NODES) of list of integer
+  TOUR: list of integer
+  NEWT, TAIL: list of integer
+ end-declarations
+
+ initializations from 'Models/euler.dat'
+  UNUSED
+ end-initializations
+ 
+ ct:=sum(i in NODES) getsize(UNUSED(i))
+
+ TOUR:=[1]                            ! Choose node 1 as start point
+
+ while(ct>0) do                       ! While there are unused arcs:
+     ! Find first node in TOUR with unused outgoing arc(s) 
+  node:=0
+  forall(i in TOUR)
+   if UNUSED(i) <> [] then
+    node:=i
+    break
+   end-if
+
+     ! Insertion position (first occurrence of 'node' in TOUR)  
+  pos:= findfirst(TOUR, node) 
+
+     ! Construct a new subtour starting from 'node'
+  cur:=node                           ! Start with current node
+  NEWT:=[]
+  while(UNUSED(cur) <> []) do
+   NEWT+=splithead(UNUSED(cur),1)     ! Take first unused arc
+   cur:=getlast(NEWT)                 ! End point of arc is new current node
+  end-do
+  
+     ! Stop if the subtour is not a closed loop (=> no Eulerian circuit)
+  if cur<>node then                   ! Compare start and end of subtour
+   writeln("Tour cannot be closed")
+   exit(1)
+  end-if 
+
+     ! Add the new subtour to the main journey 
+  TAIL:=splittail(TOUR, -pos)         ! Split off the tail from main tour
+  TOUR += NEWT + TAIL                 ! Attach subtour and tail to main tour
+  ct -= getsize(NEWT)
+ end-do
+ 
+ writeln("Tour: ", TOUR)              ! Print the result
+ 
+end-model

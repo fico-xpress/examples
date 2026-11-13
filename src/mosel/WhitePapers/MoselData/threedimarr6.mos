@@ -1,0 +1,38 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file threedimarr6.mos
+   `````````````````````
+   Reading 3-dimensional arrays.
+   - Using 'initializations from' with the csv driver -
+       
+   (c) 2012 Fair Isaac Corporation
+       author: S. Heipcke, Dec. 2012, rev. Apr. 2014
+*******************************************************!)
+
+model "ThreeDimArr (CSV)"
+ uses "mmsheet"
+
+ parameters
+  CSTR= 'mmsheet.csv:threedim.csv'
+ end-parameters
+
+ declarations
+  I: range
+  J: set of string
+  K = 1..5	              ! The last index set must be defined in the model
+  A: dynamic array(I,J,K) of real
+ end-declarations
+
+ initializations from CSTR
+  A as 'partndx;[A3:G8]'
+ end-initializations
+
+ writeln("A: ")
+ forall(i in I, j in J, k in K | exists(A(i,j,k)))
+  writeln("A(", i, ",", j, ",", k, "): ", A(i,j,k))
+  
+end-model
+
+

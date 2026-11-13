@@ -1,0 +1,42 @@
+!***************************************
+! Mosel NI examples makefile           *
+!                                      *
+! (c) 2025-2026 Fair Isaac Corporation *
+!     author: Y. Colombani             *
+!***************************************
+! to build everything (except zlib):
+!  mosel make
+! to build zlib.dso:
+!  mosel make TODO=zlib
+! to cleanup
+!  mosel make TODO=clean
+
+! Building zlib requires the zlib library:
+! https://www.zlib.net/
+
+model make
+ uses 'makeutil'
+ declarations
+  alldso=['myconstants.c','solarray.c','task.c','complex.c','date.c','euro.c','export.c']
+  withxprs=['myxprs.c','myqxprs.c']
+ end-declarations
+
+ forall(s in alldso)
+  c2dso(s,'.')
+ 
+ LIBS('all'):=['xprm']
+ c2exe('mmstatdso.c','.')
+ reset(LIBS('all'))
+
+ LIBS('all'):=['xprs','xprnls']
+ forall(s in withxprs)
+  c2dso(s,'.')
+ reset(LIBS('all'))
+
+ if TODO='zlib' or runmode='clean' then
+  LIBS('posix'):=['z']
+  LIBS('winnt'):=['zlibwapi']
+  c2dso('zlib.c','.')
+ end-if
+
+end-model

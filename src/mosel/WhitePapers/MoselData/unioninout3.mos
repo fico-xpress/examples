@@ -1,0 +1,83 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file unioninout3.mos
+   ````````````````````
+   Reading/writing unions from/to
+   spreadsheets or databases.
+   - Using 'initializations from' with the excel driver -
+   
+   (c) 2021 Fair Isaac Corporation
+       author: S. Heipcke, Apr. 2021
+*******************************************************!)
+model "Union handling (Excel)"
+uses 'mmsheet','mmsystem'
+
+ parameters
+  CSTR= 'mmsheet.excel:uniondata.xlsx'
+  CSTR_OUT= 'mmsheet.excel:uniondataout.xlsx'
+ end-parameters
+
+ function convertexceltime(r: real): time
+   ra:=abs(r)
+   if ra<1 then
+     returned:=time(round(ra*24*60*60*1000))
+   else
+     returned:=time(round((ra-floor(ra))*24*60*60*1000))
+   end-if
+ end-function
+
+ declarations
+   L,L2,L3: list of any
+   LU: list of text or real
+   LU2: list of text or real or boolean
+ end-declarations
+
+! Reading data of different types from an Excel file
+ initializations from CSTR
+   L as "skiph;[A:A]"
+   L2 as "skiph;[C:C]"
+   L3 as "skiph;[E:E]"
+   LU as "skiph;[C:C]"   ! This would fail to read from [A:A] due to missing boolean type
+   LU2 as "skiph;[A:A]"   
+ end-initializations
+
+ write("L orig: ")
+ forall(i in L) write (i,": ", i.typeid, "; ")
+ writeln
+! Date types are read in textual form, time types have a numerical value 
+ L(5).date:=date(L(5).string)
+ L(6).time:=convertexceltime(L(6).real)
+ write("L new:  ")
+ forall(i in L) write (i,": ", i.typeid, "; ")
+ writeln
+
+! List defined with a restricted set of types
+ write("LU:     ")
+ forall(i in LU) write (i,": ", i.typeid, "; ")
+ writeln
+ write("LU2:    ")
+ forall(i in LU2) write (i,": ", i.typeid, "; ")
+ writeln
+
+ ! Contents formated as 'text'
+ write("L2:     ")
+ forall(i in L2) write (i,": ", i.typeid, "; ")
+ writeln
+
+ ! Contents formated as 'text' enforced via preceding apostrophe
+ write("L3:     ")
+ forall(i in L3) write (i,": ", i.typeid, "; ")
+ writeln
+
+ ! The 'msheet.excel' driver does not create files
+ fcopy("uniondata.xlsx","uniondataout.xlsx")
+
+ ! Writing data of type 'any' to an Excel file
+ initializations to CSTR_OUT
+   L as "[Output$A:A]"
+   LU as "[Output$R1C3:R1C"+(2+LU.size)+"]"
+ end-initializations
+
+end-model

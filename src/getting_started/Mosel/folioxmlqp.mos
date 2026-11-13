@@ -1,0 +1,137 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file folioxmlqp.mos
+   ```````````````````
+   Modeling a small QP problem 
+   to perform portfolio optimization.
+   -- 1. QP: minimize variance
+      2. MIQP: limited number of assets ---
+   -- Reading/writing data in XML format --
+   
+  (c) 2010 Fair Isaac Corporation
+      author: S.Heipcke, July 2010, rev. Sep. 2017
+*******************************************************!)
+
+model "Portfolio optimization with QP/MIQP"
+ uses "mmxprs", "mmnl"
+ uses "mmxml"                       ! XML interface functions
+
+ parameters
+  MAXVAL = 0.3                      ! Max. investment per share
+  MINAM = 0.5                       ! Min. investment into N.-American values
+  MAXNUM = 4                        ! Max. number of different assets
+  TARGET = 9.0                      ! Minimum target yield
+ end-parameters
+
+ forward procedure save_solution(num: integer)
+
+ declarations
+  SHARES = 1..10                    ! Set of shares
+  RISK: set of integer              ! Set of high-risk values among shares
+  NA: set of integer                ! Set of shares issued in N.-America
+  RET: array(SHARES) of real        ! Estimated return in investment
+  VAR: array(SHARES,SHARES) of real ! Variance/covariance matrix of
+                                    ! estimated returns
+
+  AllData, Solution: xmldoc         ! XML document
+  Share,Root,Sol: integer           ! XML nodes
+  NodeList: list of integer
+ end-declarations
+
+! Reading data from an XML file
+ load(AllData, "folioqp.xml")
+ getnodes(AllData, "portfolio/share", NodeList) 
+ RISK:= union(l in NodeList | getattr(AllData,l,"risk")="high") 
+         {getintattr(AllData,l,"name")} 
+ NA:= union(l in NodeList | getattr(AllData,l,"region")="NA") 
+         {getintattr(AllData,l,"name")} 
+ forall(l in NodeList)
+   RET(getintattr(AllData,l,"name")):= getintattr(AllData, l, "ret") 
+
+! Read a second XML file
+ reset(AllData)                     ! Empty the "xmldoc" object
+ load(AllData, "folioqpvar.xml")
+ getnodes(AllData, "variance/var", NodeList) 
+ forall(l in NodeList)
+   VAR(getintattr(AllData, l, "ind1"),getintattr(AllData, l, "ind2")):=
+     getrealvalue(AllData,l)
+ reset(AllData)                     ! Free up memory
+
+! Prepare XML structure for solution output
+ Root:=addnode(Solution, 0, XML_ELT, "result")    ! Create root node "result"
+
+
+ declarations
+  frac: array(SHARES) of mpvar      ! Fraction of capital used per share
+ end-declarations
+
+! **** First problem: unlimited number of assets ****
+
+! Objective: mean variance
+ Variance:= sum(s,t in SHARES) VAR(s,t)*frac(s)*frac(t) 
+
+! Minimum amount of North-American values
+ sum(s in NA) frac(s) >= MINAM
+
+! Spend all the capital
+ sum(s in SHARES) frac(s) = 1
+ 
+! Target yield
+ sum(s in SHARES) RET(s)*frac(s) >=  TARGET
+
+! Upper bounds on the investment per share
+ forall(s in SHARES) frac(s) <= MAXVAL
+
+! Solve the problem
+ minimize(Variance)
+
+! Solution printing
+ writeln("With a target of ", TARGET, " minimum variance is ", getobjval)
+ forall(s in SHARES) writeln(s, ": ", getsol(frac(s))*100, "%")  
+
+ save_solution(1)
+
+! **** Second problem: limit total number of assets ****
+
+ declarations
+  buy: array(SHARES) of mpvar       ! 1 if asset is in portfolio, 0 otherwise
+ end-declarations
+
+! Limit the total number of assets
+ sum(s in SHARES) buy(s) <= MAXNUM
+
+ forall(s in SHARES) do
+  buy(s) is_binary
+  frac(s) <= buy(s)
+ end-do
+
+! Solve the problem
+ minimize(Variance)
+
+ writeln("With a target of ", TARGET," and at most ", MAXNUM,
+          " assets,\n minimum variance is ", getobjval)
+ forall(s in SHARES) writeln(s, ": ", getsol(frac(s))*100, "%") 
+
+ save_solution(2)
+
+! Write solution to a new XML file
+ save(Solution, "qpresult.xml")
+
+!*********************************************************************
+
+! Solution printing to a file
+ procedure save_solution(num: integer)
+   Sol:= addnode(Solution, Root, XML_LASTCHILD, XML_ELT, "solution")
+                                       ! Append a "solution" node
+   setattr(Solution, Sol, "num", num)  ! ... with attribute "num"
+   forall(s in SHARES) do              ! Add node containing solution value
+    Share:= addnode(Solution, Sol, "share", frac(s).sol)
+    setattr(Solution, Share, "name", s)
+   end-do
+   save(Solution, Sol, "")             ! Display XML solution on screen
+ end-procedure  
+
+ 
+end-model 

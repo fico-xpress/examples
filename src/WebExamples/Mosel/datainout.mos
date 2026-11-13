@@ -1,0 +1,44 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file datainout.mos
+   ``````````````````
+   Data input and output through a static module.
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S.Heipcke, Mar. 2006, rev. Sep. 2018
+*******************************************************!)
+
+model "Data input/output (static module)"
+ uses "datainout"                  ! Defines 'readdata' and 'writedata'
+
+ parameters
+  INDATA=''                        ! Memory location of data
+  INSIZE=0                         ! Size of the data block
+  OUTDATA=''                       ! Memory location of output data
+  OUTSIZE=0                        ! Size of the data block
+ end-parameters
+
+ declarations
+  A7: dynamic array(range,range) of real
+ end-declarations
+
+! Data input from calling application
+ readdata(A7, INDATA, INSIZE)
+
+! Print out the data we have read
+ writeln('A7 is: ', A7)
+
+ declarations
+  A: array(-1..1,5..7) of real
+ end-declarations
+
+ A :: [ 2,  4,  6,
+       12, 14, 16,
+       22, 24, 26]
+
+! Output to calling application
+ writedata(A, OUTDATA, OUTSIZE)
+ 
+end-model

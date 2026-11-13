@@ -1,0 +1,46 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file runprimedistr.mos 
+   ``````````````````````
+   Distributed computing: 
+   Running a model on a remote Mosel instance.
+
+   (c) 2010 Fair Isaac Corporation
+       author: S. Heipcke, July 2010
+*******************************************************!)
+
+model "Run model prime remotely"
+ uses "mmjobs"
+
+ declarations
+  moselInst: Mosel
+  modPrime: Model
+  event: Event
+ end-declarations
+                               ! Compile 'prime.mos' locally
+ if compile("prime.mos")<>0 then exit(1); end-if
+
+                               ! Start a remote Mosel instance: 
+                               ! "" means the node running this model
+ if connect(moselInst, "")<>0 then exit(2); end-if
+
+                               ! Load bim file into remote instance
+ load(moselInst, modPrime, "rmt:prime.bim")
+
+ run(modPrime, "LIMIT=50000")  ! Start execution and
+ wait(2)                       ! wait 2 seconds for an event
+
+ if isqueueempty then          ! No event has been sent...
+  writeln("Model too slow: stopping it!")
+  stop(modPrime)               ! ... stop the model, then wait
+  wait
+ end-if
+                               ! An event is available: model finished
+ event:=getnextevent
+ writeln("Exit status: ", getvalue(event))
+ writeln("Exit code  : ", getexitcode(modPrime))
+
+ unload(modPrime)              ! Unload the submodel
+end-model 

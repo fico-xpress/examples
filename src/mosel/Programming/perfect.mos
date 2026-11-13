@@ -1,0 +1,36 @@
+(!*******************************************************
+  * Mosel Example Problems                              *
+  * ======================                              *
+  *                                                     *
+  * file perfect.mos                                    *
+  * ````````````````                                    *
+  * Example for the use of the Mosel language           *
+  * (Calculation of perfect numbers)                    *
+  *                                                     *
+  * A number is called perfect if its value equals the  *
+  * sum of its divisors, except for itself.             *
+  *                                                     *
+  * (c) 2008 Fair Isaac Corporation                     *
+  *     author: S. Heipcke, 2001                        *
+  *******************************************************!)
+
+model Perfect                  ! Start a new model
+
+parameters
+ LIMIT=100                     ! Search for perfect numbers in 1..LIMIT
+end-parameters
+
+ writeln("Perfect numbers between 1 and ", LIMIT, ":")
+
+ forall(p in 1..LIMIT) do
+   sumd:=1
+   forall(d in 2..p-1)
+     if p mod d = 0 then 
+       sumd+=d 
+     end-if
+   if p=sumd then 
+     writeln(p) 
+   end-if 
+ end-do
+
+end-model

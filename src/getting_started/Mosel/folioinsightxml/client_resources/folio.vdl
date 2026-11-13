@@ -1,0 +1,98 @@
+<!--
+  Xpress Insight - Portfolio optimization example from 'Getting Started' guide 
+  Copyright (c) 2025-2026 Fair Isaac Corporation. All rights reserved.
+-->
+<vdl version="5">
+    <!-- Optional: number formatting function -->
+    <script>
+        function formatRender(data) {
+            return insight.Formatter.formatNumber(data, '0.#%');
+        }
+    </script>
+    <vdl-page class="compact">
+    <!-- 'vdl' and 'vdl-page' tags must always be present -->
+
+        <!-- 'header' element: container for any vdl elements that are not part 
+             of the page layout -->
+        <vdl-header>
+            <vdl-action-group name="runModel">
+                <vdl-action-execute mode="RUN"></vdl-action-execute>
+            </vdl-action-group>
+        </vdl-header>
+
+        <!-- Structural element 'section': print header text for a section -->
+        <vdl-section heading="Configuration">
+            <vdl-row>
+                <vdl-column size="5">
+                    <vdl-form>
+                        <vdl-field label="Maximum investment into high-risk values" size="3" label-size="9" parameter="MAXRISK" type="number"></vdl-field>
+                        <vdl-field label="Maximum investment per share" type="number" size="3" label-size="9" parameter="MAXVAL"></vdl-field>
+                        <vdl-field label="Minimum investment into North-American values" type="number" size="3" label-size="9" parameter="MINAM"></vdl-field>
+                    </vdl-form>
+                </vdl-column>
+                <vdl-column size="4">
+                    <vdl-table>
+                        <vdl-table-column entity="RET" editable="true"></vdl-table-column>
+                    </vdl-table>
+                </vdl-column>
+                <vdl-column size="3">
+                    <vdl-form>
+                        <!-- 'Run' button to launch optimization -->
+                        <vdl-button vdl-event="click:actions.runModel" label="Run optimization"></vdl-button>
+                    </vdl-form>
+                </vdl-column>
+            </vdl-row>
+        </vdl-section>
+        <vdl-section heading="Results">
+            <!-- Display inline text element with objective value -->
+            <vdl-row>
+                <vdl-column><span vdl-text="= 'Total expected return: &#163;' +
+            insight.Formatter.formatNumber(scenario.entities.Return.value, '##.00')"></span></vdl-column>
+            </vdl-row>
+            <vdl-row>
+                <vdl-column size="4" heading="Portfolio composition">
+                    <vdl-table>
+                        <vdl-table-column entity="frac" render="=formatRender"></vdl-table-column>
+                    </vdl-table>
+                </vdl-column>
+                <vdl-column size="8" heading="Evaluation of constraints">
+                    <vdl-table>
+                        <vdl-table-column entity="CtrSol" heading="=t.label" vdl-repeat="=t in scenario.entities.CTRINFO">
+                            <vdl-index-filter set="CTRINFO" value="=t.value"></vdl-index-filter>
+                        </vdl-table-column>
+                    </vdl-table>
+                </vdl-column>
+            </vdl-row>
+            <vdl-row>
+                <vdl-column size="4" >
+                    <vdl-chart style="width:350px;">
+                        <!-- Filtering out 0-valued entries -->
+                        <script>
+                            function getFracData(frac, shares) {
+                                if (!shares.length || !(frac && frac.toObjectArray && frac.toObjectArray().length)) {
+                                    return [];
+                                }
+                                var result = shares
+                                    .filter(function(share) {
+                                        return frac(share.value).value > 0;
+                                    })
+                                    .map(function(share) {
+                                        return [share.label, frac(share.value).value];
+                                    });
+                                return result;
+                            }
+                        </script>
+                        <vdl-chart-series type="pie" data="=getFracData(scenario.entities.frac, scenario.entities.SHARES)"></vdl-chart-series>
+                        <!-- Simple pie chart:-->
+                        <!--    <vdl-chart-series entity="frac" type="pie"></vdl-chart-series>--></vdl-chart>
+                </vdl-column>
+                <vdl-column size="8">
+                    <vdl-chart modifier="=function(config) {config.layout.xaxis.tickangle = 5; return config; }" style="width:700px;">
+                        <vdl-chart-series entity="CtrSol" type="line" series-set="CTRINFO" heading="=t.label"></vdl-chart-series>
+                        <vdl-chart-axis axis="x" type="category"></vdl-chart-axis>
+                    </vdl-chart>
+                </vdl-column>
+            </vdl-row>
+        </vdl-section>
+    </vdl-page>
+</vdl>

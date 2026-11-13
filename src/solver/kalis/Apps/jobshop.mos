@@ -1,0 +1,116 @@
+(!****************************************************************
+
+   CP example problems
+   ===================
+   
+   file jobshop.mos
+   ````````````````
+   Job-shob scheduling problem.
+
+   *** This model cannot be run with a Community Licence 
+       for the provided data instances ***
+
+   Copyright(C) 2008 Artelys S.A. and Fair Isaac Corporation
+                     Creation: 2005, rev. Apr. 2022
+*****************************************************************!)
+
+model "Job shop (CP)"
+ uses "kalis", "mmsystem"
+
+ parameters
+  DATAFILE = "mt06.dat"                      ! mt06.dat : Fisher and Thompson 6x6 instance
+  !DATAFILE = "la105.dat"                    ! la105.dat: Lawrence 10x5 instance
+ end-parameters
+
+ forward procedure print_solution
+
+ declarations
+  NBJOBS: integer                            ! Number of jobs
+  NBRES: integer                             ! Number of resources
+ end-declarations
+
+ initializations from "Data/"+DATAFILE
+  NBJOBS NBRES
+ end-initializations
+
+ declarations
+  JOBS = 1..NBJOBS                           ! Set of jobs
+  TASKS = 1..NBRES                           ! Set of tasks (one per machine)
+  TASKSM1 = 1..NBRES-1                       ! Set of tasks without last
+  RESOURCES = 0..NBRES-1                     ! Set of resources
+  taskUse: array(JOBS,TASKS) of integer      ! Resource use of tasks
+  taskDuration: array(JOBS,TASKS) of integer ! Durations of tasks
+ end-declarations
+
+ initializations from "Data/"+DATAFILE
+  taskUse taskDuration
+ end-initializations 
+
+ MAXTIME := sum(j in JOBS,t in TASKS) taskDuration(j,t)
+                                             ! Upper bound on total duration
+ setparam("KALIS_DEFAULT_LB", 0)
+ setparam("KALIS_DEFAULT_UB", MAXTIME)
+
+ declarations
+  start: array(JOBS,TASKS) of cpvar          ! Start times of tasks
+  makespan: cpvar                            ! Makespan (latest completion time)
+  Disj: set of cpctr                         ! Disjunction constraints 
+  Strategy: array(range) of cpbranching      ! Branching strategy
+ end-declarations
+
+! **** Create and post disjunctive constraints ****
+ procedure post_disjunctive_constraints(r:integer)
+  declarations
+   usedby: set of cpvar
+   durby : array(cpvar) of integer
+  end-declarations
+
+  nbr := 0
+  forall(j in JOBS,t in TASKS | taskUse(j,t) = r) do
+   usedby += {start(j,t)}
+   durby(start(j,t)) := taskDuration(j,t)
+   nbr += 1
+  end-do
+  disjunctive(usedby, durby, Disj, 0)
+ end-procedure  
+  
+! Naming the decision variables
+ setname(makespan, "MakeSpan")
+ forall(j in JOBS,t in TASKS) setname(start(j,t), "START("+j+","+t+")")
+
+! Precedence constraints between last task of every job and makespan
+ forall(j in JOBS) makespan >= start(j,NBRES) + taskDuration(j,NBRES) 
+
+! Precedence constraints between the tasks of every job
+ forall(j in JOBS,t in TASKSM1)
+  start(j,t) + taskDuration(j,t) <= start(j,t+1)
+
+! Resource constraints (disjunctions between tasks on the same machine)
+ forall(r in RESOURCES) post_disjunctive_constraints(NBRES-1-r)
+
+ cp_set_solution_callback(->print_solution)   ! Define solution callback   
+
+! Branching strategy
+ Strategy(0):= settle_disjunction(Disj)
+ Strategy(1):= split_domain(KALIS_LARGEST_MAX, KALIS_MIN_TO_MAX)
+ cp_set_branching(Strategy) 
+
+ setparam("KALIS_MAX_COMPUTATION_TIME", 50)   ! Set search time limit
+ starttime:= gettime
+
+ if not cp_minimize(makespan) then
+  writeln("Problem is infeasible.")
+  exit(0)
+ end-if
+
+! Solution printing
+ writeln("(", gettime-starttime, "sec) Best solution: Makespan = ",
+          getsol(makespan))
+ cp_show_stats
+
+ procedure print_solution
+  writeln("(", gettime-starttime, "sec) Solution found with Makespan = ",
+          getsol(makespan))
+ end-procedure
+
+end-model

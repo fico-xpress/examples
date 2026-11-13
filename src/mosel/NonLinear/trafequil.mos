@@ -1,0 +1,84 @@
+(!*********************************************************************
+   Mosel NL examples
+   =================
+   file trafequil.mos
+   ``````````````````
+   Convex NLP problem determining a trafic equilibrium 
+   for a given network and travel volumes. 
+
+   Based on AMPL model trafequil.mod
+   Source: http://www.orfe.princeton.edu/~rvdb/ampl/nlmodels/braess/ 
+
+   *** This model cannot be run with a Community Licence 
+       for the provided data instance ***
+
+   (c) 2008 Fair Issac Corporation
+       author: S. Heipcke, Sep. 2008, rev. Jun. 2023
+*********************************************************************!)
+
+model "trafequil"
+ uses "mmxnlp"
+
+ parameters
+  DATAFILE = "trafequil.dat"
+ end-parameters
+
+ declarations
+  W: set of integer                     ! Set of OD-pairs
+  PP: range                             ! Set of all paths
+  A: range                              ! Set of arcs
+
+  P: array(W) of set of integer         ! Set of paths connecting OD-pair w in W
+  D: array(W) of real                   ! Number of OD-travelers ('demand')
+  T0: array(A) of real                  ! Free-flow travel time
+  K: array(A) of real                   ! Practical capacity
+  AP: array(PP) of set of integer       ! Arcs defining each path
+  G: array(A) of set of integer         ! Set of paths that use each arc
+ end-declarations
+
+ initialisations from DATAFILE
+  P D
+  [K,T0] as "K_T0"
+  AP G
+ end-initialisations
+
+ finalise(W)
+ finalise(A)
+ finalise(PP)
+
+ declarations
+  h: array(PP) of mpvar                 ! Flow on path
+ end-declarations
+
+ forall(r in PP) h(r)>=0
+ 
+! Arcflows
+ forall(a in A) f(a):= sum(r in G(a)) h(r)
+
+(! Arctimes
+ forall(a in A) t(a):= T0(a)*(1 + 0.15*(f(a)/K(a))^4)
+
+! Pathtimes
+ forall(r in PP) T(r):= sum(a in AP(r)) t(a)
+!)
+
+ forall(a in A) B(a):= T0(a)*f(a) + (0.15/5*(T0(a)/K(a)^4)*(f(a)^5))
+
+! Objective to be minimized 
+ BeckmannObj:= sum(a in A) B(a)
+
+ forall(w in W) 
+  TripTable(w):= sum(r in P(w)) h(r) = D(w)    
+  
+! Since this is a convex problem, it is sufficient to call a local solver
+ setparam("xprs_nlpsolver", 1)
+  
+ setparam("XNLP_verbose", true)
+
+! Solving
+ minimise(BeckmannObj)
+ 
+ writeln("Solution: ", BeckmannObj.sol)
+ forall(a in A) writeln(a, ": ", f(a).sol, ", ", B(a).sol)
+   
+end-model

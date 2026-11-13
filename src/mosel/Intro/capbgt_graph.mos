@@ -1,0 +1,85 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file capbgt.mos
+   ```````````````
+   TYPE:         Capital budgeting
+   DIFFICULTY:   1
+   FEATURES:     simple MIP problem
+   DESCRIPTION:  Among 8 projects under consideration we wish 
+                 to choose the most profitable ones. Each project 
+                 requires a capital investment and a commitment of 
+                 skilled personnel. The (discounted) return of each 
+                 project is known. The available capital and the 
+                 number of skilled personnel are limited. 
+   FURTHER INFO: Similar problem:
+                 `Applications of optimization with Xpress-MP', 
+                 Section 13.6 `Choice of expansion projects'.
+ 
+   (c) 2008 Fair Isaac Corporation 
+       authors: Y. Colombani & S. Heipcke, Jan. 2001, rev. Sep. 2017
+*******************************************************!)
+
+model Capbgt
+ uses "mmxprs", "mmsvg"
+
+ declarations
+  RPROJ = 1..8                   ! Range of possible projects
+  CAPAVL = 478                   ! Availability of capital
+  PERAVL = 106                   ! Availability of skilled personnel
+  CAP: array(RPROJ) of real      ! Capital required for project p
+  PER: array(RPROJ) of real      ! Personnel required for project p
+  RET: array(RPROJ) of real      ! Return from project p
+  x: array(RPROJ) of mpvar       ! Variables indicating whether a project 
+                                 ! is chosen  
+ end-declarations
+
+!  PROJ   1    2    3    4    5    6    7    8
+ CAP :: [104,  53,  29, 187,  98,  32,  75, 200]
+ PER :: [ 22,  14,   7,  36,  24,  10,  20,  41]
+ RET :: [124,  75,  42, 188, 108,  56,  88, 225]
+ 
+! Objective: maximize the return
+ MaxReturn:= sum(i in RPROJ) RET(i)*x(i)  
+
+! Limit on capital used by all projects
+ LimCap:= sum(i in RPROJ) CAP(i)*x(i) <= CAPAVL
+
+! Limit on personnel used by all projects
+ LimPers:= sum(i in RPROJ) PER(i)*x(i) <= PERAVL
+
+! Variables are 0/1
+ forall(i in RPROJ) x(i) is_binary
+   
+! Solve the problem
+ maximize(MaxReturn)                
+
+! Solution printing
+ writeln("Solution:\n Objective: ", getobjval)
+ forall(i in RPROJ)  write(" x(", i, "): ", getsol(x(i)))
+ writeln
+ 
+! Solution drawing
+ cumc:=0.0; cump:=0.0; cumr:=0.0
+ forall(i in RPROJ | getsol(x(i))>0) do
+   svgaddgroup("P"+i, "Project "+i)
+   svgaddpie(100,100,40,cumc,cumc+CAP(i)/CAPAVL)
+   cumc+=CAP(i)/CAPAVL
+   svgaddpie(200,100,40,cump,cump+PER(i)/PERAVL)
+   cump+=PER(i)/PERAVL
+   svgaddpie(300,100,40,cumr,cumr+RET(i)/getobjval)
+   cumr+=RET(i)/getobjval
+ end-do
+ svgaddgroup("msg", "", SVG_BLACK)
+ svgaddtext(75,25, "Capital use")
+ svgaddtext(175,25, "Personnel use")
+ svgaddtext(275,25, "Profit share")
+
+ b:=svggetgraphviewbox
+ b.width+=20; b.height:=b.width; b.xmin-=10; b.ymin-=10
+ svgsetgraphviewbox(b)
+ svgsave("capbgt.svg")
+ svgrefresh
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+end-model

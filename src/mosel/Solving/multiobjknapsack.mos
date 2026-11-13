@@ -1,0 +1,73 @@
+(!*******************************************************
+   Mosel Example Problems
+   ======================
+
+   file multiobjknapsack.mos
+   `````````````````````````
+   Multi-objective knapsack example
+
+   (c) 2022 Fair Isaac Corporation
+       author: S. Heipcke, June 2022
+  *******************************************************!)
+model "multiobjknapsack"
+ uses "random", "mmxprs"
+ 
+ parameters
+   N = 15            ! Number of items
+   NOBJ = 2          ! Number of goals
+   MAXW = 10         ! Maximum weight that can be carried
+ end-parameters
+
+ declarations
+   R=1..N                              ! Set of items
+   WEIGHT: array(R) of real            ! Weight per item
+   OBJS = 1..NOBJ                      ! Set of objectives
+   VALUE: array(OBJS,R) of real        ! Value of items for each objective
+   take: array(R) of mpvar             ! Whether to select an item
+   TotValue: array(OBJS) of linctr     ! Objective functions (goals)
+   ObjCfg: array(OBJS) of objconfig    ! Configuration of objectives
+ end-declarations
+
+! Generate random weights and two random value metrics
+ setmtrandseed(123)
+ forall(i in R) WEIGHT(i):= mtrand_int(1, 4)
+ forall(o in OBJS, i in R) VALUE(o,i):= mtrand_int(1, 6)
+
+! Decision variables for each item
+ forall(i in R) take(i) is_binary
+
+! Total weight cannot exceed maximum weight
+ WLimit:= sum(i in R) WEIGHT(i)*take(i) <= MAXW
+
+! Define the objectives
+ forall(o in OBJS) TotValue(o):= sum(i in R) VALUE(o,i)*take(i)
+! Configuration of multiple objectives: 
+! * Distinct priority values: solved as pre-emptive multi-obj problem where
+!   a higher value indicates higher priority, that is, to be treated earlier 
+! * Equal priority values: solved as Archimedian multi-obj problem
+ ObjCfg(1).priority:=2
+ ObjCfg(2).priority:=1
+
+! Solve the problem
+ setparam("XPRS_VERBOSE", true)         ! Enable solver logging
+ setparam("XPRS_MULTIOBJLOG", 1)        ! Configure multi-objective logging: 
+                                        ! 0=none, 1=summary, 2=detailed
+ maximise(TotValue,ObjCfg)
+
+! Solution reporting
+! if getprobstat=XPRS_OPT and getparam("XPRS_SOLVEDOBJS")=NOBJ then
+ if getparam("XPRS_SOLVESTATUS")=XPRS_SOLVESTATUS_COMPLETED and
+    getparam("XPRS_SOLSTATUS")=XPRS_SOLSTATUS_OPTIMAL then
+   writeln('Problem was solved to optimality.')
+   write('Items selected:')
+   forall(i in R | take(i).sol=1) write(i, ' ')
+   writeln("\nTotal weight:", WLimit.act)
+   writeln('First objective:', TotValue(1).sol)
+   writeln('Second objective:', TotValue(2).act)
+ elif getprobstat=XPRS_INF and getparam("XPRS_SOLVEDOBJS")=1 then
+   writeln('Failed to solve first objective.')
+ else
+   writeln('Solved first objective but failed to solve second objective.')
+ end-if
+
+end-model

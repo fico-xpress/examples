@@ -1,0 +1,78 @@
+(!*********************************************************************
+   Mosel NL examples
+   =================
+   file boxes02.mos
+   ````````````````
+   A craftsman makes small wooden boxes for sale. 
+   He has four different shapes or styles of box, and can make each of
+   them in any size (keeping all the dimensions in proportion). 
+   The profit he makes on a box depends on the size.   
+   He has only a limited amount of the necessary wood available and a
+   limited amount of time in the week to do the work.    
+   How many boxes should he make, and what size should they be, 
+   in order to maximize his profit?  
+ 
+   (c) 2013 Fair Issac Corporation
+       author: S. Heipcke, Nov. 2005, rev. Feb. 2013
+*********************************************************************!)
+
+model "Boxes"
+ uses "mmxnlp"
+
+ declarations
+  BOXES = {"Cube", "Oblong", "Flat", "Economy"}      ! Box types
+  make: array(BOXES) of mpvar                        ! Number produced per box type
+  size, battens, ply, profit, mtime: array(BOXES) of mpvar  ! Properties per box type
+  LENGTH,WIDTH,HEIGHT,PROFIT,DUR: array(BOXES) of real      ! Length, width, height, profit, time
+  TotalProfit: nlctr                                 ! Objective: total profit
+ end-declarations
+
+ LENGTH :: (["Cube", "Oblong", "Flat", "Economy"])[1,1,4,1]
+ WIDTH :: (["Cube", "Oblong", "Flat", "Economy"])[1,2,4,2]
+ HEIGHT :: (["Cube", "Oblong", "Flat", "Economy"])[1,1,1,1]
+ PROFIT :: (["Cube", "Oblong", "Flat", "Economy"])[20,27.3,90,10] ![20,24,90,10]
+ DUR :: (["Cube", "Oblong", "Flat", "Economy"])[1,1,1,0.2]
+
+ forall (b in BOXES) do
+  battens(b) = 4*(LENGTH(b)+WIDTH(b)+HEIGHT(b))*size(b)
+  ply(b) = 2*(LENGTH(b)*WIDTH(b)+WIDTH(b)*HEIGHT(b)+HEIGHT(b)*LENGTH(b))*size(b)^2
+  profit(b) = PROFIT(b)*size(b)^1.5
+  mtime(b) = 1 + DUR(b)*1.5^(ply(b)/10)
+ end-do
+
+! Bounds on size and number of boxes
+ forall(b in BOXES) do
+  size(b) <= 2
+  make(b) <= 6
+  make(b) is_integer
+ end-do
+
+! Limits on resource availability
+ sum(b in BOXES) make(b)*battens(b) <= 200
+ sum(b in BOXES) make(b)*ply(b) <= 210
+ sum(b in BOXES) make(b)*mtime(b) <= 35
+
+! Objective function: total profit
+ TotalProfit := sum(B in BOXES) make(B)*profit(B)
+
+ setparam("xnlp_verbose", true)
+ setparam("xprs_nlpsolver", 1);
+! Solve the problem
+ maximize(TotalProfit)
+
+! Solution display
+ forall (b in BOXES | make(b).sol>0) writeln(getsol(make(b)), " '", b,
+  "' boxes of size ", getsol(size(b)),
+  " each using ", getsol(battens(b)),
+  " cm of battens, ", getsol(ply(b))," sq cm of plywood, ",
+  strfmt(getsol(mtime(b)),0,2), " hours")
+  
+ writeln("\nTotal profit  ", getobjval)
+ writeln("Total battens ",
+  strfmt(getsol(sum(b in BOXES) make(b)*battens(b)),0,2)," cm")
+ writeln("Total ply     ",
+  strfmt(getsol(sum(b in BOXES) make(b)*ply(b)),0,2)," sq cm")
+ writeln("Total mtime    ",
+  strfmt(getsol(sum(b in BOXES) make(b)*mtime(b)),0,2)," hours")
+  
+end-model

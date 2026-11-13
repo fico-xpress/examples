@@ -1,0 +1,73 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file foliohttpclient.mos
+   ````````````````````````
+   Sending HTTP requests for model runs with
+   XML-format data to a server, retrieving and
+   displaying the results.
+
+   *** Before running this model, an HTTP server must be
+   *** launched by running the file foliohttpsrv.mos.
+   
+  (c) 2013 Fair Isaac Corporation
+      author: S.Heipcke, July 2013
+*******************************************************!)
+
+model "HTTP client launching portfolio model"
+ uses "mmhttp"                       ! Use HTTP functions
+ uses "mmxml"                        ! Use XML format
+
+ parameters
+  DATAFILE= "folio.xml"              ! File with problem data
+  OUTFILE= "result.xml"              ! Output file 
+  MAXRISK = 1/3                      ! Max. investment into high-risk values
+  MAXVAL = 0.3                       ! Max. investment per share
+  MINAM = 0.5                        ! Min. investment into N.-American values
+
+  SERVERNAME = "localhost"           ! Configure with the machine name/address
+                                     ! that is running foliohttpsrv.mos
+ end-parameters 
+
+ declarations
+  ResData: xmldoc                    ! XML document
+  SList: list of integer             ! XML nodes
+ end-declarations
+
+ ! Create a temporary file with the configuration data
+ TEMPDIR:=getparam("tmpdir")+"/tartemp"
+ makedir(TEMPDIR)
+ initializations to TEMPDIR+"/folioconfig.dat"
+  MAXRISK
+  MAXVAL
+  MINAM
+  DATAFILE
+ end-initializations
+
+ ! Create an archive with the configuration data + XML data file
+ fcopy(DATAFILE, TEMPDIR)
+ newtar(0, "zlib.gzip:tmp:folio.tgz", TEMPDIR, [DATAFILE, "folioconfig.dat"])
+
+ ! Delete temporary files
+ removefiles(SYS_RECURS, TEMPDIR, "*")
+ removedir(TEMPDIR)
+
+ ! Post the solving request (synchronous mode => waits for reply from server)
+ status:=httppost("http://" + SERVERNAME + ":2533/runmodel", 
+                  "tmp:folio.tgz", OUTFILE)
+
+ ! Display the result
+ if status/100=2 then
+  load(ResData, OUTFILE)             ! Reading data from an XML file
+  sol:=getnode(ResData, "result/solution") 
+  writeln("Solution with value ", getattr(ResData, sol, "value"), ":")
+  getnodes(ResData, sol, "share", SList)
+  forall(s in SList)
+   writeln("  ", getattr(ResData, s, "name"), ": ", getvalue(ResData, s))
+ else
+  writeln("Request failed with code: ", status, " (", httpreason(status), ")")
+  fcopy(OUTFILE,"")                  ! Display output file contents (error msg)
+ end-if
+ 
+end-model

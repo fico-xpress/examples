@@ -1,0 +1,85 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file recordin3.mos
+   ``````````````````
+   Reading records from
+   spreadsheets or databases via ODBC.
+   - Using 'initializations from' with the excel driver -
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Nov. 2007, rev. Feb. 2019
+*******************************************************!)
+
+model "Record input (Excel)"
+ uses "mmsheet"
+
+ parameters
+  CSTR = 'mmsheet.excel:skiph;recorddata.xls'
+  CSTR2= 'mmsheet.excel:skiph;recorddata2.xls'
+ end-parameters
+ 
+ public declarations
+  PRODUCTS: set of string
+  MACH: range
+  ProdRec = public record
+   Cost: real
+   Duration: integer
+  end-record 
+  PDATA,PDATA2,PDATA3,PDATA4: dynamic array(PRODUCTS,MACH) of ProdRec
+
+  R = 1..9
+  AllDataRec = public record
+   Product: string
+   Mach: integer
+   Cost: real
+   Duration: integer
+  end-record 
+  ALLDATA,ALLDATA2,ALLDATA3,ALLDATA4: array(R) of AllDataRec
+ end-declarations
+
+! **** Reading from a spreadsheet with named ranges ****
+
+! Reading complete records
+
+ initializations from CSTR
+  PDATA as "ProdData"
+  ALLDATA as "noindex;ProdData"
+ end-initializations
+
+! Reading record fields
+
+ initializations from CSTR
+  PDATA2(Cost) as "CostData"
+  ALLDATA2(Product,Mach,Duration) as "noindex;DurationData"
+ end-initializations
+
+! Now let us see what we have
+ writeln('PDATA is: ', PDATA)
+ writeln('ALLDATA is: ', ALLDATA)
+ writeln('PDATA2 is: ', PDATA2)
+ writeln('ALLDATA2 is: ', ALLDATA2)
+
+
+! **** Reading from a simple spreadsheet without named ranges ****
+
+ initializations from CSTR2
+! Reading complete records  
+  PDATA3 as "[InputData$A:D]"
+  ALLDATA3 as "noindex;[InputData$A:D]"
+
+! Reading selected record fields  
+! With option 'skiph' the column headers can be used to select columns
+  PDATA4(Cost) as "[InputData$A:D](Product,Mach,Cost)"
+ ! PDATA4(Cost) as "[InputData$A:D](#1,#2,#3)"    ! Alternative form of column selection in spreadsheet
+  ALLDATA4(Product,Mach,Duration) as "noindex;[InputData$A:D](Product,Mach,Duration)"
+ end-initializations
+
+! Now let us see what we have
+ writeln('PDATA3 is: ', PDATA3)
+ writeln('ALLDATA3 is: ', ALLDATA3)
+ writeln('PDATA4 is: ', PDATA4)
+ writeln('ALLDATA4 is: ', ALLDATA4)
+
+end-model

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<model-companion xmlns="http://www.fico.com/xpress/optimization-modeler/model-companion" version="3.0">
+
+  <client>
+    <view-group title="Main">
+      <vdl-view title="Portfolio data" default="true" path="folio.vdl" />
+      <vdl-view title="Scenario comparison" default="false" path="foliocompare.vdl"/>
+    </view-group>
+  </client>
+
+</model-companion>

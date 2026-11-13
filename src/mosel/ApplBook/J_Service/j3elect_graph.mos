@@ -1,0 +1,113 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file j3elect_graph.mos
+   ````````````````
+   Grouping quarters to election districts
+
+   For elections, a capital is divided into zones called
+   quarters. For each quarter, we know the forecasted number
+   of favorable votes for a particular candidate and the total
+   number of electors. An electoral district is formed by
+   several adjacent quarters that must have between a minimum
+   and a maximum number of voters. Determine a partitioning
+   into five electoral districts that maximizes the number
+   of seats for the candidate.
+
+   This partitioning problem asks for a subset of electoral
+   districts such that every quarter appears in a single chosen
+   electoral district. The Mosel implementation is divided into
+   the data preprocessing and the model itself. After data arrays
+   declaration, the included file j3elect_calc.mos generates the data
+   in the form required for the model. Function 'getprobstat'
+   is used to test the optimization status.
+   The resulting district map is displayed graphically.
+
+   (c) 2008-2023 Fair Isaac Corporation
+       author: S. Heipcke, Apr. 2002, rev. Jun. 2023
+*******************************************************!)
+
+model "J-3 Rigging elections"
+ uses "mmxprs", "mmsvg"
+
+ parameters
+  REQD = 6                            ! Required number of districts
+ end-parameters
+
+ declarations
+  QUARTERS = 1..14                    ! Number of quarters
+  RDIST: range                        ! Set of election districts
+
+  MAJ: array(RDIST) of integer        ! 1 if majority of votes, 0 otherwise
+  DISTR: array(RDIST,QUARTERS) of integer  ! 1 if quarter is in district,
+                                           ! 0 otherwise
+ end-declarations
+
+ include "j3elect_calc.mos"
+
+ declarations
+  choose: array(RDIST) of mpvar      ! 1 if district chosen, 0 otherwise
+ end-declarations
+
+! Objective: number of votes
+ Votes:= sum(d in RDIST) MAJ(d)*choose(d)
+
+! Partitioning
+ forall(q in QUARTERS) sum(d in RDIST) DISTR(d,q)*choose(d) = 1
+
+! Desired number of districts
+ sum(d in RDIST) choose(d) = REQD
+
+ forall(d in RDIST) choose(d) is_binary
+
+! Solve the problem
+ maximize(Votes)
+
+! Solution printing
+ if(getprobstat<>XPRS_OPT) then
+  writeln("Problem is infeasible")
+ else
+  writeln("Total number of votes: ", getobjval)
+  forall(r in RDIST | getsol(choose(r))>0) do
+   write(r, ": ")
+   forall(q in QUARTERS | DISTR(r,q)>0) write(" ", q)
+   writeln(" (", MAJ(r), ")")
+  end-do
+ end-if
+
+! Solution drawing
+ declarations
+  XQ,YQ,WQ,HQ: array(QUARTERS) of integer        ! x-y-coordinates, wight and height of rectangles (quarters)
+ end-declarations
+
+ initializations from 'j3elect.dat'
+  [XQ,YQ,WQ,HQ] as 'REC'
+ end-initializations
+
+! Define settings of global picture
+ svgsetgraphviewbox(0,0,130,130) ! set dimensions of generated image (start x, start y, dim x, dim y)
+ svgsetgraphscale(3) ! scale of points/arrows and text
+
+! Iterate over districts and create a group with random colors for each
+ setrandseed(7)
+ forall(r in RDIST | getsol(choose(r))>0) do
+  red := integer(255*random)
+  green := integer(255*random)
+  blue := integer(255*random)
+  svgaddgroup("d"+r,"District "+r, svgcolor(red,green,blue)) ! declare groups to add randomly generated colors
+  forall(q in QUARTERS | DISTR(r,q)>0) do
+    svgaddrectangle("d"+r, XQ(q), YQ(q),WQ(q),HQ(q))
+    svgsetstyle(svggetlastobj, SVG_FILL, svgcolor(red,green,blue))
+    svgsetstyle(svggetlastobj, SVG_OPACITY, 0.4)
+    ! Add district label in the center of the rectangle
+    svgaddtext((2*XQ(q)+WQ(q))/2-2, (2*YQ(q)+HQ(q))/2-2, text(q))
+    svgsetstyle(svggetlastobj, SVG_FONTSIZE, 'small')
+    svgsetstyle(svggetlastobj, SVG_FONTWEIGHT, 'bold')
+    end-do
+ end-do
+
+ svgsave("j3elect.svg")
+ svgrefresh
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+end-model

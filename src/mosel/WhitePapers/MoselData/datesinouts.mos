@@ -1,0 +1,98 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file datesinout.mos
+   ```````````````````
+   Reading/writing dates from/to
+   spreadsheets or databases via ODBC.
+   - Using 'initializations from' with odbc IO driver -
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Nov. 2007, rev. Mar. 2014
+*******************************************************!)
+
+model "Dates and times (ODBC)"
+ uses "mmsystem", "mmodbc"
+
+ parameters
+                              ! Use mysql database `datetime' (not provided)
+ ! CNCTIO = "mmodbc.odbc:debug;DSN=mysql;DB=datetime"  
+                              ! Use Oracle database `datetime' (not provided)
+ ! CNCTIO = "mmoci.oci:debug;myname/mypassword@datetime" 
+                              ! Use SQLite database 'datetime.sqlite' via ODBC 
+ ! CNCTIO = "mmodbc.odbc:debug;DSN=sqlite;DATABASE=datetime.sqlite"
+                              ! Use SQLite database 'datetime.sqlite' directly
+ ! CNCTIO = "mmodbc.odbc:debug;DRIVER=mmsqlite;READONLY=false;DB=datetime.sqlite"
+   CNCTIO = "mmodbc.odbc:debug;datetime.sqlite"
+ end-parameters
+
+ declarations
+  T: time
+  D: date
+  DT: datetime
+  Dates: array(1..5) of date
+  DList: list of date
+ end-declarations
+
+! Read in dates / time (make sure to select the format used by the
+! spreadsheet/database)
+(! mysql:
+ setparam("timefmt", "%0H:%0M:%0S")
+ setparam("datefmt", "%y-%0m-%0d")
+ setparam("datetimefmt", "%y-%0m-%0d %0H:%0M:%0S")
+!)
+(! Oracle:
+ setparam("timefmt", "%0d-%N-%0Y %0h.%0M.%0S.%0s %P")
+ setparam("datefmt", "%0d-%N-%0Y")
+ setparam("datetimefmt", "%0d-%N-%0Y %0h.%0M.%0S.%0s %P")
+!)
+! SQLite:
+ setparam("timefmt", "%0H:%0M:%0S")
+ setparam("datefmt", "%y-%0m-%0d")
+ setparam("datetimefmt", "%y-%0m-%0d %0H:%0M:%0S")
+
+ initializations from CNCTIO
+  T as "Time1"
+  D as "Date1"
+  DT as "DateTime1"
+  Dates as "noindex;Dates"
+  DList as "Dates"
+ end-initializations
+
+ setparam("timefmt", "%h:%0M %p")
+ writeln(D, ", ", T)
+ writeln(DT)
+ writeln(Dates)
+ writeln(DList)
+
+! Read date / time from strings
+ setparam("timefmt", "%Hh%0Mm")
+ setparam("datefmt", "%dm%0my%0y")
+ setparam("datetimefmt", "%dm%0my%0y, %Hh%0Mm")
+
+ initializations from CNCTIO
+  T as "Time2"
+  D as "Date2"
+  DT as "DateTime2"
+ end-initializations
+
+ writeln(D, ", ", T)
+ writeln(DT)
+
+! Use Mosel's default format
+ setparam("timefmt", "")
+ setparam("datefmt", "")
+ setparam("datetimefmt", "")
+
+ writeln(D, ", ", T)
+ writeln(DT)
+
+! The following assumes that the database output fields have type string
+ initializations to CNCTIO
+  T as "TimeOut"
+  D as "DateOut"
+  DT as "DateTimeOut"
+ end-initializations
+
+end-model

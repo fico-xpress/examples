@@ -1,0 +1,85 @@
+(!*********************************************************************
+   Mosel NL examples
+   =================
+
+   file catenary_nl.mos
+   ````````````````````
+   QCQP problem (linear objective, convex quadratic constraints)
+   Based on AMPL model catenary.mod
+   (Source: http://www.orfe.princeton.edu/~rvdb/ampl/nlmodels/ )
+
+   This model finds the shape of a hanging chain by
+   minimizing its potential energy.
+
+   (c) 2008 Fair Issac Corporation
+       author: S. Heipcke, May 2008, rev. Dec. 2017
+*********************************************************************!)
+
+model "catenary - NL version"
+ uses "nlsolv"
+
+ parameters
+  SOLVER="xpress"
+  SOLVERPATH="amplxpress"
+  SOLVEROPTIONS=""
+
+  N = 100                       ! Number of chainlinks
+  L = 1                         ! Difference in x-coordinates of endlinks
+  H = 2*L/N                     ! Length of each link
+ end-parameters
+
+ declarations
+  RN = 0..N
+  x: array(RN) of mpvar         ! x-coordinates of endpoints of chainlinks
+  y: array(RN) of mpvar         ! y-coordinates of endpoints of chainlinks
+  PotentialEnergy: nlctr
+  Link: array(range) of nlctr
+ end-declarations
+
+ forall(i in RN) x(i) is_free
+ forall(i in RN) y(i) is_free
+
+! Objective: minimise the potential energy
+ PotentialEnergy:= sum(j in 1..N) (y(j-1)+y(j))/2
+
+! Bounds: positions of endpoints
+! Left anchor
+  x(0) = 0; y(0) = 0
+! Right anchor
+  x(N) = L; y(N) = 0
+
+! Constraints: positions of chainlinks
+ forall(j in 1..N) 
+  Link(j):= (x(j)-x(j-1))^2+(y(j)-y(j-1))^2 <= H^2
+
+! Setting start values
+ forall(j in RN) setinitval(x(j), j*L/N)
+ forall(j in RN) setinitval(y(j), 0)
+
+! Configuration of the solver
+ setparam("nl_verbose", true) 
+ setparam("nl_solver", SOLVER) 
+ if SOLVERPATH<>"" then
+   setparam("nl_solverpath", SOLVERPATH)
+ end-if  
+ if SOLVEROPTIONS<>"" then
+   setparam("nl_options", SOLVEROPTIONS)
+ end-if  
+
+! Solve the problem
+ minimise(PotentialEnergy)
+
+! Solution reporting
+ if getprobstat<>NL_OPT and getprobstat<>NL_UNF then
+  writeln("No solution available. Solver status: ", getparam("NL_STATUS"))
+ else
+  writeln("Solution: ", getobjval)
+  forall(j in RN) 
+   writeln(strfmt(getsol(x(j)),10,5), " ", strfmt(getsol(y(j)),10,5))
+ end-if
+
+(! Matrix display  
+ setparam("NL_binary", false)
+ exportnl("", PotentialEnergy)
+!)
+end-model

@@ -1,0 +1,37 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================   
+
+   Example model for the 
+   Robust Optimization with Xpress white paper
+
+   (c) 2014 Fair Isaac Corporation
+       rev. May 2017 
+*******************************************************!)
+model Knapsack
+ uses "mmrobust"                    ! Load the robust library
+
+ declarations
+  x, y : mpvar
+  e, f : uncertain 
+  HISTDATA: array(range, set of uncertain) of real
+ end-declarations 
+
+ ! Load historical data for e and f
+ HISTDATA(1, e) := 1
+ HISTDATA(1, f) := 2
+ HISTDATA(2, e) := 3
+ HISTDATA(2, f) := 1
+ HISTDATA(3, e) := 3
+ HISTDATA(3, f) := 2
+
+ e*x + f * y <= 1
+
+ ! Generate a solution that would be feasible for ALL historic realizations
+ scenario(HISTDATA)
+
+ maximize(x+y)   
+
+ writeln("x = ", getsol(x), "  y = ", getsol(y))
+
+end-model

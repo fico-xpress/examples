@@ -1,0 +1,220 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file prodplan.mos
+   `````````````````
+   TYPE:         Multi-period multi-item production planning
+   DIFFICULTY:   2
+   FEATURES:     LP or MIP problem, formulation of resource constraints and
+                 material balance constraints, formatted solution printing
+   DESCRIPTION:  The company Coco has two plants that can produce two types 
+                 of cocoa powder. The plant capacities are limited.
+                 It is possible to store raw materials and finished product 
+                 from one time period to the next. Raw material prices, 
+                 sales revenues, and the maximum amount that may be sold 
+                 depend on the time period. Raw material storage capacity 
+                 is limited.
+                 Storing product between time periods incurs storage costs. 
+                 Some product is held in stock at the beginning of the 
+                 planning period.
+                 The objective function of maximizing the total profit is 
+                 to maximize the sales revenues, minus the cost of production, 
+                 buying raw material, and storing finished products and raw 
+                 material.     
+   FURTHER INFO: `Applications of optimization with Xpress-MP teaching 
+                 material', Section 2.5 `Development of a model'.
+                 Similar problems:
+                 `Applications of optimization with Xpress-MP',
+                 Section 8.2 `Production of drinking glasses',
+                 Section 8.4 `Planning the production of electronic components'
+
+   (c) 2008 Fair Isaac Corporation
+       authors: Y. Colombani & S. Heipcke, 2001, rev. Sep. 2017
+*******************************************************!)
+
+model "Coco3"
+ uses "mmxprs", "mmsvg", "mmsystem"
+
+ parameters
+  PHASE=3
+(!
+  PHASE = 3: Multi-period parameterised model; factories always open (LP)
+  PHASE = 4: Factories may open/closed freely; when closed save 20000 per month (MIP)
+  PHASE = 5: Once closed always closed; larger saving (MIP)
+!)
+ end-parameters
+
+ declarations
+  NPROD = 2
+  NFACT = 2
+  NRAW = 3
+  NT = 4
+  PRODS = 1..NPROD                      ! Range of products (p)
+  FACT = 1..NFACT                       !          factories (f)
+  RAW = 1..NRAW                         !          raw materials (r)
+  TIME = 1..NT                          !          time periods (t)
+
+  REV: array(PRODS,TIME) of real        ! Unit selling price of products
+  CMAKE: array(PRODS,FACT) of real      ! Unit cost to make product p 
+                                        ! at factory f
+  CBUY: array(RAW,TIME) of real         ! Unit cost to buy raw materials
+  COPEN: array(FACT) of real            ! Fixed cost of factory f being 
+                                        ! open for one period
+  REQ: array(PRODS,RAW) of real         ! Requirement by unit of product p 
+                                        ! for raw material r
+  MXSELL: array(PRODS,TIME) of real     ! Max. amount of p that can be sold
+  MXMAKE: array(FACT) of real           ! Max. amount factory f can make 
+                                        ! over all products
+  IPSTOCK: array(PRODS,FACT) of real    ! Initial product stock levels 
+  IRSTOCK: array(RAW,FACT) of real      ! Initial raw material stock levels
+  CPSTOCK = 2.0                         ! Unit cost to store any product p
+  CRSTOCK = 1.0                         ! Unit cost to store any raw mat. r
+  MXRSTOCK = 300                        ! Raw material storage capacity
+
+  make: array(PRODS,FACT,TIME) of mpvar ! Amount of products made at factories
+  sell: array(PRODS,FACT,TIME) of mpvar ! Amount of product sold from factories
+  buy: array(RAW,FACT,TIME) of mpvar    ! Amount of raw material bought
+  pstock: array(PRODS,FACT,1..NT+1) of mpvar ! Product stock levels at start 
+                                             ! of period t
+  rstock: array(RAW,FACT,1..NT+1) of mpvar   ! Raw material stock levels  
+                                             ! at start of period t 
+  openm: array(FACT,TIME) of mpvar      ! 1 if factory f is open in
+                                        ! period t, else 0
+ end-declarations
+
+ initializations from 'prodplan.dat'
+  CMAKE REQ MXMAKE REV as "REVT"  CBUY as "CBUYT"  MXSELL as "MXSELLT"  
+  IPSTOCK IRSTOCK COPEN
+ end-initializations
+ 
+! Objective: maximize total profit
+ MaxProfit:= 
+  sum(p in PRODS,f in FACT,t in TIME) REV(p,t) * sell(p,f,t) -     ! revenue
+  sum(p in PRODS,f in FACT,t in TIME) CMAKE(p,f) * make(p,f,t) -   ! prod. cost
+  sum(r in RAW,f in FACT,t in TIME) CBUY(r,t) * buy(r,f,t) -       ! raw mat. 
+  sum(p in PRODS,f in FACT,t in 2..NT+1) CPSTOCK * pstock(p,f,t) - ! p storage 
+  sum(r in RAW,f in FACT,t in 2..NT+1) CRSTOCK * rstock(r,f,t)     ! r storage
+
+! Factory fixed cost
+ if PHASE=4 then                 
+  MaxProfit -= sum(f in FACT,t in TIME) (COPEN(f)-20000)*openm(f,t)
+ elif PHASE=5 then
+  MaxProfit -= sum(f in FACT,t in TIME) COPEN(f)* openm(f,t)
+ end-if
+
+! Product stock balance
+ forall(p in PRODS,f in FACT,t in TIME)
+  ProdBal(p,f,t):= pstock(p,f,t+1) = pstock(p,f,t) + make(p,f,t) - sell(p,f,t)
+
+! Raw material stock balance
+ forall(r in RAW,f in FACT,t in TIME) 
+  RawBal(r,f,t):=
+   rstock(r,f,t+1) = 
+    rstock(r,f,t) + buy(r,f,t) - sum(p in PRODS) REQ(p,r)*make(p,f,t)
+
+! Capacity limit at factories
+ forall(f in FACT,t in TIME) 
+  Capacity(f,t):= sum(p in PRODS) make(p,f,t) <= MXMAKE(f)*openm(f,t)
+
+! Limit on the amount of prod. p to be sold
+ forall(p in PRODS,t in TIME) 
+  Demand(p,t):= sum(f in FACT) sell(p,f,t) <= MXSELL(p,t)
+
+! Raw material stock limit
+ forall(f in FACT,t in 2..NT+1) 
+  RawStock(f,t):= sum(r in RAW) rstock(r,f,t) <= MXRSTOCK
+
+! Once closed, always closed
+ if PHASE=5 then                 
+  forall(f in FACT,t in 1..NT-1) Closed(f,t):= openm(f,t+1) <= openm(f,t)
+ end-if
+
+! Initial product and raw material stock levels
+ forall(p in PRODS,f in FACT) pstock(p,f,1) = IPSTOCK(p,f)
+ forall(r in RAW,f in FACT) rstock(r,f,1) = IRSTOCK(r,f)
+
+ if PHASE>=4 then
+  forall(f in FACT,t in TIME) openm(f,t) is_binary     ! MIP model
+ else
+  forall(f in FACT,t in TIME) openm(f,t) = 1           ! LP model
+ end-if
+
+! Solve the problem
+ maximize(MaxProfit)
+
+! Solution printing
+ hline:=60*"-"
+ writeln("Total profit: ", getobjval)
+ writeln(hline)
+ write("Period   ")
+ forall(t in TIME) write(strfmt(t,-13)) 
+ writeln("\n", hline)
+ writeln("Production and finished product stocks\n",
+  getsize("Production and finished product stocks")*"=")
+ forall(f in FACT) do
+  writeln("Factory ", f, ":") 
+  forall(p in PRODS) do
+   write("  ", p, ": ")
+   forall(t in TIME) write(strfmt(getsol(make(p,f,t)),6,1), "(", 
+                           strfmt(getsol(pstock(p,f,t+1)),5,1), ")")
+   writeln
+  end-do 
+ end-do 
+
+ writeln(hline)
+ writeln("Raw material bought and stored\n",
+  getsize("Raw material bought and stored")*"=")
+ forall(f in FACT) do
+  writeln("Factory ", f, ":") 
+  forall(r in RAW) do
+   write("  ", r, ": ")
+   forall(t in TIME) write(strfmt(getsol(buy(r,f,t)),6,1), "(", 
+                           strfmt(getsol(rstock(r,f,t+1)),5,1), ")")
+   writeln
+  end-do 
+ end-do 
+
+ writeln(hline)
+ writeln("Sales\n",getsize("Sales")*"=")
+ forall(f in FACT) do
+  writeln("Factory ", f, ":") 
+  forall(p in PRODS) do
+   write("  ", p, ": ")
+   forall(t in TIME) write(strfmt(getsol(sell(p,f,t)),4),9*" ")
+   writeln
+  end-do 
+ end-do 
+ writeln(hline)
+
+ ! Solution drawing
+ declarations
+   cum: array(TIME) of real
+ end-declarations  
+ FAC:=5
+ forall(f in FACT,p in PRODS) do
+   svgaddgroup("F"+f+"_"+p, "Fact "+f+", prod"+p)
+   svgsetstyle(SVG_FILL,SVG_CURRENT)
+   forall(t in TIME) do
+     svgaddrectangle(t*FAC*2,cum(t), 3,(getsol(make(p,f,t)))/FAC)
+     cum(t)+=(getsol(make(p,f,t)))/FAC
+   end-do
+ end-do 
+(!
+ forall(f in FACT,r in RAW) do
+   svgaddgroup("F"+f+"_R"+r, "Fact "+f+", raw mat"+r)
+   svgsetstyle(SVG_FILL,SVG_CURRENT)
+   forall(t in TIME) do
+     svgaddrectangle(t*FAC*2+2,cumr(t), 2(getsol(buy(r,f,t)))/FAC)
+     cumr(t)+=(getsol(buy(r,f,t)))/FAC
+   end-do   
+ end-do 
+!)
+ svgsetgraphviewbox(0,0,NT*FAC*2+5, 10+1/FAC*max(t in TIME)sum(f in FACT,p in PRODS)getsol(make(p,f,t)))
+ svgsetgraphscale(FAC)
+ svgsetgraphlabels("Time", "Production quantities")
+
+ svgsave("prodplan.svg")
+ svgrefresh
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+end-model

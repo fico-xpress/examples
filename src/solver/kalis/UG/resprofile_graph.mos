@@ -1,0 +1,113 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file resprofile_graph.mos
+   `````````````````````````
+   Scheduling tasks with resource usage profiles.
+   - Graphical solution representation -
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+       Creation: 2008, rev. Sep. 2017        
+*****************************************************************!)
+model "Task resource usage profiles"
+ uses "kalis", "mmsvg"
+ 
+ setparam("KALIS_DEFAULT_LB", 0)
+ 
+ declarations
+  TASKS = {"a","b","c","d"}           ! Index set of tasks
+  Profile: array(TASKS) of list of integer   ! Task profiles
+  DUR: array(TASKS) of integer        ! Durations of tasks
+ 
+  task: array(TASKS) of cptask        ! Tasks
+  res: cpresource                     ! Cumulative resource
+ end-declarations 
+
+ DUR::(["a","b","c","d"])[7, 9, 8, 5]
+ Profile("a"):= [12, 12, 6, 2, 2, 2, 2]
+ Profile("b"):= [12, 12, 6, 2, 2, 2, 2, 2, 2]
+ Profile("c"):= [12, 12, 3, 3, 3, 3, 3, 3]
+ Profile("d"):= [6, 6, 6, 6, 6]
+ 
+! Define a discrete resource
+ set_resource_attributes(res, KALIS_DISCRETE_RESOURCE, 18)
+ res.name:="machine"
+ 
+! Define tasks with profiled resource usage 
+ forall(t in TASKS) do
+  task(t).duration:= DUR(t)
+  task(t).name:= t
+  requires(task(t), resusage(res, Profile(t)))   
+ end-do
+
+! Solve the problem 
+ if cp_schedule(getmakespan)=0 then
+  writeln("No solution")
+  exit(0)
+ end-if
+
+ writeln("Solution: ", getsol(getmakespan))
+
+! ************ Drawing a resource usage diagram ************
+
+ declarations
+  AProfile: array(TASKS) of array(S:range) of integer   ! Task profile arrays
+ end-declarations 
+
+ forall(t in TASKS) do
+  ct:=1
+  forall(l in Profile(t), ct as counter) AProfile(t,ct):=l
+ end-do  
+
+ L:=getsol(getmakespan)
+
+ svgaddgroup("Res", "Resource capacity", SVG_RED)
+ forall(i in 2..L)
+  svgaddline([i-1, getcapacity(res,i-1), i-1, getcapacity(res,i), i, getcapacity(res,i)]) 
+
+ declarations
+  TLIST: list of string
+ end-declarations 	
+
+ ! Task graph colors
+ ct:= 0
+ forall(t in TASKS, ct as counter) do
+  svgaddgroup(t, "Task "+t, svgcolor(25+ct*25, 25+ct*25, 50+ct*50))
+  svgsetstyle(SVG_FILL,SVG_CURRENT)
+ end-do 
+
+ ! Order tasks by start times to obtain a nicer graph
+ TCopy:= TASKS
+ while (TCopy<>{}) do
+  val:=L
+  forall(t in TCopy)
+   if getsol(getstart(task(t)))<val then
+    val:=getsol(getstart(task(t)))
+    ind:=t
+   end-if 
+  TLIST += [ind]
+  TCopy-= {ind}
+ end-do 
+
+ ! Drawing task graphs
+ forall(i in 1..L) do
+  CUM:=0
+
+  ! We cannot use 'getrequirement' here to access solution information
+  ! if this graph is not drawn directly at the solution node
+  forall(t in TLIST | i>getsol(getstart(task(t))) and i<=getsol(getend(task(t))) ) do
+   REQ:= AProfile(t,i-getsol(getstart(task(t))))
+   svgaddrectangle(t, i-1, CUM, 1, REQ)
+   CUM+= REQ
+  end-do 
+ end-do 
+ 
+ svgsetgraphscale(10)
+ svgsetgraphviewbox(svggetgraphviewbox)
+ svgsetgraphlabels("Time","Resource usage")
+
+ svgsave("resprof.svg")
+ svgrefresh
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+end-model

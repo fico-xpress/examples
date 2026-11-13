@@ -1,0 +1,58 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file listinout.mos
+   ``````````````````
+   Reading/writing lists from/to
+   spreadsheets or databases via ODBC.
+   - Using 'initializations from' with odbc IO driver -
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Nov. 2007, rev. Jan. 2014
+*******************************************************!)
+
+model "List handling (ODBC)"
+ uses "mmodbc"
+
+ parameters
+                              ! Use mysql database `listdata' (not provided)
+!  CNCTIO = "debug;DSN=mysql;DB=listdata"
+                              ! Use SQLite database 'listdata.sqlite' directly 
+  CNCTIO = "debug;listdata.sqlite"
+                              ! Use SQLite database 'listdata.sqlite' via ODBC
+!  CNCTIO = "debug;DSN=sqlite;DATABASE=listdata.sqlite"
+ end-parameters
+
+ declarations
+  LI: list of integer
+  A: integer
+  LS,LS2: list of string
+ end-declarations
+
+ initializations from "mmodbc.odbc:"+CNCTIO
+  LI as "List1"
+  A
+  LS as "List2"
+ end-initializations 
+
+! Display the lists
+ writeln("LI: ", LI)
+ writeln("A: ", A, ", LS: ", LS)
+
+! Reverse the list LI
+ reverse(LI)
+
+! Append some text to every entry of LS 
+ LS2:= sum(l in LS) [l+" "+A]
+
+! Display the modified lists
+ writeln("LI: ", LI)
+ writeln("LS2: ", LS2)
+
+ initializations to "mmodbc.odbc:"+CNCTIO
+  LI as "List1Out"
+  LS2 as "List2Out"
+ end-initializations 
+
+end-model

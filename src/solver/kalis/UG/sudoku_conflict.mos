@@ -1,0 +1,114 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file sudoku_conflict.mos
+   ````````````````````````
+   Sudoku puzzle.
+   - Analyzing infeasibilities in value assignments -
+
+   *** This model cannot be run with a Community Licence 
+       for the provided data instance ***
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+       Creation: 2008, rev. Mar. 2013        
+*****************************************************************!)
+model "Conflicts"
+ uses "kalis"
+ 
+ forward procedure print_values
+ 
+ setparam("kalis_default_lb", 1)
+ setparam("kalis_default_ub", 9)         ! Default variable bounds
+
+ declarations
+  XS = {'A','B','C','D','E','F','G','H','I'}   ! Columns
+  YS = 1..9                              ! Rows
+  v: array(XS,YS) of cpvar               ! Number assigned to cell (x,y)
+ end-declarations
+
+ forall(x in XS,y in YS) setname(v(x,y), "v("+x+","+y+")")
+ 
+ setparam("KALIS_AUTO_PROPAGATE", 0)     ! Disable automatic propagation
+
+! Data from "The Guardian", 29 July, 2005. http://www.guardian.co.uk/sudoku
+ v('A',1)=8; v('F',1)=3
+ v('B',2)=5; v('G',2)=4
+ v('A',3)=2; v('E',3)=7; v('H',3)=6
+ v('D',4)=1; v('I',4)=5
+ v('C',5)=3; v('G',5)=9
+ v('A',6)=6; v('F',6)=4
+ v('B',7)=7; v('E',7)=2; v('I',7)=3
+ v('C',8)=4; v('H',8)=1 
+ v('D',9)=9; v('I',9)=8  
+
+ 
+! All-different values in rows 
+ forall(y in YS) all_different(union(x in XS) {v(x,y)})
+
+! All-different values in columns
+ forall(x in XS) all_different(union(y in YS) {v(x,y)})
+
+! All-different values in 3x3 squares
+ forall(s in {{'A','B','C'},{'D','E','F'},{'G','H','I'}}, i in 0..2)
+  all_different(union(x in s, y in {1+3*i,2+3*i,3+3*i}) {v(x,y)})
+
+! Prompt user for new assignments
+ declarations
+  NX: array(1..9) of string
+  val: integer
+ end-declarations
+ 
+ NX::(1..9)['A','B','C','D','E','F','G','H','I'] 
+ cp_save_state
+ res:=cp_propagate
+ print_values
+ setrandseed(3)
+
+ while (res and (or(x in XS,y in YS) not is_fixed(v(x,y))) ) do
+ ! Select randomly a yet unassigned cell  
+  rx:=round(0.5+9*random); ry:=round(0.5+9*random)
+  while (is_fixed(v(NX(rx),ry))) do
+   rx:=round(0.5+9*random); ry:=round(0.5+9*random)  
+  end-do
+  
+ ! Prompt for user input 
+  writeln(v(NX(rx),ry), " = ")
+  readln(val)
+
+ ! Add the new constraint 
+  v(NX(rx),ry)=val                     ! State a new constraint
+  cp_save_state                        ! Save system state before propagation 
+  res:=cp_propagate                    ! Propagate the new constraint
+
+ ! Print resulting board
+  print_values
+ end-do
+
+! An infeasible state has been reached
+ if not res then
+  cp_restore_state                     ! Restore state before propagation
+  cp_infeas_analysis                   ! Analyze infeasibility, print report
+ else
+  writeln("Problem solved")
+ end-if 
+
+!****************************************************************
+! Print fixed values
+ procedure print_values
+  writeln("   A B C   D E F   G H I")
+  forall(y in YS) do
+   write(y, ": ")
+   forall(x in XS) 
+    write(if(is_fixed(v(x,y)), string(getval(v(x,y))), "."), 
+          if(x in {'C','F'}, " | ", " "))
+   writeln
+   if y mod 3 = 0 then
+    writeln("   ---------------------")
+   end-if 
+  end-do
+ end-procedure
+ 
+end-model 
+ 
+  

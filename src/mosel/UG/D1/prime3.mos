@@ -1,0 +1,41 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file prime3.mos 
+   ```````````````
+   Prime number algorithm for large values of LIMIT.
+ 
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2006
+*******************************************************!)
+
+model "Prime (array)"
+
+ parameters
+  LIMIT=20000                   ! Search for prime numbers in 2..LIMIT
+ end-parameters
+
+ declarations
+  INumbers = 2..LIMIT           ! Set of numbers to be checked
+  SNumbers: array(INumbers) of boolean   
+  SPrime: set of integer        ! Set of prime numbers
+ end-declarations
+
+ writeln("Prime numbers between 2 and ", LIMIT, ":")
+
+ n:=2
+ repeat
+   SPrime += {n}                ! n is a prime number
+   i:=n
+   while (i<=LIMIT) do          ! Remove n and all its multiples
+     SNumbers(i):= true
+     i+=n
+   end-do
+   while (n <= LIMIT and SNumbers(n)) n+=1
+ until (n>LIMIT)   
+ 
+ writeln(SPrime)
+ writeln(" (", getsize(SPrime), " prime numbers.)")
+ 
+end-model

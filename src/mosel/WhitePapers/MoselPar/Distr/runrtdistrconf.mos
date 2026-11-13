@@ -1,0 +1,92 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file runrtdistrconf.mos
+   ```````````````````````
+   Running a model on a remote machine,
+   setting configuration options for the remote instance.
+
+   Before running this model, you need to set up the 
+   NODENAME with a machine name/address of your local network.
+   The node that is used needs to have the same version of
+   Xpress installed and suitably licensed, and the server 
+   "xprmsrv" must have been started on this machine.
+       
+   (c) 2010 Fair Isaac Corporation
+       author: S. Heipcke, May 2010, rev. Feb. 2014
+*******************************************************!)
+
+model "Run model rtparams remotely"
+ uses "mmjobs"
+
+ declarations
+  modPar: Model
+  mosInst: Mosel
+ end-declarations
+                                   ! Compile the model file
+ if compile("rtparams.mos")<>0 then exit(1); end-if
+
+
+!!! Connection name string:
+!!! ======================
+!!! Use the name or IP address of a machine in your local network,
+!!! or "" for current node. 
+!!! The name may also include configuration options (e.g., new values for
+!!! environment variables, or arguments for the Mosel command line), or, 
+!!! with the 'rcmd' driver specify a command to be executed.
+!!!
+!!! Here are some examples:
+! NODENAME:= ""             ! A new local instance with unchanged settings
+! NODENAME:= "localhost"    ! A new Mosel instance on local host 
+                            ! (similar to previous, but uses xsrv protocol)
+
+! NODENAME:= "xsrv:localhost|MOSEL_CWD=c:\\mydir\\"   
+                            ! Set working directory for local instance (Win)
+! NODENAME:= "xsrv:localhost|MOSEL_CWD=/tmp/mydir"   
+                            ! Set working directory for local instance (Unix)
+
+! NODENAME:= "ABCD123"      ! Remote instance on machine "ABCD123"
+! NODENAME:= "123.456.789"  ! Remote instance at address 123.456.789
+! NODENAME:= "ABCD123|MOSEL_CWD=/tmp"
+                            ! Set working directory for remote instance (Unix)
+
+! NODENAME:= "xsrv:localhost|MOSEL_ARGS=-rv 10 -rl '/tmp/mylog.txt'"
+                            ! Set Mosel command line arguments. 
+                            ! Full list is obtained with:  mosel -h 
+                            ! -rv 10      very verbose remote communication
+                            ! -rl aFile   define logging file for rmt instance
+
+! NODENAME:= "rcmd:mosel -r -rv 10 -rl '/tmp/mylog.txt'"
+                            ! Similar to the above, more direct communication
+                            ! as this does not use the network server
+! NODENAME:= "rcmd:rsh ABCD123 mosel -r"
+                            ! Start remote instance on "ABCD123" connecting
+                            ! via rsh 
+                            ! (Note: option -r is required for remote runs)
+
+! NODENAME:= "xsrv:localhost|XPRESSDIR=c:\\xpress7\\"
+                            ! Use some other Xpress version (must support
+                            ! remote features!), e.g. 32bit remotely with 
+                            ! this model running under 64bit  
+
+!!! Aliases:
+!!! =======
+!!! You can also associate other connections than default with node names.
+!!! For example:
+! sethostalias("localhost","rcmd:mosel -r")
+! sethostalias("ABCD123","rcmd:rsh ABCD123 mosel -r")
+
+
+ NODENAME:= "" 
+                                   ! Open connection to a remote node
+ if connect(mosInst, NODENAME)<>0 then exit(2); end-if
+                                   ! Load the bim file into the remote instance
+ load(mosInst, modPar, "rmt:[-1]rtparams.bim") 
+                                   ! Start model execution
+ run(modPar, "PARAM1=" + 2 + ",PARAM2=" + 3.4 + 
+             ",PARAM3='a string'" + ",PARAM4=" + true)
+ wait                              ! Wait for model termination
+ dropnextevent                     ! Ignore termination event message
+
+end-model 

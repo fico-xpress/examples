@@ -1,0 +1,41 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file multiout6.mos
+   ``````````````````
+   Output several data arrays into a single table.
+   - Using 'initializations to' with the csv IO driver -
+       
+   (c) 2012 Fair Isaac Corporation
+       author: S. Heipcke, Dec. 2012
+*******************************************************!)
+
+model "Output multiple data columns (CSV)"
+ uses "mmsheet"
+
+ parameters
+  CSTR= 'mmsheet.csv:multiout.csv'
+ end-parameters
+
+ declarations
+  PRODUCTS: set of string
+  MACH: range
+  COST: dynamic array(PRODUCTS,MACH) of real
+  DUR: dynamic array(PRODUCTS,MACH) of integer
+ end-declarations
+
+! Read data
+ initializations from "multiout.dat"
+  COST DUR
+ end-initializations
+
+! **** Writing data to the spreadsheet multiout.csv ****
+! Options:
+! skiph - the range includes a header line that needs to be skipped
+! grow  - only the starting line of the range is specified
+ initializations to CSTR
+  [COST,DUR] as 'skiph;grow;[F2:I2]'
+ end-initializations
+
+end-model

@@ -1,0 +1,117 @@
+(!*******************************************************
+   Mosel Example Problems
+   ======================
+
+   file benders_int.mos
+   ````````````````````
+   Benders decomposition for solving a simple MIP.
+   - Solve the main (integer) problem for given solution values
+     of the continuous variables (Step 1 of the algorithm)
+
+   *** Not intended to be run standalone - run from benders_decomp.mos ***
+
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Jan. 2006, rev. B. Vieira Oct. 2025
+*******************************************************!)
+
+model "Benders (integer problem)"
+ uses "mmxprs", "mmjobs"
+
+ parameters
+  NINTVAR = 4               ! Number of integer variables
+  NCTVAR = 5                ! Number of continuous variables
+  NC = 5                    ! Number of constraints
+ end-parameters
+
+ declarations
+  ! Event codes exchanged with submodels
+  EVENT_READY=2
+  EVENT_SOLVED=3
+  EVENT_INFEAS=4
+  EVENT_ADDFEASCUT=5
+  EVENT_ADDOPTCUT=6
+  EVENT_MAINSOLVED=7
+
+  IntVars = 1..NINTVAR                ! Discrete variables
+  CtVars = 1..NCTVAR                  ! Continuous variables
+  Ctrs = 1..NC                        ! Set of constraints (orig. problem)
+
+  A1: array(Ctrs,IntVars) of integer  ! Coeff.s of discrete variables
+  A2: array(Ctrs,CtVars) of integer   ! Coeff.s of cont variables
+  b: array(Ctrs) of integer           ! RHS values
+  c1: array(IntVars) of integer       ! Obj. coeff.s of discrete variables
+  c2: array(CtVars) of integer        ! Obj. coeff.s of cont variables
+
+  sol_u: array(Ctrs) of real          ! Solution of dual subproblem for cuts (cont.)
+  sol_x: array(IntVars) of real       ! Solution of main problem (integers)
+
+  x: array(IntVars) of mpvar          ! Discrete variables
+  z: mpvar                            ! Objective function variable
+  obj_z: real                         ! Objective value Z to compare
+
+ end-declarations
+
+ initializations from "bin:shmem:probdata"
+  A1 A2 b c1 c2
+ end-initializations
+
+ forall(i in IntVars) x(i) is_binary   ! Binary variables x
+
+ send(EVENT_READY, 0)                  ! Model is ready (= running)
+
+ repeat
+  wait
+  ev:= getnextevent
+  status:= getclass(ev)
+  ct:= getvalue(ev)                    ! Get the event code and value
+
+  if status = EVENT_ADDFEASCUT then    ! If subproblem is infeasible, add feas. cut
+
+   writeln("Adding feasibility cut to the integer problem...")
+
+   initializations from "bin:shmem:sol"  ! Retrieve the subproblem solution data
+    sol_u
+   end-initializations
+
+   NewFeasCut(ct) := sum(j in Ctrs) sol_u(j) * (b(j) - sum(i in IntVars) A1(j,i)*x(i)) <= 0
+
+  elif status = EVENT_ADDOPTCUT then   ! If subproblem has finite optimum with obj < z*,
+                                       ! add optimality cut
+   writeln("Adding optimality cut to the integer problem...")
+
+   initializations from "bin:shmem:sol"     ! Retrieve the subproblem solution data
+    sol_u
+   end-initializations
+   
+   NewOptCut(ct) := sum(j in Ctrs) sol_u(j) * (b(j) - sum(i in IntVars) A1(j,i)*x(i)) <= z
+  end-if
+
+  writeln("Solving integer problem...")
+  minimize(sum(i in IntVars) c1(i) * x(i) + z)
+
+  if getprobstat=XPRS_OPT then
+   forall(i in IntVars) sol_x(i):= getsol(x(i))
+   obj_z := getsol(z)
+  
+   initializations to "bin:shmem:sol"
+    sol_x  obj_z
+   end-initializations
+
+   writeln("Step 1 solution: obj: ", getobjval, ", x: ", sol_x, ", z: ", obj_z)
+
+   send(EVENT_MAINSOLVED, getobjval)
+    
+  elif getprobstat=XPRS_INF then
+   writeln("ERROR: main problem is infeasible")
+   send(EVENT_INFEAS, 0)
+   exit(4)
+  elif getprobstat=XPRS_UNB then
+   writeln("ERROR: main problem is unbounded")
+   exit(4)
+  else
+   writeln("Main problem has unknown status: ", getprobstat)
+  end-if
+
+ until false
+
+end-model

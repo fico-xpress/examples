@@ -1,0 +1,48 @@
+ (!******************************************************
+   Mosel Example Problems
+   ======================   
+
+   Example model for the 
+   Robust Optimization with Xpress white paper
+
+   (c) 2014 Fair Isaac Corporation
+       
+*******************************************************!)
+model Nominalvalues
+ uses "mmrobust"                    ! Load the robust library
+
+! Real valued coefficients
+declarations
+ x : mpvar
+ r : real
+end-declarations
+
+r := 3
+
+C1 := (1+r)*x <= 1
+
+r := 5
+
+maximize(x)
+
+writeln("x = ", getsol(x))
+
+sethidden(C1, true)      ! Make the existing constraint hidden
+
+! Uncertain coefficients
+declarations 
+ y : mpvar
+ u : uncertain
+end-declarations
+
+u := 3
+
+(1+u)*y <= 1
+
+u := 5
+
+maximize(XPRS_NOMINAL, y)
+
+writeln("y = ", getsol(y))
+
+end-model

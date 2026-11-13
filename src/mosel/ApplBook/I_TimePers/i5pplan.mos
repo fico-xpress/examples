@@ -1,0 +1,105 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file i5pplan.mos
+   ````````````````
+   Production planning with personnel assignment
+  
+   A company must plan the production for a set of products
+   on different production lines. Unitary processing times 
+   for each product at each line, production line capacities,
+   and profit per product are provided. It is possible to 
+   transfer working hours (up to a given maximum allowed) 
+   between some production lines. What quantity of each 
+   product should be produced to maximize total profit?
+   
+   The hours transferred between production lines are modeled as
+   a decision variable which is defined as a dynamic array. Only
+   when the data that indicates the allowable transfers is known 
+   the transfer variables are created.
+
+   (c) 2008-2022 Fair Isaac Corporation
+       author: S. Heipcke, Mar. 2002, rev. Mar. 2022
+*******************************************************!)
+
+model "I-5 Production planning with personnel"
+ uses "mmxprs"
+
+ forward procedure printsol
+
+ declarations
+  PRODS = 1..4                        ! Set of products
+  LINES = 1..5                        ! Set of production lines
+  
+  PROFIT: array(PRODS) of integer     ! Profit per product
+  DUR: array(PRODS,LINES) of real     ! Duration of production per line
+  CAP: array(LINES) of integer        ! Working hours available per line
+  
+  Load: array(LINES) of linctr        ! Workload constraints
+  produce: array(PRODS) of mpvar      ! Quantity produced
+ end-declarations
+
+ initializations from 'i5pplan.dat'
+  PROFIT DUR CAP
+ end-initializations
+
+! Objective: Total profit
+ Profit:= sum(p in PRODS) PROFIT(p)*produce(p)
+ 
+! Capacity constraints on lines
+ forall(l in LINES) Load(l):=sum(p in PRODS) DUR(p,l)*produce(p) <= CAP(l)
+
+! Solve the problem
+ maximize(Profit)
+ printsol 
+
+! **** Allow transfer of working hours between lines ****
+
+ declarations
+  TRANSF: dynamic array(LINES,LINES) of integer ! 1 if transfer is allowed, 
+                                                ! 0 otherwise
+  TMAX: array(LINES) of integer         ! Maximum no. of hours to transfer
+
+  hours: array(LINES) of mpvar          ! Initial working hours per line
+  transfer: dynamic array(LINES,LINES) of mpvar ! Hours transferred
+ end-declarations
+
+ initializations from 'i5pplan.dat'
+  TRANSF TMAX
+ end-initializations
+
+ forall(k,l in LINES | exists(TRANSF(k,l))) create(transfer(k,l))
+
+! Re-define capacity constraints on lines
+ forall(l in LINES) Load(l):=sum(p in PRODS) DUR(p,l)*produce(p) <= hours(l)
+
+! Balance constraints
+ forall(l in LINES)
+  hours(l)  = CAP(l) + sum(k in LINES) transfer(k,l) -
+                      sum(k in LINES) transfer(l,k) 
+
+! Limit on transfer
+ forall(l in LINES) sum(k in LINES) transfer(l,k) <= TMAX(l)
+
+! Solve the problem
+ maximize(Profit)
+ writeln("Solution with transfer of working hours:")
+ printsol
+ writeln("Transfers:")
+ forall(l,k in LINES | exists(TRANSF(l,k)) and getsol(transfer(l,k))>0) 
+  writeln(" ", l, "->", k, ": ", getsol(transfer(l,k)))
+
+!-----------------------------------------------------------------
+
+! Solution printing
+ procedure printsol
+  localsetparam("realfmt","%-8g")
+  writeln("Total profit: ", getobjval)
+  forall(p in PRODS)
+   writeln("Product ", p, ": ", getsol(produce(p)))
+  forall(l  in LINES)
+   writeln("Line ", l, ": ", getsol(sum(p in PRODS) DUR(p,l)*produce(p))) 
+ end-procedure
+ 
+end-model

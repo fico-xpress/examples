@@ -1,0 +1,60 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file cumulative.mos
+   ```````````````````
+   Cumulative scheduling example
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+
+*****************************************************************!)
+
+model "Cumulative scheduling"  
+ uses "kalis"
+ 
+ declarations 
+  TASKS = 1..5
+  obj : cpvar
+  starts, ends, durations, usages, sizes : array(TASKS) of cpvar      
+ end-declarations
+
+ C := 2                       ! Resource capacity
+ HORIZON := 10                ! Time horizon
+
+! Setting up the variables representing task properties
+ forall (t in TASKS) do 
+  starts(t).name:= "T"+t+".start"
+  ends(t).name:= "T"+t+".end"
+  durations(t).name:= "T"+t+".duration"
+  sizes(t).name:= "T"+t+".size"
+  usages(t).name:= "T"+t+".use"
+  0 <= starts(t); starts(t) <= HORIZON
+  0 <= ends(t); ends(t) <= HORIZON
+  t <= durations(t); durations(t) <= t+1
+  1 <= sizes(t); sizes(t) <= 100
+  1 <= usages(t); usages(t) <= 1
+  obj >= ends(t)  
+ end-do
+
+! Cumulative resource constraint
+ cumulative(starts, durations, ends, usages, sizes, C)
+
+! Define the branching strategy
+ cp_set_branching(assign_var(KALIS_SMALLEST_MIN,KALIS_MIN_TO_MAX))
+
+! Solve the problem 
+ if cp_minimize(obj) then 
+  cp_show_sol 
+  write("Resource use profile: ")
+  forall(t in TASKS, time in 0..HORIZON)
+   if (starts(t).sol <= time) and (ends(t).sol > time) then
+    rload(time) += usages(t).sol
+   end-if
+  forall(time in 0..HORIZON) write(rload(time))  
+  writeln
+ else
+  writeln("No solution found") 
+ end-if
+
+end-model

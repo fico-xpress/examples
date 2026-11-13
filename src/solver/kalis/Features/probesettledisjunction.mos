@@ -1,0 +1,68 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file probesettledisjunction.mos
+   ```````````````````````````````
+   Scheduling disjunctive tasks with a probe-settle-disjunctions strategy.
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation       
+       rev. Apr. 2022
+*****************************************************************!)
+model "Disjunctive scheduling with probe_settle_disjunction"
+ uses "kalis", "mmsystem"
+
+ declarations
+  NBTASKS = 5
+  TASKS = 1..NBTASKS                     ! Set of tasks
+  DUR: array(TASKS) of integer           ! Task durations
+  DUE: array(TASKS) of integer           ! Due dates
+  WEIGHT: array(TASKS) of integer        ! Weights of tasks         
+  start: array(TASKS) of cpvar           ! Start times
+  tmp: array(TASKS) of cpvar             ! Aux. variable
+  tardiness: array(TASKS) of cpvar       ! Tardiness
+  twt: cpvar                             ! Objective variable
+  zeroVar: cpvar                         ! 0-valued variable
+  Strategy: array(range) of cpbranching  ! Branching strategy    
+ end-declarations
+ 
+ DUR :: [21,53,95,55,34]
+ DUE :: [66,101,232,125,150]
+ WEIGHT :: [1,1,1,1,1]
+               
+ setname(twt, "Total weighted tardiness")
+ zeroVar = 0
+ setname(zeroVar, "zeroVar")
+ 
+ forall(t in TASKS) do
+  start(t) >= 0
+  start(t).name:= "Start("+t+")"
+  tmp(t) = start(t) + DUR(t) - DUE(t)
+  tardiness(t).name:= "Tard("+t+")"
+  tardiness(t) = maximum({tmp(t),zeroVar})
+ end-do    
+ 
+ twt = sum(t in TASKS) (WEIGHT(t) * tardiness(t)) 
+
+ ! Create the disjunctive constraints 
+ forall(t in 1..NBTASKS-1, s in t+1..NBTASKS)
+  (start(t) + DUR(t) <= start(s)) or 
+  (start(s) + DUR(s) <= start(t))
+
+ ! Define the branching strategy
+ Strategy(1):= probe_settle_disjunction(1)
+ Strategy(2):= split_domain(KALIS_LARGEST_MIN,KALIS_MIN_TO_MAX)
+ cp_set_branching(Strategy) 
+
+ ! Solve the problem
+ if not cp_minimize(twt) then
+  writeln("problem is inconsistent")
+  exit(0)
+ end-if
+   
+ forall(t in TASKS)
+  writeln(formattext("[%3d==>%3d]:\t %2d  (%d)", start(t).sol,
+          start(t).sol + DUR(t), tardiness(t).sol, tmp(t).sol))     
+ writeln("Total weighted tardiness: ", twt.sol)
+  
+end-model

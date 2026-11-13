@@ -1,0 +1,6 @@
+! Data file for `folioqpgraph.mos'
+
+    ! trs haw thr tel brw hgw car bnk sof elc
+DEV: [0.1  19  28  22   4 3.5   5 0.5  25  16]
+
+NAMES:  ["treasury" "hardware" "theater" "telecom" "brewery" "highways" "cars" "bank" "software" "electronics"]

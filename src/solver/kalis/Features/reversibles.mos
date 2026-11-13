@@ -1,0 +1,79 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file reversibles.mos
+   ````````````````````
+   Working with "reversible" objects (scalars and arrays).
+   - Accessing information from arrays of reversibles
+   - Setting new values for reversibles
+   - Behavior of reversibles on backtracking
+
+   (c) 2009 Artelys S.A. and Fair Isaac Corporation
+       Creation: Nov. 2009
+*****************************************************************!)
+model "Reversible objects example"
+ uses "kalis"
+ 
+ declarations 
+  reva : cpreversiblearray
+  rev  : cpreversible
+ end-declarations
+
+!**** Reversible array ****
+
+! Create a reversible array of 10 elements initialized with value 0
+ set_reversible_attributes(reva,-5,5,0)
+
+! Return the number of elements in the reversible array
+ nbrev := getsize(reva)
+ writeln("Array contains ", nbrev, " elements")
+
+! Get the 5'th element of the array
+ revvalue := getelt(reva,5)
+ writeln("The 5'th element of reva is ", revvalue)
+
+ writeln("Initial array contents: ", reva)
+
+! Save current state of constraint system
+ cp_save_state
+
+! Set the value of the i'th element of the array to i
+ forall(i in -5..5) setelt(reva,i,i)
+
+! After setting values, get the 5'th element of the array
+ revvalue := getelt(reva,5)
+ writeln("The 5'th element of reva is ", revvalue)
+
+ writeln("Before state restoration reversible array is: ", reva)
+
+! Revert to the saved system state
+ cp_restore_state
+
+ writeln("After state restoration reversible array is: ", reva)
+
+!**** Reversible scalar ****
+
+! Create a reversible scalar initialized to 20.54
+ set_reversible_attributes(rev,20.54)
+
+ writeln("After initialization reversible is : ", rev)
+
+! Retrieve the value of the reversible scalar
+ realvalue := getval(rev)
+ writeln("Value of the reversible is ", realvalue)
+
+! Save current state of constraint system
+ cp_save_state
+
+! Set the value of the reversible to 5
+ setval(rev, 5) 
+ writeln("Before state restoration value of the reversible is ", getval(rev))
+
+! Restore the saved system state
+ cp_restore_state
+
+ writeln("After state restoration reversible is : ", rev)
+
+end-model
+

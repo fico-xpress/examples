@@ -1,0 +1,68 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file burglar11.mos
+   ``````````````````
+   Same as burglari.mos, with some scalars 
+   input from/output to calling application.
+
+   *** Not intended to be run standalone - run from ugioscalar.*  ***
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Mar. 2008, rev. Apr. 2013
+*******************************************************!)
+
+model Burglar11
+ uses "mmxprs"
+ 
+ parameters
+  NUM = ''                         ! Location for no. of items output
+  SOLVAL = ''                      ! Location for objective value output
+  WMAX = ''                        ! Maximum weight allowed
+  IODRV = 'jraw:'
+ end-parameters
+
+ declarations
+  WTMAX: integer                   ! Maximum weight allowed
+  ITEMS = {"camera", "necklace", "vase", "picture", "tv", "video", 
+           "chest", "brick"}     ! Index set for items
+  VALUE: array(ITEMS) of real      ! Value of items
+  WEIGHT: array(ITEMS) of real     ! Weight of items
+ end-declarations
+
+ VALUE :: (["camera", "necklace", "vase", "picture", "tv", "video", 
+            "chest", "brick"])[15,100,90,60,40,15,10,1]
+ WEIGHT:: (["camera", "necklace", "vase", "picture", "tv", "video", 
+            "chest", "brick"])[2,20,20,30,40,30,60,10]
+
+ initializations from IODRV
+  WTMAX as WMAX
+ end-initializations
+
+ declarations
+  take: array(ITEMS) of mpvar      ! 1 if we take item i; 0 otherwise
+ end-declarations
+
+! Objective: maximize total value
+ MaxVal:= sum(i in ITEMS) VALUE(i)*take(i) 
+
+! Weight restriction
+ sum(i in ITEMS) WEIGHT(i)*take(i) <= WTMAX
+
+! All variables are 0/1
+ forall(i in ITEMS) take(i) is_binary  
+
+ maximize(MaxVal)                  ! Solve the MIP-problem
+
+! Print out the solution
+ writeln("Solution:")
+ forall(i in ITEMS)  writeln(" take(", i, "): ", getsol(take(i)))
+
+! Output solution to calling application
+ initializations to IODRV
+  evaluation of getobjval as SOLVAL
+  evaluation of round(sum(i in ITEMS) getsol(take(i))) as NUM
+ end-initializations
+
+end-model

@@ -1,0 +1,45 @@
+(!*******************************************************
+  * Mosel Example Problems                              *
+  * ======================                              *
+  *                                                     *
+  * file minmax.mos                                     *
+  * ```````````````                                     *
+  * Example for the use of the Mosel language           *
+  * (Min and max of a set of numbers)                   *
+  *                                                     *
+  * (c) 2008 Fair Isaac Corporation                     *
+  *     author: S. Heipcke, 2001                        *
+  *******************************************************!)
+
+model Minmax                   ! Start a new model
+
+declarations
+ SNumbers: set of integer      ! Set of integer numbers
+ LB=-1000                      ! Elements of SNumbers must be between LB
+ UB=1000                       ! and UB
+end-declarations
+
+ forall(i in 1..50)
+  SNumbers += {round(random*200)-100}
+
+ writeln("Set: ", SNumbers, " (size: ", SNumbers.size, ")")
+
+ minval:=UB
+ maxval:=LB
+ forall(p in SNumbers)
+   if p<minval then
+     minval:=p
+   elif p>maxval then
+     maxval:=p
+   end-if    
+
+ writeln("Min: ", minval, ", Max: ", maxval)
+
+(! Instead of writing the loop above, it is of course possible to use
+   the corresponding operators provided by Mosel:
+  
+ writeln("Min: ", min(p in SNumbers) p, ", Max: ", max(p in SNumbers) p)  
+
+!) 
+
+end-model

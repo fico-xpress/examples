@@ -1,0 +1,67 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file assign.mos
+   ```````````````
+   Modeling a small assignment problem with CP:
+   Assigning workers to parallel machines, maximizing 
+   productivity.
+   (See "Applications of optimization with Xpress-MP",
+        Section 14.1 Assigning personnel to machines)
+   
+  (c) 2008 Fair Isaac Corporation
+      author: S.Heipcke, Apr. 2006
+*******************************************************!)
+
+model "Personnel assignment (CP)"
+ uses "kalis"
+
+ declarations
+  PERS = 1..6                        ! Personnel
+  MACH = 1..6                        ! Machines
+  OUTP: array(PERS,MACH) of integer  ! Productivity
+ end-declarations
+
+ initializations from 'assign.dat'
+  OUTP
+ end-initializations
+ 
+ declarations
+  assign: array(PERS) of cpvar       ! Machine assigned to a person 
+  output: array(PERS) of cpvar       ! Productivity of every person
+  totalProd: cpvar                   ! Total productivity
+  O: array(MACH) of integer          ! Auxiliary array for constraint def.
+  Strategy: cpbranching              ! Branching strategy
+ end-declarations
+
+ forall(p in PERS) setdomain(assign(p), MACH)
+
+! Calculate productivity per worker
+ forall(p in PERS) do
+  forall(m in MACH) O(m):= OUTP(p,m)
+  element(O, assign(p)) = output(p)
+ end-do
+ 
+! Total productivity (objective function)
+ totalProd = sum(p in PERS) output(p)
+
+! One person per machine (= every person is assigned to a different machine)
+ all_different(assign)
+
+! Branching strategy
+ Strategy:= assign_var(KALIS_LARGEST_MAX, KALIS_MAX_TO_MIN, output)
+ cp_set_branching(Strategy)
+
+! Solve the problem
+ if cp_maximize(totalProd) then
+  writeln("Solution: ")
+  forall(p in PERS)
+   writeln("  ", p, " operates machine ", getsol(assign(p)),
+           " (", getsol(output(p)), ")")
+  writeln("  ", "Total productivity: ", getsol(totalProd))
+ else
+  writeln("Problem is infeasible.")
+ end-if
+
+end-model

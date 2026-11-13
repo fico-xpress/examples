@@ -1,0 +1,4 @@
+! Data file for 'blend.mos'
+        !   [COST AVAIL GRADE]
+BLENDDATA: [ [85   60   2.1]
+             [93   45   6.3] ]

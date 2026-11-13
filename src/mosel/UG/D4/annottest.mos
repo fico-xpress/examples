@@ -1,0 +1,46 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file annottest.mos 
+   ``````````````````
+   Defining and accessing annotations.
+ 
+   (c) 2015 Fair Isaac Corporation
+       author: Y. Colombani, S. Heipcke, Mar. 2015, rev. Aug. 2021
+*******************************************************!)
+model "Using annotations"
+ uses "mmreflect", "mmsystem"
+ 
+ public declarations
+(!@.
+  @value.first 5
+  @value.second 0
+  @descr A scalar value
+ !)
+   myint: integer   
+   AnnNames: set of string          !@descr Set of annotation names  
+   Ann: array(string) of string     !@descr Annotation values  
+   mytxt: text                      !@descr Default input data file 
+ end-declarations
+ 
+ !@descr Annotations test
+ !@furtherinfo Simply displays all defined global or specific annotations
+ 
+ ! Get all global annotations defined in this model:
+ getannotations("", "", AnnNames, Ann)
+ writeln("Global annotations:")
+ forall(a in AnnNames) writeln("  ", a, " = ", Ann(a))
+
+ ! Get all annotations for "myint":
+ getannotations("myint", "", AnnNames, Ann)
+ writeln("Annotations defined for 'myint':")
+ forall(a in AnnNames) writeln("  ", a, " = ", Ann(a))
+
+ ! Retrieve all annotations starting with 'value.' and that are
+ ! associated to 'myint'
+ getannotations("myint", "value.", AnnNames, Ann)
+ writeln("'value' annotations for 'myint':")
+ forall(a in AnnNames) writeln("  ", a, " = ", Ann(a))
+
+end-model

@@ -1,0 +1,33 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file multicol3.mos
+   ``````````````````
+   Reading several data arrays from a single table.
+   - Using 'initializations from' with excel IO driver -
+       
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2007, rev. Jul. 2010
+*******************************************************!)
+
+model "Multiple data columns (3)"
+
+ declarations
+  PRODUCTS: set of string
+  MACH: range
+  COST2: dynamic array(PRODUCTS,MACH) of real
+  DUR2: dynamic array(PRODUCTS,MACH) of integer
+ end-declarations
+ 
+! **** Reading data from an Excel spreadheet ****
+! This assumes the spreadsheet contains a table "ProdData" in
+! sparse format (i.e., with indices) with the columns "COST" and "DUR"
+
+ initializations from "mmsheet.excel:multicol.xls"
+  [COST2,DUR2] as 'skiph;ProdData'
+ end-initializations
+
+ writeln("Excel:"); writeln(COST2); writeln(DUR2)
+ 
+end-model

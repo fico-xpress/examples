@@ -1,0 +1,159 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file namesgen.mos 
+   `````````````````
+   Compile with and without trace or debug options to
+   see the effect of "setname" and "RECLOC" on the 
+   generated names, eg from the command line:
+     mosel exe namesgen
+     mosel exe -g namesgen
+     mosel exe -G namesgen
+ 
+   (c) 2015 Fair Isaac Corporation
+       author: S. Heipcke, Nov. 2015, rev. Jun. 2022
+*******************************************************!)
+model "testing setname"
+  uses "mmxprs", "mmnl", "mmxnlp"
+  uses "mmsystem"
+  uses "random"
+
+  declarations
+   ! Decision variables
+    R= 1..10
+    x: array(R) of mpvar
+    public y: array(R) of mpvar
+    public variable_with_long_name: array(R) of mpvar
+
+   ! Linear and nonlinear constraints (scalars)
+    Ctr1: linctr
+    public Ctr2: linctr
+    NLCtr1: nlctr
+    public NLCtr2: nlctr
+
+   ! Arrays of constraints
+    ASet: set of string
+    CArr: array(string,ASet) of nlctr
+    public ISet: set of string
+    public Constraint_with_long_name: array(ISet,ASet) of linctr
+
+    public mat1,mat2: text           ! Aux. texts to retrieve output
+  end-declarations
+
+!***********************************************************************
+
+ !@doc.descr Definition of local and global linear and nonlinear constraints
+ !@doc.info Applying 'setname' to individual constraints/variables and also to arrays of constraints and variables with some additional settings for individual entries. 
+  procedure defineconstraints
+    declarations
+      Ctr3: linctr
+      NLCtr3: nlctr
+      z,z2: mpvar
+    end-declarations
+
+    Ctr1:= x(1)+x(2)+x(3) <= 11      ! Globally declared, private
+    Ctr2:= x(3)+x(4)+x(5) <= 12      ! Globally declared, public
+    Ctr3:= x(5)+x(6)+x(6) <= 13      ! Declared locally
+    Ctr4:= x(6)+x(7)+x(8) <= 14      ! Undeclared, named, local
+
+    NLCtr1:= x(1)*x(2)+x(3) <= 11    ! Globally declared, private
+    NLCtr2:= x(3)*x(4)+x(5) <= 12    ! Globally declared, public
+    NLCtr3:= x(5)*x(6)+x(6) <= 13    ! Declared locally
+    NLCtr4:= x(6)*x(7)+x(8) <= 14    ! Undeclared, named, local
+
+    setname(Ctr1, "MyCtr1")          
+    setname(Ctr2, "MyCtr2")          
+    setname(Ctr3, "MyCtr3")          
+    setname(Ctr4, "MyCtr4")          
+
+    setname(NLCtr1, "MyNL1")         
+    setname(NLCtr2, "MyNL2")         
+    setname(NLCtr3, "MyNL3")         
+    setname(NLCtr4, "MyNL4")         
+
+   ! These two lots have no "setname" -> automatic names are always generated, 
+   ! with "-G" these names will contain localization info 
+    Ctr5:= x(7)+x(8)+x(9) <= 15      ! Undeclared, named, local
+    x(8)+x(9)+x(10)+z+z2 <= 16       ! Undeclared, unnamed, local  
+
+    NLCtr5:= x(7)*x(8)+x(9) <= 15    ! Undeclared, named, local
+    x(8)*x(9)+x(10)+z*z2 <= 16       ! Undeclared, unnamed, local  
+    x(8)=abs(x(9)-x(10))             ! Undeclared, unnamed, local  
+
+
+   ! Setting individual variable names 
+    setname(x(1),"myx1")             ! Globally declared, private
+    setname(z2,"myz")                ! Declared locally
+
+
+   ! Defining some arrays of constraints
+    setrandseed(3)
+    forall(k in ["a","bcd"],l in ["efghij","kl"]) do
+      CArr(k,l):= sum(i in R) if(random>0.5,1,0)*y(i)^2 <= 10
+      Constraint_with_long_name(k,l):= 
+        sum(i in R) if(random<0.5,1,0)*variable_with_long_name(i) <= 10
+    end-do
+
+   ! Setting names for entire arrays of mpvar/linctr/nlctr, 
+   ! names specified for individual entries take priority over the array name
+    setname(y(1),"y_1")  
+    setname(y,"myvar")
+    setname(CArr,"CY")
+    setname(CArr("a","kl"),"SpecialY")
+
+    setname(variable_with_long_name,"v")
+    setname(Constraint_with_long_name("a","kl"),"Special")
+    setname(Constraint_with_long_name,"MyC")
+  end-procedure
+
+!***********************************************************************
+
+ ! This setting needs to be made before defining the constraints:
+  setparam("RECLOC", true)           ! Enable automatic names generation
+                                     ! with localization info for "-G"
+
+ ! Define (local and global) constraints within a subroutine
+  defineconstraints
+
+ ! Adding some global definitions
+  Ctr7:= x(1)+x(3)+x(5) <= 17        ! Undeclared, named, global
+  setname(Ctr7, "MyCtr7")
+ ! These two have no "setname" -> automatic names with default compilation
+  x(2)+x(4)+x(8) <= 18               ! Undeclared, unnamed, global
+                                     ! -G: name with localization info
+  Ctr9:= x(3)+x(6)+x(9) <= 19        ! Undeclared, named, global
+                                     ! -g/-G: named after entity name
+
+  Obj:=sum(i in R) y(i)
+
+
+  writeln("######## Mosel problem ########")
+  exportprob("",Obj)                 ! Display problem def. in Mosel core
+
+  writeln("######## Mosel problem without names ########")
+  exportprob(EP_STRIP,"",Obj)        ! Display problem def. without names
+
+ ! Deleting some array name settings (individual settings will be kept)
+  setname(y,"")
+  setname(Constraint_with_long_name,"")
+
+  writeln("######## Mosel problem (names after partial deletion) ########")
+  exportprob("text:mat1",Obj)        ! Retrieve problem def. into a text
+  writeln(mat1)
+
+
+ ! Load problem into Optimizer and output the resulting matrix
+  writeln("######## Optimizer problem (loading names) ########")
+  setparam("XPRS_LOADNAMES", true)   ! Enable names loading
+  loadprob(Obj)
+  writeprob("tmp:mat", "l")          ! Display in LP-format
+  fcopy("tmp:mat",0,"",F_APPEND)
+  
+  writeln("######## Optimizer problem (not loading names) ########")
+  setparam("XPRS_LOADNAMES", false)  ! Disable names loading
+  loadprob(true,Obj)                 ! Force problem reloading
+  writeprob("text:mat2", "l")        ! Write out in LP-format into a text
+  writeln(mat2)
+
+end-model

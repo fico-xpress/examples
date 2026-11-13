@@ -1,0 +1,107 @@
+(!*********************************************************************
+   Mosel Example Problems
+   ======================
+
+   file dynbigm.mos
+   ````````````````
+   Production planning problem 
+   -- Iterative calculation of tight BigM values --
+   
+     Example discussed in section 14.1.2.1 of
+     J. Kallrath: Business Optimization Using Mathematical Programming -
+     An Introduction with Case Studies and Solutions in Various Algebraic 
+     Modeling Languages. 2nd edition, Springer Nature, Cham, 2021 
+
+   author: S. Heipcke, Jan. 2020
+
+   (c) Copyright 2020 Fair Isaac Corporation
+  
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+*********************************************************************!)
+
+model dynbigm
+  uses "mmxprs"
+
+  declarations
+    PRODS: range                  ! Set of products
+    Y: array(PRODS) of real       ! Sales prices in $/ton
+    C: array(PRODS) of real       ! Machine capacities in tons/day
+    P: array(PRODS) of integer    ! Required personnel
+    M: array(PRODS) of real       ! BigM values
+    N: array(PRODS,PRODS) of real ! BigM values
+    Pmax: integer                 ! Max. available personnel
+    D: real                       ! Total demand per day
+    DELTA: real                   ! Max. difference between production amounts
+    x: array(PRODS) of mpvar      ! Amount of product produced on a day
+    delta: array(PRODS) of mpvar  ! Whether product is produced on a day
+  end-declarations
+
+  C::(1..7)[100,80,90,60,100,110,100]
+  P::(1..7)[11,6,6,5,5,4,1]
+  D:=120 
+  DELTA:=20
+  Pmax:=19
+  forall(i in PRODS) Y(i):=1+i
+
+ ! Initial BigM values
+  forall(i in PRODS) M(i):=C(i)
+ ! forall(i1,i2 in PRODS | i2 <> i1) N(i1,i2):= maxlist(M(i1),M(i2))-DELTA
+  Cmax:= max(i in PRODS) C(i)
+  forall(i1,i2 in PRODS | i2 <> i1) N(i1,i2):= Cmax
+
+ ! Satisfy the total demand per day
+  sum(i in PRODS) x(i) = D
+
+ ! Production is only possible if product has been selected
+  forall(i in PRODS) BigMCtr(i):= x(i) <= M(i)*delta(i)
+  forall(i in PRODS) delta(i) is_binary
+
+ ! Amounts produced for selected products should not differ by more than DELTA tons
+  forall(i1,i2 in PRODS | i2 <> i1) do
+    x(i1) -x(i2) <= DELTA + N(i1,i2)*(2-delta(i1)-delta(i2))
+    x(i2) -x(i1) <= DELTA + N(i1,i2)*(2-delta(i1)-delta(i2))
+  end-do
+
+ ! Limit on available personnel (knapsack constraint)
+  sum(i in PRODS) P(i)*delta(i) <= Pmax
+
+ ! Objective: total sales price
+  TotYield:= sum(i in PRODS) Y(i)*x(i)
+
+ ! Solve the problem
+  setparam("XPRS_VERBOSE", true)
+  maximize(TotYield)
+  writeln("Solution: Yield=", getobjval)
+  writeln(getparam("XPRS_SIMPLEXITER"), " iterations, ", getparam("XPRS_NODES"), " nodes")
+  writeln("Original BigM:", M)
+
+ ! Calculate updated BigM values and redefine the constraints
+  setparam("XPRS_VERBOSE", false)
+  forall(i in PRODS) do
+    FixD:= delta(i)=1
+    maximize(x(i))
+    writeln("X(",i,")=", getobjval)
+    M(i):=getobjval
+  end-do
+
+  writeln("Updated BigM:", M)
+  FixD:=0
+  forall(i in PRODS) BigMCtr(i):= x(i) <= M(i)*delta(i)
+
+ ! Solve the original problem with tightened BigM
+  maximize(TotYield)
+  writeln("Solution: Yield=", getobjval)
+  writeln(getparam("XPRS_SIMPLEXITER"), " iterations, ", getparam("XPRS_NODES"), " nodes")
+
+end-model

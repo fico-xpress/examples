@@ -1,0 +1,12 @@
+<portfolio>
+ <share name="1" ret="5" dev="0.1" country="Canada" region="NA" risk="low" /> 
+ <share name="2" ret="17" dev="19" country="USA" region="NA" risk="high" /> 
+ <share name="3" ret="26" dev="28" country="USA" region="NA" risk="high" /> 
+ <share name="4"  ret="12" dev="22" country="USA" region="NA" risk="high" />
+ <share name="5"  ret="8" dev="4" country="UK" region="Europe" risk="low" />
+ <share name="6" ret="9" dev="3.5" country="UK" region="Europe" risk="low" /> 
+ <share name="7"  ret="7" dev="5" country="Germany" region="Europe" risk="low" />
+ <share name="8" ret="6" dev="0.5" country="Luxemburg" region="Europe" risk="low" /> 
+ <share name="9" ret="31" dev="25" country="India" region="Asia" risk="high" /> 
+ <share name="10" ret="21" dev="16" country="Japan" region="Asia" risk="high" />
+</portfolio>

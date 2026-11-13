@@ -1,0 +1,6 @@
+! Data file for `cutstock.mos'
+
+MAXWIDTH: 100
+
+WIDTH: [ 6 11 17 21 24 28 30 33 42 49 56 69 74 87 91]
+DEMAND: [9  6 20 30 17 19 25 12  8 20  5 14 15 18 10]

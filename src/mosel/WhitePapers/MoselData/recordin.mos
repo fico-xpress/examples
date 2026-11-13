@@ -1,0 +1,70 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file recordin.mos
+   `````````````````
+   Reading records from
+   spreadsheets or databases via ODBC.
+   - Using 'initializations from' with odbc IO driver -
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Nov. 2007, rev. Jan. 2014
+*******************************************************!)
+
+model "Record input (ODBC)"
+ uses "mmodbc"
+
+ parameters
+                              ! Use Excel spreadsheet `recorddata.xls'
+!  CNCTIO = "recorddata.xls"
+                              ! Use Access database `recorddata.mdb'
+  CNCTIO = "debug;recorddata.mdb"
+                              ! Use mysql database `recorddata' (not provided)
+!  CNCTIO = "debug;DSN=mysql;DB=recorddata"
+                              ! Use SQLite database `recorddata' via ODBC
+!  CNCTIO = 'DSN=sqlite;DATABASE=recorddata.sqlite'
+                              ! Use SQLite database `recorddata' directly
+!  CNCTIO = 'recorddata.sqlite'
+ end-parameters
+
+ public declarations
+  PRODUCTS: set of string
+  MACH: range
+  ProdRec = public record
+   Cost: real
+   Duration: integer
+  end-record 
+  PDATA,PDATA2: dynamic array(PRODUCTS,MACH) of ProdRec
+
+  R = 1..9
+  AllDataRec = public record
+   Product: string
+   Mach: integer
+   Cost: real
+   Duration: integer
+  end-record 
+  ALLDATA,ALLDATA2: array(R) of AllDataRec
+ end-declarations
+
+! **** Reading complete records
+
+ initializations from "mmodbc.odbc:"+CNCTIO
+  PDATA as "ProdData"
+  ALLDATA as "noindex;ProdData"
+ end-initializations
+
+! **** Reading record fields
+
+ initializations from "mmodbc.odbc:"+CNCTIO
+  PDATA2(Cost) as "ProdData(IndexP,IndexM,Cost)"
+  ALLDATA2(Product,Mach,Duration) as "noindex;ProdData(IndexP,IndexM,Duration)"
+ end-initializations
+
+! Now let us see what we have
+ writeln('PDATA is: ', PDATA)
+ writeln('ALLDATA is: ', ALLDATA)
+ writeln('PDATA2 is: ', PDATA2)
+ writeln('ALLDATA2 is: ', ALLDATA2)
+
+end-model

@@ -1,0 +1,28 @@
+ (!******************************************************
+   Mosel Example Problems
+   ======================   
+
+   Example model for the 
+   Robust Optimization with Xpress white paper
+
+   (c) 2014 Fair Isaac Corporation
+       
+*******************************************************!)
+model Nominalvalues
+ uses "mmrobust"                    ! Load the robust library
+
+declarations
+ x : mpvar
+ u : uncertain
+end-declarations
+
+0 <= u
+     u <= 1
+
+(1+u)*x <= 1
+
+maximize(x)
+
+writeln("x = ", getsol(x))
+
+end-model

@@ -1,0 +1,116 @@
+(!******************************************************
+   Mosel graph examples
+   ==================== 
+
+   file lineplots.mos
+   ``````````````````
+   Shows different ways of drawing line plots
+   
+   Uses functions from the mmsvg library to draw
+   a "User graph" in SVG format.
+   
+   (c) 2017 Fair Isaac Corporation
+       author: S. Heipcke, Jul. 2017, rev. Sep. 2017
+*******************************************************!)
+
+model lineplots
+ options noimplicit
+ uses "mmsvg", "mmjobs"
+
+ declarations
+   NP=150
+   NG=5
+   POINTS=0..NP
+   GRAPHS=1..NG
+   PDATAX,PDATAY: array(GRAPHS,POINTS) of real
+   cury:real
+ end-declarations
+
+ setrandseed(3)
+ forall(g in GRAPHS, ct as counter) do
+   cury:=(25*(ct-1))+50*random
+   forall(i in POINTS) do
+     cury:=cury+(random-0.5)*5
+     PDATAX(g,i):=2*i
+     PDATAY(g,i):=cury
+   end-do
+ end-do
+
+! ******** Draw rough plot ********
+ procedure scatterplot
+  ! Delete any existing graph contents
+   svgerase
+
+   forall(g in GRAPHS) do
+     svgaddgroup("g"+g, "Graph "+g)
+     svgsetstyle(SVG_FILL,SVG_CURRENT)
+!     svgsetstyle(SVG_STROKEWIDTH, 2)
+     forall(i in POINTS) svgaddpoint(PDATAX(g,i),PDATAY(g,i))
+   end-do
+   svgaddgroup("msg", "", SVG_GREY)
+!   svgsetstyle(SVG_FONTSIZE,"medium")
+   svgaddtext(5, 145, "Scatter plot example")
+
+  ! Display the graph 
+   svgrefresh
+ end-procedure
+
+! ******** Draw smooth plot with coloured lines ********
+ procedure lineplot
+  ! Delete any existing graph contents
+   svgerase
+
+   forall(g in GRAPHS) do
+     svgaddgroup("g"+g, "Graph "+g)
+     svgaddline(sum(i in POINTS) [PDATAX(g,i),PDATAY(g,i)])
+   end-do
+   svgaddgroup("msg", "", SVG_GREY)
+!   svgsetstyle(SVG_FONTSIZE,"medium")
+   svgaddtext(5, 145, "Line plot example")
+
+  ! Display the graph 
+   svgrefresh
+ end-procedure
+
+! ******** Draw smooth plot with dashed/dotted lines ********
+ procedure lineplot2
+  declarations
+    ll,lb,lp: integer
+  end-declarations
+  ! Delete any existing graph contents
+   svgerase
+
+   setrandseed(5)
+
+   svgaddgroup("g", "Dashed line plots")
+   forall(g in GRAPHS) do
+     svgaddline(sum(i in POINTS) [PDATAX(g,i),PDATAY(g,i)])
+     ll:=round(1+5*random); lb:=round(1+2*random); lp:=round(2*random)
+     svgsetstyle(svggetlastobj, SVG_STROKEDASH, text(ll)+","+lb+if(lp>0,","+text(lp)+","+lb, ""))
+   end-do
+   svgaddgroup("msg", "", SVG_GREY)
+!   svgsetstyle(SVG_FONTSIZE,"medium")
+   svgaddtext(5, 145, "Dashed lines example")
+
+  ! Display the graph 
+   svgrefresh
+ end-procedure
+
+! ***********************************************************
+
+ ! Configure the display
+  svgsetgraphviewbox(0, 0, NP+10, 160)
+  svgsetgraphscale(2)
+  svgsetgraphlabels("x","f(x)")
+
+ ! Display each graph for 3 seconds
+  scatterplot
+  wait(3)
+  lineplot
+  wait(3)
+  lineplot2
+
+ ! Wait for display window to close 
+  svgwaitclose("Close browser window to terminate model execution.", 1)
+ 
+end-model

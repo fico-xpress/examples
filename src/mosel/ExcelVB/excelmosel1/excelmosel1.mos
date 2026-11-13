@@ -1,0 +1,60 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file excelmosel1.mos
+   ````````````````````
+   Small MIP problem reading data from Excel.
+   
+   (c) 2008 Fair Isaac Corporation
+       rev. Jan. 2025 
+*******************************************************!)
+
+model "excelmosel1"
+ uses  "mmxprs"
+
+ parameters
+  DATA_XLS = 'excelmosel1.xls'
+ end-parameters
+
+ declarations
+  ROWS = 1..4
+  COLS = 1..4
+  COEFFS: array(ROWS, COLS) of real     ! Constraint coefficients
+  COSTS: array(COLS) of real            ! Objective coefficients
+  RHS_p,RHS_v: array(ROWS) of real      ! RHS terms
+  public vars: array(COLS) of mpvar     ! Decision variables
+  Sol: array(COLS) of real              ! Solution values
+ end-declarations
+ 
+ forall(j in COLS)
+  vars(j) is_integer
+
+ setparam("XPRS_VERBOSE", true)
+ setparam("XPRS_LOADNAMES", true)
+
+! Retrieve data from Excel
+ initialisations from 'mmsheet.excel:'+ DATA_XLS
+  COSTS as 'noindex;costs'
+  COEFFS as 'coeffs'
+  RHS_p as 'noindex;rhs_p'
+  RHS_v as 'noindex;rhs_v'
+ end-initialisations
+
+! Define the optimization problem
+ MaxObj:= sum(j in COLS) COSTS(j)*vars(j)
+ forall(i in ROWS) 
+  sum(j in COLS) COEFFS(i,j) * vars(j) <= (RHS_p(i) + RHS_v(i)) * 10
+
+! Solve the problem
+ maximize(MaxObj)
+
+ writeln("MaxObj: ", getsol(MaxObj))
+
+! Save and display the solution 
+ forall(j in COLS) do
+  Sol(j):= getsol(vars(j))
+  writeln("x", j, ": ", Sol(j))
+ end-do
+	
+end-model

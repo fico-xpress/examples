@@ -1,0 +1,34 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file chess2.mos
+   ```````````````
+   Indexing arrays by variables.
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2001
+*******************************************************!)
+
+model Chess2
+ uses "mmxprs"
+ 
+ declarations
+  Allvars: set of mpvar
+  DescrV: array(Allvars) of string
+  small, large: mpvar
+ end-declarations
+
+ DescrV(small):= "Number of small chess sets"
+ DescrV(large):= "Number of large chess sets"
+
+ Profit:=  5*small + 20*large
+ Lathe:=   3*small + 2*large <= 160
+ Boxwood:=   small + 3*large <= 200
+
+ maximize(Profit)
+
+ writeln("Solution:\n Objective: ", getobjval)
+ writeln(DescrV(small), ": ", getsol(small))
+ writeln(DescrV(large), ": ", getsol(large))
+end-model

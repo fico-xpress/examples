@@ -1,0 +1,17 @@
+! Delivery Problem
+! Data File: ifvan.dat
+!
+! Table IFVAN: Contains non-zero if route requires vans
+!
+!
+! TO  London Livpol Doncst  York   Hull  Manchr Shffld   ! FROM
+        1,     1,     0,     1                           ! London
+        0,     1,     1,     0,     1,     1             ! Luton
+        0
+        0
+        0
+        0                       
+        0
+        0
+        0
+        1,     1,     1,     1,     1                    ! Scnthp

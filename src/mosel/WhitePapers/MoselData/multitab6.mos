@@ -1,0 +1,90 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file multitab6.mos
+   `````````````````
+   Reading an array from several data tables.
+   Output parts of an array into several tables.
+   - Using 'initializations from' with the csv I/O driver -
+       
+   (c) 2012 Fair Isaac Corporation
+       author: S. Heipcke, Dec. 2012, rev. May 2017
+*******************************************************!)
+
+model "Multiple data sources (CSV)"
+ uses "mmsheet", "mmsystem"
+
+ parameters
+  CNCT= 'mmsheet.csv:multitab.csv'
+  CNCTOUT= 'mmsheet.csv:multitabout.csv'
+ end-parameters
+
+ declarations
+  CUST: set of integer
+  PERIOD: range
+  INCOME1,INCOME2,INCOME3: dynamic array(CUST,PERIOD) of real
+ end-declarations
+
+! **** Different ways of reading the data from a CSV spreadsheet
+
+! Method 1: Data in columns, with CUST index value included
+ initializations from CNCT
+  INCOME1 as '[A3:C7]'
+  INCOME1 as '[E3:G7]'
+  INCOME1 as '[I3:K7]'
+ end-initializations
+
+ writeln("1: ", INCOME1)
+ 
+! Method 2: Data in columns, without CUST index value
+
+ procedure readcol(cust:integer, table:string)
+  declarations
+   TEMP: array(PERIOD) of real
+  end-declarations
+ 
+  initializations from CNCT
+   TEMP as table
+  end-initializations
+  forall(p in PERIOD) INCOME2(cust,p):=TEMP(p)
+ end-procedure
+ 
+ forall(c in CUST)
+  readcol(c, "[R11C" + (1+(c-1)*3) + ":R15C" + (2+(c-1)*3) + "]")
+ writeln("2: ", INCOME2)
+ 
+! Method 3: Data in rows, without CUST index value
+
+ procedure readrow(cust:integer, table:string)
+  declarations
+   TEMP: array(1..2,PERIOD) of real
+  end-declarations
+
+  initializations from CNCT
+   TEMP as 'noindex;'+table
+  end-initializations
+  forall(p in PERIOD) INCOME3(cust,p):=TEMP(2,p)
+ end-procedure
+ 
+ finalize(PERIOD)                       ! The index sets must be known+fixed
+ forall(c in CUST) readrow(c, "[B" + (21+(c-1)*5) + ":F" + (22+(c-1)*5) + "]") 
+ writeln("3: ", INCOME3)
+
+
+! ******** Output an array into several tables ********
+
+ fopen(CNCTOUT, F_OUTPUT)
+
+ forall(c in CUST)
+  initializations to CNCTOUT
+   ! Method 1: CUST index value included
+    evaluation of array(c1=c,p in PERIOD) INCOME1(c1,p) as "grow;skiph+;[R2C"+(c*4)+":R2C"+(c*4+2)+"](CUST,PERIOD,INCOME)"
+
+   ! Method 2: without CUST index value
+    evaluation of array(p in PERIOD) INCOME1(c,p) as "grow;skiph+;[R15C"+(c*3)+":R15C"+(c*3+1)+"](PERIOD,INCOME)"  
+  end-initializations
+ fclose(F_OUTPUT)
+
+
+end-model

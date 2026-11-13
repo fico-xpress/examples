@@ -1,0 +1,61 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file indexeg2.mos
+   `````````````````
+   Using ODBC with dense and sparse format data tables.
+   - Using SQL statements -
+       
+   (c) 2008 Fair Isaac Corporation
+       author: Y. Colombani, 2002, rev. Aug. 2023
+*******************************************************!)
+
+model ODBCImpEx2
+ uses "mmodbc"
+
+ declarations
+  A: array(1..3, 1..2) of real
+  B: array(1..2, 1..3) of real
+  C: array(1..2, 1..3) of real
+  D: array(R:range, 1..3) of real
+  CSTR: string
+ end-declarations
+
+! CSTR:= 'DSN=sqlite;DATABASE=indexeg.sqlite'
+ CSTR:= 'indexeg.sqlite'
+
+ SQLconnect(CSTR)
+ if not getparam("SQLsuccess"): setioerr("Database connection failed")
+ setparam("SQLverbose",true)
+ setparam("SQLdebug",true)
+
+ ! Data must be dense - there are not enough columns to serve as index!
+ SQLexecute("select * from Range3by2 ", A)
+ writeln("\n ===A=== ")
+ forall(i in 1..3)
+  writeln("Row(",i,"): ", A(i,1), " ", A(i,2))
+ 
+ setparam("SQLndxcol", false)      ! Dense data
+ SQLexecute("select * from Range2by3 ", B)
+ writeln("\n ===B=== ")
+ forall(i in 1..2)
+  writeln("Row(",i,"): ", B(i,1), " ", B(i,2), " ", B(i,3))
+ 
+ setparam("SQLndxcol", true)       ! Indexed data
+ SQLexecute("select * from Range2by3i ", C)
+ writeln("\n ===C=== ")
+ forall(i in 1..2)
+  writeln("Row(",i,"): ", C(i,1), " ", C(i,2), " ", C(i,3))
+
+ setparam("SQLndxcol", false)      ! Partially indexed data
+ SQLexecute("select * from RectRange ", D)
+ writeln("\n ===D=== ")
+ forall(i in R)
+  writeln("Row(",i,"): ", D(i,1), " ", D(i,2), " ", D(i,3))
+
+ SQLdisconnect
+
+end-model
+
+

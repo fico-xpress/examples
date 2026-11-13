@@ -1,0 +1,95 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file d4backup3a_ka.mos
+   ``````````````````````
+   Bin packing: backup of files onto floppy disks
+   - Alternative formulation using tasks,
+     user branching strategy -
+
+   *** This model cannot be run with a Community Licence 
+       for the provided data instance ***
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+       rev. Apr. 2022 
+*******************************************************!)
+
+model "D-4 Bin packing (CP)"
+ uses "kalis", "mmsystem"
+
+ declarations
+  ND: integer                        ! Number of floppy disks
+  FILES = 1..16                      ! Set of files
+  DISKS: range                       ! Set of disks
+
+  CAP:  integer                      ! Floppy disk size
+  SIZE: array(FILES) of integer      ! Size of files to be saved
+
+  file: array(FILES) of cptask       ! Tasks (= files to be saved)
+  disks: cpresource                  ! Resource representing disks
+  L,LS: cpvarlist
+  diskuse: cpvar                     ! Number of disks used
+
+  Strategy: array(range) of cpbranching
+  FSORT: array(FILES) of integer
+ end-declarations
+ 
+ initializations from 'Data/d4backup.dat'
+  CAP SIZE
+ end-initializations
+
+! Provide a sufficiently large number of disks
+ ND:= ceil((sum(f in FILES) SIZE(f))/CAP)
+ DISKS:= 1..ND
+
+! Setting up the resource (capacity limit of disks)
+ set_resource_attributes(disks, KALIS_DISCRETE_RESOURCE, CAP)
+ 
+! Setting up the tasks 
+ forall(f in FILES) do
+  setdomain(getstart(file(f)), DISKS)          ! Start time (= choice of disk)
+  set_task_attributes(file(f), disks, SIZE(f)) ! Resource (disk space) req. 
+  set_task_attributes(file(f), 1)    ! Duration (= number of disks used)
+ end-do
+
+! Limit the number of disks used
+ forall(f in FILES) L += getstart(file(f))
+ diskuse = maximum(L)
+
+! Define a branching strategy (place largest files first)
+ qsort(SYS_DOWN, SIZE, FSORT)        ! Sort files in decreasing order of size
+ forall(f in FILES)
+  LS+=getstart(file(FSORT(f)))
+ Strategy(1):=assign_var(KALIS_INPUT_ORDER, KALIS_MIN_TO_MAX, LS) 
+
+(! Equivalent definition of the search strategy:
+ forall(f in FILES)
+  Strategy(f):=assign_var(KALIS_INPUT_ORDER, KALIS_MIN_TO_MAX, 
+                          {getstart(file(FSORT(f)))})
+!)
+
+(! Task-based search strategy formulation:
+ forall(f in FILES)
+  Strategy(f):=task_serialize(KALIS_SMALLEST_ECT, KALIS_MIN_TO_MAX, 
+                          KALIS_MIN_TO_MAX, {file(FSORT(f))})
+!)
+
+ cp_set_branching(Strategy)
+
+! Minimize the total number of disks used
+ if not cp_minimize(diskuse) then
+  writeln("Problem infeasible")
+ end-if
+ 
+! Solution printing
+ writeln("Number of disks used: ", getsol(diskuse))
+ forall(d in 1..getsol(diskuse)) do
+  write(d, ":")
+  forall(f in FILES | getsol(file(f).start)=d) write(" ",SIZE(f))
+  writeln("  space used: ",
+          sum(f in FILES | getsol(file(f).start)=d) SIZE(f))
+ end-do
+ cp_show_stats
+
+end-model

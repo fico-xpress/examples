@@ -1,0 +1,11 @@
+! Data file for `burglar2ff.mos'
+!
+camera [v=15, w=2]
+!
+necklace [v=100, w=20]
+vase [v=90, w=20]
+picture [v=60, w=30]
+tv [v=40, w=40]
+video [v=15, w=30]
+chest [v=10, w=60]
+brick [v=1, w=10]

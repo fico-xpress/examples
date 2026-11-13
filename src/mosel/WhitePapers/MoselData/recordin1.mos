@@ -1,0 +1,45 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file recordin1.mos
+   ``````````````````
+   Reading records from a text file.
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Nov. 2007, rev. Jul. 2010
+*******************************************************!)
+
+model "Record input (text files)"
+
+ public declarations
+  PRODUCTS: set of string
+  MACH: range
+  ProdRec = public record
+   Cost: real
+   Duration: integer
+  end-record 
+  PDATA: dynamic array(PRODUCTS,MACH) of ProdRec
+
+  R = 1..9
+  AllDataRec = public record
+   Product: string
+   Mach: integer
+   Cost: real
+   Duration: integer
+  end-record 
+  ALLDATA: array(R) of AllDataRec
+ end-declarations
+
+! **** Reading complete records
+
+ initializations from "recorddata.dat"
+  PDATA as "ProdData"
+  ALLDATA as "AllData"
+ end-initializations
+
+! Now let us see what we have
+ writeln('PDATA is: ', PDATA)
+ writeln('ALLDATA is: ', ALLDATA)
+
+end-model

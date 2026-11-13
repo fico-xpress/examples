@@ -1,0 +1,105 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file runburglarmem.mos
+   ``````````````````````
+   Compilation from memory.
+   
+   (c) 2014 Fair Isaac Corporation
+       author: S. Heipcke, Sep. 2014
+*******************************************************!)
+
+model "Compile burglar.mos from memory"
+ uses "mmjobs", "mmsystem"
+ 
+ parameters
+   IDXCONFIG = 1         ! 1: range, 2: set of string
+ end-parameters
+
+!**** The source of the submodel as multi-line strings ****
+ public declarations
+  source_of_model: text
+  model_header, data1, data2, math_model: text
+ end-declarations 
+  
+ model_header:= 
+`--------------- Model start (header and options) ----------------
+ model Burglar
+ uses 'mmxprs'
+--------------- Model start (header and options) ----------------`
+
+
+ data1:= 
+`---------------- Data set using integer indices -----------------
+ declarations
+  WTMAX = 102                    ! Maximum weight allowed
+  ITEMS = 1..8                   ! Index range for items
+  VALUE: array(ITEMS) of real    ! Value of items
+  WEIGHT: array(ITEMS) of real   ! Weight of items
+ end-declarations
+
+ VALUE :: [15, 100, 90, 60, 40, 15, 10,  1]
+ WEIGHT:: [ 2,  20, 20, 30, 40, 30, 60, 10]
+---------------- Data set using integer indices -----------------`
+
+
+ data2:= 
+`---------------- Data set using string indices -----------------
+ declarations
+  WTMAX = 102                    ! Maximum weight allowed
+  ITEMS: set of string           ! Index set for items
+  VALUE: array(ITEMS) of real    ! Value of items
+  WEIGHT: array(ITEMS) of real   ! Weight of items
+ end-declarations
+
+ VALUE :: (["camera", "necklace", "vase", "picture", "tv", "video", 
+           "chest", "brick"])[15, 100, 90, 60, 40, 15, 10,  1]
+ WEIGHT:: (["camera", "necklace", "vase", "picture", "tv", "video", 
+           "chest", "brick"])[ 2,  20, 20, 30, 40, 30, 60, 10]
+---------------- Data set using string indices -----------------`
+
+
+ math_model:= 
+`-------------- Definition of the mathematical model --------------
+ declarations
+  take: array(ITEMS) of mpvar    ! 1 if we take item i; 0 otherwise
+ end-declarations
+
+ ! Objective: maximize total value
+ MaxVal:= sum(i in ITEMS) VALUE(i)*take(i)
+
+ ! Weight restriction
+ sum(i in ITEMS) WEIGHT(i)*take(i) <= WTMAX
+ ! All variables are 0/1
+ forall(i in ITEMS) take(i) is_binary
+
+ maximize(MaxVal)                ! Solve the problem
+
+ ! Print out the solution
+ writeln("Solution:\n Objective: ", getobjval)
+ forall(i in ITEMS)  writeln(' take(', i, '): ', getsol(take(i)))
+
+ end-model
+-------------- Definition of the mathematical model --------------`
+
+
+!**** Compose the parts to form the model source ****
+ source_of_model:= model_header +
+   if(IDXCONFIG=1, data1, data2) + math_model
+ 
+
+!**** Main model ****
+ declarations
+  modBurg: Model
+ end-declarations
+
+                                   ! Compile the model from memory
+ if compile("", "text:source_of_model", "tmp:burglar.bim")<>0 then exit(1); end-if
+ load(modBurg, "tmp:burglar.bim")  ! Load the bim file
+ run(modBurg)                      ! Start model execution
+ wait                              ! Wait for model termination
+ dropnextevent                     ! Ignore termination event message
+
+end-model 
+

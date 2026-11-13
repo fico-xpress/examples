@@ -1,0 +1,89 @@
+(!****************************************************************
+
+   CP example problems
+   ===================
+   
+   file jobshop_alt.mos
+   ````````````````````
+   Job-shob scheduling problem.
+   Alternative formulation using task and resources objects
+
+   *** This model cannot be run with a Community Licence 
+       for the provided data instances ***
+
+   Copyright(C) 2008 Artelys S.A. and Fair Isaac Corporation
+                     Creation: 2007, rev. Apr. 2022
+*****************************************************************!)
+
+model "Job shop (CP)"
+ uses "kalis", "mmsystem"
+
+ parameters
+  DATAFILE = "mt06.dat"                      ! mt06.dat : Fisher and Thompson 6x6 instance
+  !DATAFILE = "mt10.dat"                     ! mt10.dat : Fisher and Thompson 10x10 instance 
+  !DATAFILE = "la105.dat"                    ! la105.dat: Lawrence 10x5 instance
+ end-parameters
+
+ forward procedure print_solution
+
+ declarations
+  NBJOBS: integer                            ! Number of jobs
+  NBRES: integer                             ! Number of resources
+ end-declarations
+
+ initializations from "Data/"+DATAFILE
+  NBJOBS NBRES
+ end-initializations
+
+ declarations
+  JOBS = 1..NBJOBS                           ! Set of jobs
+  TASKS = 1..NBRES                           ! Set of tasks (one per machine)
+  TASKSM1 = 1..NBRES-1                       ! Set of tasks without last
+  RESOURCES = 0..NBRES-1                     ! Set of resources
+  taskUse: array(JOBS,TASKS) of integer      ! Resource use of tasks
+  taskDuration: array(JOBS,TASKS) of integer ! Durations of tasks
+ end-declarations
+
+ initializations from "Data/"+DATAFILE
+  taskUse taskDuration
+ end-initializations
+ 
+ declarations  
+  resources: array(RESOURCES) of cpresource  ! Resources (machines)
+  tasks: array(JOBS,TASKS) of cptask         ! Tasks   
+ end-declarations
+
+! Setting up unary resources representing the machines    
+ forall(r in RESOURCES) do     
+  set_resource_attributes(resources(r), KALIS_UNARY_RESOURCE, 1)
+  setname(resources(r), "RESOURCE " + r)
+ end-do
+
+! Setting up the tasks 
+ forall(j in JOBS,t in TASKS) do   
+  setname(tasks(j,t), "J" + j + "T" + t)
+  set_task_attributes(tasks(j,t), taskDuration(j,t), resources(taskUse(j,t)))
+ end-do
+
+! Precedence constraints between the tasks of every job
+ forall(j in JOBS,t in TASKSM1,t2 in t+1 .. NBRES) 
+  setpredecessors(tasks(j,t2), {tasks(j,t)})
+
+ cp_set_solution_callback(->print_solution)
+
+ starttime:= gettime
+ if cp_schedule(getmakespan) = 0 then
+  writeln("No solution found")
+ else
+  writeln("(", gettime-starttime, "sec) Best solution: Makespan = ",
+          getsol(getmakespan))
+ end-if
+ cp_show_stats
+
+! Solution printing 
+ procedure print_solution  
+  writeln("(", gettime-starttime, "sec) Solution: ", getsol(getmakespan))  
+ end-procedure
+ 
+
+end-model

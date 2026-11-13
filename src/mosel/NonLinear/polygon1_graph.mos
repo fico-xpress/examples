@@ -1,0 +1,98 @@
+(!*********************************************************************
+   Mosel NL examples
+   =================
+   file polygon1_graph.mos
+   ```````````````````````
+   Maximize the area of polygon of N vertices and diameter of 1. 
+   
+   The position of vertices is indicated as (rho,theta) coordinates
+   where rho denotes the distance to the base point (vertex with number N) 
+   and theta the angle from the x-axis.
+   
+   -- Formulation using direct algebraic expressions, solution graph --
+ 
+   (c) 2013 Fair Issac Corporation
+       Creation: Feb. 2013, rev. Jun. 2023
+*********************************************************************!)
+
+model "Polygon 1 (graph)"
+ uses "mmxnlp", "mmsvg"
+
+ parameters
+  N=5                               ! Number of vertices
+  SOLVER=0                          ! 0: SLP, 1: Knitro
+ end-parameters
+ 
+ declarations
+  RN = 1..N
+  Area: nlctr
+  rho : array(RN) of mpvar          ! Distance of vertex from the base point 
+  theta : array(RN) of mpvar        ! Angle from x-axis
+  D: array(RN,RN) of nlctr          ! Limit on side length
+ end-declarations
+
+! Objective: sum of areas
+ Area:= (sum (i in 2..N-1) (rho(i)*rho(i-1)*sin(theta(i)-theta(i-1)))) * 0.5
+
+! Bounds and start values for decision variables
+ forall(i in 1..N-1) do
+  rho(i) >= 0.1
+  rho(i) <= 1
+  setinitval(rho(i), 4*i*(N + 1 - i)/((N+1)^2))
+  setinitval(theta(i), M_PI*i/N)
+ end-do
+ 
+! Third side of all triangles <= 1
+ forall(i in 1..N-2, j in i+1..N-1)
+  D(i,j):= rho(i)^2 + rho(j)^2 - rho(i)*rho(j)*2*cos(theta(j)-theta(i)) <= 1
+ 
+! Vertices in increasing order 
+ forall(i in 2..N-1) theta(i) >= theta(i-1) +.01
+ 
+! Boundary conditions
+ theta(N-1) <= M_PI                     ! Last vertex above x-axis
+
+! Optional parameter settings
+ setparam("xnlp_verbose", true)         ! Enable XNLP output log
+ setparam("xnlp_solver", SOLVER)        ! Select the solver
+ 
+! In this example we will use a local solver
+ setparam("xprs_nlpsolver", 1)
+
+! Solve the problem
+ maximise(Area)
+
+! Solution output
+ writeln("Area = ", getobjval)
+ forall (i in 1..N-1) 
+  writeln("V", i, ": r=", getsol(rho(i)), " theta=", getsol(theta(i)))
+
+!**************** Graphical representation of results ****************
+ declarations
+  X,Y: array(0..N) of real
+ end-declarations
+
+ X(N):=0; Y(N):=0                       ! Position for base vertex N
+ X(0):=X(N); Y(0):=Y(N)
+ forall(i in 1..N-1) do                 ! Calculate vertex positions
+  X(i):=cos(theta(i).sol)*rho(i).sol+X(N)
+  Y(i):=sin(theta(i).sol)*rho(i).sol+Y(N)
+ end-do
+
+ svgaddgroup("P", "Polygon")
+ forall(i in 1..N) do                   ! Draw the resulting polygon
+  svgaddpoint(X(i),Y(i))
+  svgaddtext(X(i)+0.03,Y(i)+0.02, string(i))
+ end-do
+ svgaddpolygon(sum(i in 1..N) [X(i),Y(i)])
+
+! Scale the size of the displayed graph
+ svgsetgraphscale(200)
+ svgsetgraphpointsize(2)
+ 
+ svgsave("polygon.svg")
+ svgrefresh
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+
+end-model
+ 

@@ -1,0 +1,43 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file findservers.mos
+   ````````````````````
+   Find Mosel servers that are able to accept remote model runs
+
+   This file only produces output on the local node, 
+   it does not start any remote runs.
+       
+   (c) 2013 Fair Isaac Corporation
+       author: S. Heipcke, Jan. 2013
+*******************************************************!)
+
+model "Find Mosel servers"
+ uses "mmjobs"
+
+ parameters
+   M = 20                  ! Max. number of servers to be sought
+ end-parameters  
+
+ declarations
+   Hosts: set of string
+   NODELIST: list of string
+   mosInst: Mosel
+ end-declarations
+
+ findxsrvs(1, M, Hosts)
+ writeln(Hosts.size, " servers found: ", Hosts)
+
+ forall(i in Hosts)        ! Establish remote connection and print system info
+   if connect(mosInst, i)=0 then
+     writeln("Server ", i, ": ", getsysinfo(mosInst))
+     disconnect(mosInst)
+   else
+     writeln("Connection to ", i, " failed ")
+   end-if    
+
+ NODELIST:=[""]            ! Construct a list starting with the current node
+ forall(i in Hosts) NODELIST += [i] 
+
+end-model

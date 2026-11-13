@@ -1,0 +1,194 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file dataframedb.mos
+   ````````````````````
+   Working with SQL dataframe functionality
+   
+  (c) 2021 Fair Isaac Corporation
+      author: S.Heipcke, Oct 2021, rev. Apr. 2024
+*******************************************************!) 
+model 'dataframedb'
+options keepassert
+uses 'mmodbc','mmsystem'
+
+! **** Database creation ****
+procedure createDB(cstr:string)
+ declarations
+   REC=1..7
+   article,owner: array(REC) of integer
+   dealer,style,color: array(REC) of string
+   price: array(REC) of real
+ end-declarations
+ 
+ article::[1,1,2,3,3,3,4]
+ dealer::['A','B','A','B','C','D','D']
+ price::[3.45,3.99,10.99,1.45,1.69,1.25,19.95]
+ style::['polo','dress','t-shirt','dress', 'polo','dress','t-shirt']
+ color::['blue','white','blue',   'orange','red', 'blue', 'white']
+ owner::[1,1,1,2,2,2,2]
+
+ writeln("Creating tables for `sdkdatafrm'")
+ SQLconnect(cstr)
+
+ SQLexecute("drop table if exists shop")
+ SQLexecute("create table shop (article integer, owner varchar(10))")
+ assert(getparam("SQLsuccess"))
+ forall(i in REC) do
+   SQLexecute("insert into shop (article,owner) values (?,?)",
+       [article(i),dealer(i)] )
+   assert(getparam("SQLsuccess"))
+ end-do
+
+ SQLexecute("drop table if exists shirts")
+ SQLexecute("create table shirts (id integer, style varchar(10),"+
+       "price float, color varchar(10), owner integer)")
+ assert(getparam("SQLsuccess"))
+
+ SQLexecute("insert into shirts (id,style,price,color,owner) values (?,?,?,?,?)",
+       [style,price,color,owner])
+ assert(getparam("SQLsuccess"))
+
+ SQLexecute("drop table if exists dfoutput")
+ SQLexecute("create table dfoutput (article integer, color varchar(10), owner varchar(10), shop integer, flag boolean, price float)")
+ assert(getparam("SQLsuccess"))
+
+ SQLdisconnect
+end-procedure
+
+! ************ Reading all or selected fields from database tables ************
+procedure readtests
+ declarations
+   dfa:array(ra:range,csa:set of string) of any
+   dft:array(rt:range,cst:set of string) of text
+   dfi:array(ri:range,csi:set of string) of integer
+   dfa2:array(ra2:range,csa2:set of string) of any
+ end-declarations
+
+ writeln("+ All columns (any)")
+ SQLdataframe("select * from shirts", dfa)
+ assert(getparam("SQLsuccess"))
+ writeln("csa: ", csa," ra: ", ra)
+ writeln("dfa: ", dfa)          ! Typed data
+ writeln(sum(i in ra) dfa(i,"owner").integer)
+ writeln
+
+! Select some columns and specify new name for one of them
+ writeln("+ Index set initialised and column selection (text)")
+ SQLdataframe("select id as prod,color as couleur,style from shirts", dft)
+ assert(getparam("SQLsuccess"))
+ writeln("cst: ", cst," rt: ", rt)
+ writeln("dft: ", dft)          ! All data as text
+ writeln
+
+! A typed array is accepted, but only fields with matching types are read
+ writeln("+ As integer")
+ SQLdataframe("select * from shirts", dfi)
+ assert(getparam("SQLsuccess"))
+ writeln("csi: ", csi," ri: ", ri)
+ writeln("dfi: ", dfi)          ! Typed data
+ writeln(sum(i in ri,j in csi) dfi(i,j))
+ writeln
+
+! Can handle data from multiple tables, in the case of multiple occurrences
+! of field names unique names are generated
+ writeln("+ Duplicate names in columns")
+ SQLdataframe("select * from shirts inner join shop on id=article", dfa2)
+ assert(getparam("SQLsuccess"))
+ writeln("csa2: ", csa2," ra2: ", ra2)
+ writeln("dfa2: ", dfa2) 
+ writeln
+end-procedure
+
+! ************ Using SQLupdate with a dataframe structure ************
+
+procedure testupdate
+ declarations
+   dfa:array(ra:range,csa:set of string) of text or any
+   dft:array(rt:range,cst:set of string) of text
+   Idx: text
+ end-declarations
+
+! Reading union type dataframe structure
+ SQLdataframe("select * from shirts", dfa)
+ assert(getparam("SQLsuccess"))
+ writeln("Original df: ", dfa)
+ writeln
+ forall(i in ra) dfa(i,"price"):=dfa(i,"price").real+10
+ forall(i in ra) dfa(i,"style"):=dfa(i,"style").text+"_xyz"
+ writeln("Modified df: ", dfa)
+
+ k:=0
+ forall(j in csa-{'id'}, k as counter) Idx+=(if(k>1, ", "+j, j)+"=?"+(k+1))
+ query:="update shirts set "+Idx+" where id=?1"
+ writeln(query)
+
+ finalise(csa)                    ! Required for 'SQLndxcol=false'
+ setparam("SQLndxcol", false)     ! Partially indexed data
+ SQLexecute(query, dfa)
+ assert(getparam("SQLsuccess"))
+
+! Dislay new table contents
+ SQLdataframe("select * from shirts",dft)
+ assert(getparam("SQLsuccess"))
+ writeln("dft: ", dft)
+end-procedure
+
+! ************ Using SQL insert with a dynamic dataframe structure ************
+
+ public declarations
+   data=`
+article,color,owner,shop,flag,price
+1,"red","abc",2,,3 
+4,"blue",,,true,5.5
+6,,"abc",7,false,8.9
+`
+ end-declarations
+
+procedure writetest
+ declarations
+   dfa,dfa2:dynamic array(ra:range,csa:set of string) of any
+   fields,query: text
+ end-declarations
+
+! Populate dataframe with input data
+ initialisations from 'mmetc.diskdata:'
+   dfa as "dataframe;skiph;text:data"
+ end-initialisations
+
+ finalize(csa)                   ! Required for 'SQLndxcol=false'
+ setparam("SQLndxcol", true)     ! Partially indexed data
+ writeln("Initial data size: ", dfa.size, " dfa:", dfa)
+! SQLexecute("insert into dfoutput (article,color,owner,shop,flag,price) values (?,?,?,?,?,?)", dfa)
+ fields:=jointext(dfa.index(2))
+ query:=jointext(sum(i in dfa.index(2))['?'])
+ SQLexecute("insert into dfoutput ("+fields+") values ("+query+")", dfa)
+ assert(getparam("SQLsuccess"))
+ setparam("SQLndxcol", true)     ! Partially indexed data
+
+! Display new table contents
+ SQLdataframe("select * from dfoutput", dfa2)
+ assert(getparam("SQLsuccess"))
+ writeln("Output data size: ", dfa2.size, " dfa2:", dfa2)
+ 
+end-procedure
+
+
+!**********************************************************
+
+! Create the database
+ createDB("dbtest.sqlite")
+ setparam("SQLdebug",true)
+ setparam("SQLverbose",true)
+ SQLconnect("dbtest.sqlite")
+ assert(getparam("SQLsuccess"))
+
+! Run data reading and writing procedures
+ readtests
+ testupdate
+ writetest
+
+ SQLdisconnect
+
+end-model

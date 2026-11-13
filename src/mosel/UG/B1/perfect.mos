@@ -1,0 +1,32 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file perfect.mos 
+   ```````````````` 
+   Using the 'forall' loop.
+ 
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2001
+*******************************************************!)
+
+model Perfect
+
+ parameters
+  LIMIT=100
+ end-parameters
+
+ writeln("Perfect numbers between 1 and ", LIMIT, ":")
+
+ forall(p in 1..LIMIT) do
+   sumd:=1
+   forall(d in 2..p-1)
+     if p mod d = 0 then          ! Mosel's built-in mod operator
+       sumd+=d                    ! The same as sum:= sum + d
+     end-if
+   if p=sumd then 
+     writeln(p) 
+   end-if 
+ end-do
+
+end-model

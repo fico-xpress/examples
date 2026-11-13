@@ -1,0 +1,37 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file nonlinctr.mos
+   ``````````````````
+   Nonlinear constraints over discrete and continuous
+   variables.
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+       Creation: 2005, rev. Mar. 2013        
+*****************************************************************!)
+
+model "Nonlinear constraints"
+ uses "kalis"
+ 
+ setparam("KALIS_DEFAULT_LB", 0)
+ setparam("KALIS_DEFAULT_UB", 5)
+ setparam("KALIS_DEFAULT_CONTINUOUS_LB", -10)
+ setparam("KALIS_DEFAULT_CONTINUOUS_UB", 10) 
+ 
+ declarations
+  a,b,c: cpvar
+  x,y,z: cpfloatvar
+ end-declarations 
+ 
+ x = ln(y)
+ y = abs(z)
+ x*y <= z^2
+ z = -a/b
+ a*b*c^3 >= 150
+ 
+ while (cp_find_next_sol) 
+  writeln("a:", getsol(a), ", b:", getsol(b), ", c:", getsol(c),
+         ", x:", getsol(x), ", y:", getsol(y), ", z:", getsol(z))
+ 
+end-model 

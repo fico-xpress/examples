@@ -1,0 +1,57 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file ComplexConstraints_std.mos
+   ```````````````````````````````
+   -- Defining constraints with multiple conditions --
+
+   (c) 2019-2026 Fair Isaac Corporation
+       author: S.Heipcke
+*******************************************************!)
+model "Complex Constraints"
+    !S:IMPORT
+    uses "mmxprs"
+
+    parameters
+        DATA_FILE_PREFIX = "00"
+    end-parameters
+    writeln("#E:IMPORT")
+
+    writeln("#S:READ")
+    declarations
+        RN: range
+        D: array(RN, RN) of real
+        Dmax: array(RN) of real
+        F,G: real
+        q: array(RN, RN) of mpvar
+    end-declarations
+
+    initializations from "mmsheet.csv:skiph;" + DATA_FILE_PREFIX + "_H_ComplexConstraints_D.csv"
+        D  as "[]"
+    end-initializations
+    writeln("#E:READ")
+
+    writeln("#S:PROC")
+    F:=0.8
+    G:= 0.7
+
+    forall(m in RN) Dmax(m):= max(p in RN) D(m,p)
+
+    forall (i in RN, k in RN, j in RN, m in RN |
+        (2 * D(i,k) <= G and D(i,k) + F * Dmax(k) <= G) and
+        (2 * D(j,m) <= G and D(j,m) + F * Dmax(m) <= G) and
+        (i<j and k<>j and i<>m and D(i,k) + F*D(k,m) + D(m,j) > G) )
+            q(i,k) + q(j,m) <= 1
+
+    loadprob(0)
+    writeln("#E:PROC")
+
+    writeln("#S:TEST")
+    forall (i in RN, k in RN, j in RN, m in RN |
+        (2 * D(i,k) <= G and D(i,k) + F * Dmax(k) <= G) and
+        (2 * D(j,m) <= G and D(j,m) + F * Dmax(m) <= G) and
+        (i<j and k<>j and i<>m and D(i,k) + F*D(k,m) + D(m,j) > G) )
+            writeln(i, " ", k, " ", j, " ", m)
+    writeln("#E:TEST")
+end-model

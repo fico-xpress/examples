@@ -1,0 +1,83 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file sudoku2_ka.mos
+   ``````````````````
+   Sudoku puzzle - data read from file.
+
+   *** This model cannot be run with a Community Licence 
+       for the provided data instance ***
+
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Aug. 2005, rev. Sep. 2020
+*****************************************************************!)
+
+model "sudoku (Kalis)"
+  uses "kalis", "mmsystem"
+
+  parameters
+    DATAFILE = "sudokug290705.dat"
+  end-parameters
+
+  forward procedure printsolution(numsol: integer)
+ 
+  setparam("kalis_default_lb", 1); setparam("kalis_default_ub", 9)
+                                     ! Default variable bounds
+
+  declarations
+    XS = {'A','B','C','D','E','F','G','H','I'}
+    YS = 1..9
+    VALUE: dynamic array(XS,YS) of integer
+    v: array(XS,YS) of cpvar
+  end-declarations
+    
+  initializations from "Data/"+DATAFILE
+    VALUE
+  end-initializations
+
+ ! Fix variables to the given values 
+  forall(x in XS, y in YS | exists(VALUE(x,y))) v(x,y) = VALUE(x,y)   
+    
+  starttime:=gettime
+
+ ! All-different values in rows 
+  forall(y in YS) all_different( union(x in XS) {v(x,y)})
+
+ ! All-different values in columns
+  forall(x in XS) all_different(union(y in YS) {v(x,y)})
+
+ ! All-different values in 3x3 squares
+  forall(i in 0..2) do
+    all_different(union(x in {'A','B','C'}, y in {1+3*i,2+3*i,3+3*i}) {v(x,y)})
+    all_different(union(x in {'D','E','F'}, y in {1+3*i,2+3*i,3+3*i}) {v(x,y)})
+    all_different(union(x in {'G','H','I'}, y in {1+3*i,2+3*i,3+3*i}) {v(x,y)})
+  end-do  
+
+  cp_show_prob
+
+ ! Solve the problem
+  solct:= 0
+  while (cp_find_next_sol) do
+    solct+=1
+    printsolution(solct)
+  end-do
+ 
+  cp_show_stats
+  writeln("Number of solutions: ", solct)  
+  writeln("Total time: ", gettime-starttime)
+
+!****************************************************************
+! Solution printing
+  procedure printsolution(numsol: integer)
+    writeln("Solution ", numsol)
+    write("   "); forall(x in XS) write(x," "); writeln
+    forall(y in YS) do
+      write(y, ": ")
+      forall(x in XS) write(v(x,y).sol," ")
+      writeln
+    end-do
+    returned:=true
+  end-procedure
+    
+end-model

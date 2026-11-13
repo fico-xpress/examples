@@ -1,0 +1,49 @@
+(!*******************************************************
+   Mosel Example Problems
+   ======================
+
+   file count1.mos
+   ```````````````
+   Using counters.
+   
+   (c) 2009 Fair Isaac Corporation
+       author: S. Heipcke, June 2009
+*******************************************************!)
+model "counters 1"
+ uses "mmsystem"
+
+!**** Count odd numbers in a set and calculate their average value **** 
+ declarations
+  S: set of integer
+ end-declarations
+ 
+ S:= {1, 5, 8, -1, 4, 7, 2}
+ 
+ writeln("Number of odd numbers in S: ", count(i in S | isodd(i)) )
+ 
+ cnt:=0.0
+ writeln("Average of odd numbers: ", 
+         (sum(cnt as counter, i in S | isodd(i)) i) / cnt) 
+
+
+!**** Count occurrences of a substring in a list of string ****
+ declarations
+  L: list of string
+ end-declarations
+ 
+ L:= ['a', 'ab', 'abc', 'da', 'bc', 'db']
+ 
+ writeln("Occurences of 'b' in L: ", count(s in L | findtext(s, 'b', 1)>0) )
+
+ scnt:=0
+ forall(scnt as counter, s in L | findtext(s, 'b', 1)>0)
+  writeln(scnt, ": ", s)
+
+! The "as counter" may appear at any place among the indices
+! (conditions are attached to indices), so we might as well have used:
+(!
+ forall(s in L | findtext(s, 'b', 1)>0, scnt as counter)
+  writeln(scnt, ": ", s)
+!)
+  
+end-model

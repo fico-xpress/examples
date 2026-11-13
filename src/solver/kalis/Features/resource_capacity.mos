@@ -1,0 +1,49 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file resource_capacity.mos
+   ``````````````````````````
+   Setting capacity of a resource over time
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+
+*****************************************************************!)
+model "Resource capacity"  
+ uses "kalis"
+ 
+ declarations  
+  A, B, C : cptask            ! Declaration of tasks
+  resource : cpresource       ! Declaration of resource
+ end-declarations
+
+ setname(A,"A"); setname(B,"B"); setname(C,"C")
+
+! The resource is a cumulative resource with maximum capacity 6
+ set_resource_attributes(resource, KALIS_DISCRETE_RESOURCE, 6)
+
+! Setting the resource capacity in the interval 0..2 to 3
+ setcapacity(resource, 0, 2, 3)
+! Setting the resource capacity in the interval 3..4 to 2
+ setcapacity(resource, 3, 4, 2)
+! Setting the resource capacity in time period 5 to 1
+ setcapacity(resource, 5, 5, 1)
+
+! Setting the task durations
+ set_task_attributes(A, 1) 
+ set_task_attributes(B, 2)
+ set_task_attributes(C, 3)
+
+! Setting the resource requirements of the tasks
+ requires(A, 1, resource)
+ requires(B, 2, resource)
+ requires(C, 3, resource)
+ 
+! Find the optimal schedule (minimizing the makespan)
+ if cp_schedule(getmakespan) <> 0 then	
+  cp_show_sol
+ else
+  writeln("no solution found") 		
+ end-if
+
+end-model

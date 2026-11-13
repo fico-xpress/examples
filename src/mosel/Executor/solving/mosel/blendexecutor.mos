@@ -1,0 +1,146 @@
+(!******************************************************
+   Xpress Executor Example Model
+   =============================
+
+   file blendexecutor.mos
+   ``````````````````````
+   Demonstrates executing the 'blend3c' model using Xpress Executor
+   with the supplied input data & displaying the results.
+   Uses the 'executor' package included in Xpress to talk to Xpress
+   Executor.
+   Assumes that you have an Xpress Executor component already configured
+   with the blend3c model.
+  
+   (c) 2017-2017 Fair Isaac Corporation
+       author: J. Farmer, Oct. 2017
+*******************************************************!)
+
+
+model "Blend Executor"
+ uses "mmsystem", "mmssl", "executor"
+
+ parameters
+
+  ! You should set the DMP_EXECUTOR_URL, DMP_SOLUTION_CLIENT_ID and DMP_SOLUTION_SECRET parameters
+  ! to point to the component you want to test.
+  
+  ! The root URL of the Xpress Executor DMP component
+  ! Obtain this by clicking "View Links" for the Xpress Executor component on the DMP UI, then remove the
+  ! part of the URL after the domain name, e.g.: https://app.dms.usw2.ficoanalyticcloud.com/fpuxkx019
+  DMP_EXECUTOR_URL=""
+
+  ! The client ID of solution containing the Xpress Executor DMP component
+  ! Obtain this through the DMP UI
+  DMP_SOLUTION_CLIENT_ID=""
+
+  ! The secret of the solution containing the Xpress Executor DMP component
+  ! Obtain this through the DMP UI
+  DMP_SOLUTION_SECRET=""
+
+  ! The DMP authentication URL. This will be different depending on which instance of DMP you are using.
+  DMP_BEARER_TOKEN_URL="https://iam-svc.dms.usw2.ficoanalyticcloud.com/registration/rest/client/token"
+
+  ! The input file for the remote model
+  INPUTFILE="../data/blend.csv"
+
+  ! File into which to save the results
+  RESULTFILE="blendresults.csv"
+
+ end-parameters
+
+ declarations
+  ! Entity representing our Xpress Executor component instance
+  myExecutor: Executor
+
+  ! Record representing our remote execution and its current status
+  modelExecution: ModelExecution
+
+  ! Array of parameters
+  modelParameterNames: set of string
+  modelParameters: dynamic array(modelParameterNames) of text
+ end-declarations
+
+ public declarations
+  public inputText: text
+  public runLog: text
+ end-declarations
+ 
+ ! Declare array used to hold result data
+ declarations
+  ORES=1..2
+  use: array(ORES) of real
+ end-declarations
+
+ ! Configure Mosel to use TLS1.2 ciphers with HTTPS to allow us to talk to DMP
+ setparam("https_ciphers","TLSv1.2+HIGH:\!SSLv2:\!aNULL:\!eNULL:\!3DES:@STRENGTH")
+
+ ! Log into DMP
+ writeln("Initializing executor entity")
+ myExecutor.componenturl := DMP_EXECUTOR_URL
+ myExecutor.bearertokenurl := DMP_BEARER_TOKEN_URL
+ myExecutor.clientid := DMP_SOLUTION_CLIENT_ID
+ myExecutor.secret := DMP_SOLUTION_SECRET
+
+ ! Execute our model
+ writeln("Submitting model execution")
+ modelParameters("INPUTFILE"):="input"     ! In Xpress Executor, the inputs we provide will be provided to the model in a file called "input"
+ modelParameters("RESULTFILE"):="result"   ! In Xpress Executor, we can only access model results from a file called "result"
+ modelExecution := executorexecute( myExecutor, INPUTFILE, modelParameters )
+ if myExecutor.status<>EXECUTOR_OK then
+  writeln("Error starting execution: ",myExecutor.lasterror)
+  exit(1)
+ end-if
+
+ ! Model will be executing asynchronously; wait up to 10 minutes for it to complete.
+ writeln("Waiting for completion of execution")
+ executorwaitfor( myExecutor, modelExecution, 10*60 )
+ if myExecutor.status<>EXECUTOR_OK then
+  writeln("Error waiting for execution: ",myExecutor.lasterror)
+
+ ! myExecutor.status OK means we had no errors querying the status and either the model has completed or
+ ! the model is still running after our timeout
+ elif not modelExecution.iscompleted then
+  writeln("Execution failed to complete after 10 minutes")
+
+ ! Check if the model status isn't OK or the exit code isn't zero
+ ! Depending on what your model does, you may not need to check the exit code or a non-zero value may not indicate
+ ! an error, but an status other than OK always means an error.
+ elif modelExecution.status<>EXECUTION_STATUS_OK or modelExecution.exitcode<>0 then
+  writeln("Execution failed, status=",modelExecution.status," and exit code=", modelExecution.exitcode)
+
+  ! In event of failure, output the run log so we can diagnose the problem
+  executorfetchrunlog( myExecutor, modelExecution, "text:runLog" )
+  if myExecutor.status<>EXECUTOR_OK then
+   writeln("Error fetching run log: ",myExecutor.lasterror)
+  else
+   writeln("Execution run log follows:")
+   writeln(runLog)
+  end-if
+
+ ! If model execution status is OK and exitCode is 0, execution was successful so download and display results
+ else
+  writeln("Fetching execution results")
+  executorfetchresult( myExecutor, modelExecution, RESULTFILE )
+  if myExecutor.status<>EXECUTOR_OK then
+   writeln("Error fetching result file: ",myExecutor.lasterror)
+  else
+
+   ! Parse results and display to user
+   initializations from "mmsheet.csv:"+RESULTFILE
+    use as "[A1:B2]"
+   end-initializations
+   writeln
+   writeln("Solution:")
+   forall(o in ORES)  writeln(" use(",o,"): ",use(o))
+  end-if
+ end-if
+
+ ! Whether we were successful or not, delete execution from component
+ executordelete( myExecutor, modelExecution )
+ if myExecutor.status<>EXECUTOR_OK then
+  writeln("Failed to delete execution due to error: ", myExecutor.lasterror)
+  exit(1)
+ end-if
+
+
+end-model

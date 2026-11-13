@@ -1,0 +1,36 @@
+(!******************************************************
+   Mosel Matlab Example Problems
+   =============================
+
+   file example_m4.mos
+   ```````````````````
+   Initializiations from MATLAB expressions 
+   
+  (c) 2014 Fair Isaac Corporation
+      author: L.Bertacco, Apr. 2014
+*******************************************************!)
+
+model "example_m4"                               
+ declarations                                    
+  answer: integer                                
+  foo: real                                      
+  var: real                                      
+  today: string                                  
+  i: range                                       
+  data: array(i) of real                         
+ end-declarations                                
+
+ initializations from "matlab.mws:"              
+  answer as "42"                                 
+  foo                                            
+  var as "bar"                                   
+  today as "date"                                
+  data as "sum(magic(foo*bar))"                  
+ end-initializations                             
+
+ writeln("answer to ultimate question: ", answer)
+ writeln("foo: ", foo)                           
+ writeln("bar: ", var)                           
+ writeln("today: ", today)                       
+ writeln("data: ", data)                         
+end-model

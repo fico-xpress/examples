@@ -1,0 +1,35 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file autoarray.mos 
+   ``````````````````
+   Working with automatic arrays.
+ 
+   (c) 2010 Fair Isaac Corporation
+       author: S. Heipcke, Jul. 2010
+*******************************************************!)
+model "Automatic arrays"
+
+ declarations
+  B: array(S:set of string, I:set of real) of integer
+ end-declarations
+ 
+ B::(["a","b"], [3,1.5,7])[1,2,3,4,5,6]
+ writeln("B: ", B)
+
+! Row and colum arrays (1-dimensional)
+ forall(s in S) writeln("Row ", s, ": ", array(i in I) B(s,i))
+ forall(i in I) writeln("Column ", i, ": ", array(s in S) B(s,i))
+
+! Filtered array entries (2-dimensional)
+ writeln("B filtered: ", array(s in S,i in I | s<>"a" and i<5) B(s,i))
+
+! Inversed indices (2-dimensional)
+ writeln("Transpose: ", array(i in I, s in S) B(s,i)) 
+ 
+ initializations to "arrayout.txt"
+  B
+  evaluation of array(i in I, s in S) B(s,i) as "B_T"
+ end-initializations
+end-model

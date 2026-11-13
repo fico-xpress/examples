@@ -1,0 +1,154 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file altresource_graph.mos
+   ``````````````````````````
+   Scheduling tasks with resource choice.
+   - Graphical solution representation -
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+       Creation: 2008, rev. Apr. 2022       
+*****************************************************************!)
+model "Alternative resources"
+ uses "kalis", "mmsystem", "mmsvg"
+ 
+ setparam("KALIS_DEFAULT_LB", 0)
+ 
+ forward procedure print_solution
+ 
+ declarations
+  TASKS = {"a","b","c","d"}           ! Index set of tasks
+  MACH = {"M1", "M2"}                 ! Index set of resources
+  USE: array(TASKS,MACH) of integer   ! Machine-dependent res. requirement
+  DUR: array(TASKS) of integer        ! Durations of tasks
+ 
+  task: array(TASKS) of cptask        ! Tasks
+  res: array(MACH) of cpresource      ! Resources
+ end-declarations 
+
+ DUR::(["a","b","c","d"])[7, 9, 8, 5]
+ USE::(["a","b","c","d"],["M1","M2"])[
+      4, 3,
+      2, 3,
+      2, 1,
+      4, 5]
+
+! Define discrete resources
+ forall(m in MACH) do
+  set_resource_attributes(res(m), KALIS_DISCRETE_RESOURCE, 5)
+  res(m).name:=m
+ end-do 
+
+! Define tasks with machine-dependent resource usages 
+ forall(j in TASKS) do
+  task(j).duration:= DUR(j)
+  task(j).name:= j
+  requires(task(j), union(m in MACH) {resusage(res(m), USE(j,m))})   
+ end-do
+
+ cp_set_solution_callback(->print_solution)   
+ starttime:=timestamp
+
+! Solve the problem 
+ if cp_schedule(getmakespan)=0 then
+  writeln("No solution")
+  exit(0)
+ end-if
+
+! Solution printing
+ forall(j in TASKS)
+  writeln(j, ": ", getsol(task(j).start), " - ", getsol(getend(task(j))))
+ forall(t in 1..getsol(getmakespan)) do
+  write(strfmt(t-1,2), ": ")
+
+  ! We cannot use 'getrequirement' here to access solution information
+  ! (it returns a value corresponding to the current state, that is 0)
+  forall(j in TASKS | t>getsol(task(j).start) and t<=getsol(getend(task(j)))) 
+   write(formattext("%s:%d  ",j,  
+         sum(m in MACH) USE(j,m)*getsol(getassignment(task(j),res(m)))) )
+  writeln
+ end-do   
+
+! ****************************************************************
+
+! Print solutions during enumeration at the node where they are found 
+ procedure print_solution    
+  writeln(timestamp-starttime, "sec. Solution: ", getsol(getmakespan))
+
+  forall(m in MACH) do
+   writeln(m, ":")
+
+   forall(t in 0..getsol(getmakespan)-1) do
+    write(strfmt(t,2), ": ")
+    forall(j in TASKS | getrequirement(task(j), res(m), t)>0) 
+     write(j, ":", getrequirement(task(j), res(m), t), "  " )
+    writeln("(total ", sum(j in TASKS) getrequirement(task(j), res(m), t), ")")
+   end-do
+
+  end-do 
+ end-procedure
+
+! ************ Drawing a resource usage diagram ************
+
+ L:=maxlist(15,getsol(getmakespan))
+ C:=5
+
+ ct:=-1
+ forall(m in MACH, ct as counter) do
+  svgaddgroup(m, "Resource "+m, svgcolor(255,255-50*ct,200-75*ct))
+  svgsetstyle(SVG_FILL,SVG_CURRENT)
+  svgaddpolygon([0, C*ct]+sum(t in 0..L) [t, getcapacity(res(m),t)+C*ct]+ [L,C*ct])
+ end-do
+ 
+ declarations
+  TLIST: list of string
+ end-declarations 	
+
+ ! Task graph colors
+ ct:= 0
+ forall(j in TASKS, ct as counter) do
+  svgaddgroup(j, "Task "+j, svgcolor(75+ct*25, 75+ct*25, minlist(100+ct*50,255)))
+  svgsetstyle(SVG_FILL,SVG_CURRENT)
+ end-do
+
+ ! Order tasks by start times to obtain a nicer graph
+ TCopy:= TASKS
+ while (TCopy<>{}) do
+  val:=L
+  forall(j in TCopy)
+   if getsol(getstart(task(j)))<val then
+    val:=getsol(getstart(task(j)))
+    ind:=j
+   end-if 
+  TLIST += [ind]
+  TCopy-= {ind}
+ end-do 
+
+ ! Drawing task graphs
+ forall(t in 1..L) do
+  ct:=-1
+  forall(m in MACH, ct as counter) do
+   CUM:=ct*C
+
+  ! We cannot use 'getrequirement' here to access solution information
+  ! if this graph is not drawn directly at the solution node
+   forall(j in TLIST | getsol(getassignment(task(j),res(m)))>0 and
+                       t>getsol(getstart(task(j))) and t<=getsol(getend(task(j))) ) do
+    REQ:= USE(j,m)*getsol(getassignment(task(j),res(m)))
+!    svgaddrectanglec(j, t-1, CUM, t, CUM+REQ)
+    svgaddrectangle(j, t-1, CUM, 1, REQ)
+    CUM+= REQ
+   end-do 
+  end-do
+ end-do 
+ 
+ svgsetgraphscale(20)
+ svgsetgraphviewbox(0,0,L,2*C+1)
+ svgsetgraphlabels("Time", "Resource usage")
+
+ svgsave("altres.svg")
+ svgrefresh
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+
+end-model

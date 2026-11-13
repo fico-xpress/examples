@@ -1,0 +1,179 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file cocoSubFs.mos
+   ``````````````````
+   Coco Problem, single factory subproblem.
+   -- Standard version --
+
+   *** Not intended to be run standalone - run from cocoMs.mos ***
+
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2005, rev. Jun. 2023
+*******************************************************!)
+
+model "Coco Subproblem (factory based decomp.)"
+ uses "mmxprs", "mmjobs"
+
+ parameters
+  Factory = 0
+  TOL = 0.00001
+  DATAFILE = "coco3.dat"
+ end-parameters
+
+ forward procedure process_solution
+ 
+ declarations                         
+  PHASE_0=2                             ! Event codes sent to submodels
+  PHASE_1=3
+  PHASE_2=4
+  PHASE_3=5
+  EVENT_SOLVED=6                        ! Event codes sent by submodels
+  EVENT_FAILED=7
+  EVENT_READY=8
+  NPROD, NFACT, NRAW, NT: integer
+ end-declarations                      
+
+ send(EVENT_READY,0)                    ! Model is ready (= running)
+
+ initializations from DATAFILE
+  NPROD NFACT NRAW NT
+ end-initializations
+
+ declarations
+  PRODS = 1..NPROD                      ! Range of products (p)
+  FACT = 1..NFACT                       !          factories (f)
+  RAW = 1..NRAW                         !          raw materials (r)
+  PERIODS = 1..NT                       !          time periods (t)
+
+  REV: array(PRODS,PERIODS) of real     ! Unit selling price of products
+  CMAKE: array(PRODS,FACT) of real      ! Unit cost to make product p 
+                                        ! at factory f
+  CBUY: array(RAW,PERIODS) of real      ! Unit cost to buy raw materials
+  REQ: array(PRODS,RAW) of real         ! Requirement by unit of product p 
+                                        ! for raw material r
+  MXSELL: array(PRODS,PERIODS) of real  ! Max. amount of p that can be sold
+  MXMAKE: array(FACT) of real           ! Max. amount factory f can make 
+                                        ! over all products
+  IPSTOCK: array(PRODS,FACT) of real    ! Initial product stock levels 
+  IRSTOCK: array(RAW,FACT) of real      ! Initial raw material stock levels
+  CPSTOCK: real                         ! Unit cost to store any product p
+  CRSTOCK: real                         ! Unit cost to store any raw mat. r
+  MXRSTOCK: real                        ! Raw material storage capacity
+  
+  make: array(PRODS,PERIODS) of mpvar   ! Amount of products made at factory
+  sell: array(PRODS,PERIODS) of mpvar   ! Amount of product sold from factory
+  buy: array(RAW,PERIODS) of mpvar      ! Amount of raw material bought
+  pstock: array(PRODS,1..NT+1) of mpvar ! Product stock levels at start 
+                                        ! of period t
+  rstock: array(RAW,1..NT+1) of mpvar   ! Raw material stock levels  
+                                        ! at start of period t 
+
+  sol_make: array(PRODS,PERIODS) of real   ! Amount of products made
+  sol_sell: array(PRODS,PERIODS) of real   ! Amount of product sold
+  sol_buy: array(RAW,PERIODS) of real      ! Amount of raw mat. bought
+  sol_pstock: array(PRODS,1..NT+1) of real ! Product stock levels 
+  sol_rstock: array(RAW,1..NT+1) of real   ! Raw mat. stock levels
+   
+  Profit: linctr                           ! Profit of proposal
+  Price_sell: array(PRODS,PERIODS) of real ! Dual price on sales limits
+ end-declarations
+
+ initializations from DATAFILE
+  REV CMAKE CBUY REQ MXSELL MXMAKE
+  IPSTOCK IRSTOCK MXRSTOCK CPSTOCK CRSTOCK
+ end-initializations
+ 
+! Product stock balance
+ forall(p in PRODS,t in PERIODS)
+  PBal(p,t):= pstock(p,t+1) = pstock(p,t) + make(p,t) - sell(p,t)
+
+! Raw material stock balance
+ forall(r in RAW,t in PERIODS) 
+  RBal(r,t):= rstock(r,t+1) = 
+   rstock(r,t) + buy(r,t) - sum(p in PRODS) REQ(p,r)*make(p,t)
+
+! Capacity limit at factories
+ forall(t in PERIODS)
+  MxMake(t):= sum(p in PRODS) make(p,t) <= MXMAKE(Factory)
+
+! Limit on the amount of prod. p to be sold
+ forall(p in PRODS,t in PERIODS) sell(p,t) <= MXSELL(p,t)
+ 
+! Raw material stock limit
+ forall(t in 2..NT+1) 
+  MxRStock(t):= sum(r in RAW) rstock(r,t) <= MXRSTOCK
+
+! Initial product and raw material stock levels
+ forall(p in PRODS) pstock(p,1) = IPSTOCK(p,Factory)
+ forall(r in RAW) rstock(r,1) = IRSTOCK(r,Factory)
+ 
+! Total profit
+ Profit:= 
+  sum(p in PRODS,t in PERIODS) REV(p,t) * sell(p,t) -          ! revenue
+  sum(p in PRODS,t in PERIODS) CMAKE(p,Factory) * make(p,t) -  ! prod. cost
+  sum(r in RAW,t in PERIODS) CBUY(r,t) * buy(r,t) -            ! raw mat. 
+  sum(p in PRODS,t in 2..NT+1) CPSTOCK * pstock(p,t) -         ! p storage 
+  sum(r in RAW,t in 2..NT+1) CRSTOCK * rstock(r,t)             ! r storage   
+
+! (Re)solve this model until it is stopped by event "PHASE_3"
+ repeat
+  wait
+  ev:= getnextevent
+  Phase:= getclass(ev)
+  if Phase=PHASE_3 then               ! Stop the execution of this model
+   break
+  end-if
+  Price_convex:= getvalue(ev)         ! Get new pricing data
+
+  if Phase<>PHASE_0 then
+   initializations from "bin:shmem:pricedata"
+    Price_sell
+   end-initializations
+  end-if
+  
+ ! (Re)solve this model
+  if Phase=PHASE_0 then
+   maximize(Profit)
+  elif Phase=PHASE_1 then
+   maximize(sum(p in PRODS,t in PERIODS) Price_sell(p,t)*sell(p,t) + Price_convex)
+  else        ! PHASE 2
+   maximize(
+    Profit - sum(p in PRODS,t in PERIODS) Price_sell(p,t)*sell(p,t) - 
+     Price_convex)
+  end-if
+
+  writeln("Factory ", Factory, " - Obj: ", getobjval, 
+          " Profit: ", getsol(Profit), " Price_sell: ",
+          getsol(sum(p in PRODS,t in PERIODS) Price_sell(p,t)*sell(p,t) ), 
+          " Price_convex: ", Price_convex)
+  fflush
+  
+  if getobjval > TOL then             ! Solution found: send values to parent
+   process_solution
+  else   ! getobjval <= TOL           ! Problem is infeasible (Phase 0/1) or
+   send(EVENT_FAILED,0)               ! no improved solution found (Phase 2)
+  end-if   
+ until false
+
+!-----------------------------------------------------------
+! Process solution data
+ procedure process_solution
+  forall(p in PRODS,t in PERIODS) do
+   sol_make(p,t):= getsol(make(p,t))
+   sol_sell(p,t):= getsol(sell(p,t))  
+  end-do   
+  forall(r in RAW,t in PERIODS) sol_buy(r,t):= getsol(buy(r,t))
+  forall(p in PRODS,t in 1..NT+1) sol_pstock(p,t):= getsol(pstock(p,t))
+  forall(r in RAW,t in 1..NT+1) sol_rstock(r,t):= getsol(rstock(r,t))
+  Prop_cost:= getsol(Profit)
+  send(EVENT_SOLVED,0)
+
+  initializations to "bin:mempipe:sol"
+   Factory
+   sol_make sol_sell sol_buy sol_pstock sol_rstock
+   Prop_cost
+  end-initializations
+ end-procedure 
+end-model

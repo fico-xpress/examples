@@ -1,0 +1,74 @@
+<!--
+  Xpress Insight - Portfolio optimization example from 'Getting Started' guide 
+  Copyright (c) 2025-2026 Fair Isaac Corporation. All rights reserved.
+-->
+<vdl version="5">
+    <!-- File version shown in Getting Started Manual -->
+    <vdl-page>
+    <!-- 'vdl' and 'vdl-page' tags must always be present -->
+
+        <!-- 'header' element: container for any vdl elements that are not part 
+             of the page layout -->
+        <vdl-header>
+            <vdl-action-group name="runModel">
+                <vdl-action-execute mode="RUN"></vdl-action-execute>
+            </vdl-action-group>
+        </vdl-header>
+
+        <!-- Structural element 'section': print header text for a section -->
+        <vdl-section heading="Configuration">
+            <vdl-row>
+                <vdl-column size="5">
+                    <vdl-form>
+                        <vdl-field label="Maximum investment into high-risk values" size="3" label-size="9" parameter="MAXRISK" type="number"></vdl-field>
+                        <vdl-field label="Maximum investment per share" type="number" size="3" label-size="9" parameter="MAXVAL"></vdl-field>
+                        <vdl-field label="Minimum investment into North-American values" type="number" size="3" label-size="9" parameter="MINAM"></vdl-field>
+                    </vdl-form>
+                </vdl-column>
+                <vdl-column size="4">
+                    <vdl-table>
+                        <vdl-table-column entity="RET" editable="true"></vdl-table-column>
+                    </vdl-table>
+                </vdl-column>
+                <vdl-column size="3">
+                    <vdl-form>
+                        <!-- 'Run' button to launch optimization -->
+                        <vdl-button vdl-event="click:actions.runModel" label="Run optimization"></vdl-button>
+                    </vdl-form>
+                </vdl-column>
+            </vdl-row>
+        </vdl-section>
+
+        <!-- Placeholder message for 'Results' section -->
+        <vdl-container vdl-if="=!scenario.summaryData.hasResultData">
+            <span vdl-text="No results available. Run the scenario to see the results." 
+            style="font-style:italic"></span></vdl-container>
+
+        <!-- Structural element 'section';  
+          display: with option 'none' nothing gets displayed by default
+          if hasResultData: display section once result values become available 
+	    (after scenario execution) -->
+        <vdl-section heading="Results" 
+             vdl-if="=scenario.summaryData.hasResultData" style="display: none">
+            <vdl-row>
+                <!-- Display inline text element with objective value -->
+                <vdl-column><span vdl-text="='Total expected return: &#163;' +
+                    insight.Formatter.formatNumber(scenario.entities.Return.value, '##.00')"></span></vdl-column>
+            </vdl-row>
+            <vdl-row>
+                <vdl-column size="4" heading="Portfolio composition">
+                  <!-- Display the 'frac' solution values -->
+                    <vdl-table>
+                        <vdl-table-column entity="frac"></vdl-table-column>
+                    </vdl-table>
+                </vdl-column>
+                <!-- Display the 'frac' solution values as a pie chart -->
+                <vdl-column size="8">
+                    <vdl-chart style="width:600px;">
+                        <vdl-chart-series entity="frac" type="pie"></vdl-chart-series>
+                    </vdl-chart>
+               </vdl-column>
+            </vdl-row>
+        </vdl-section>
+    </vdl-page>
+</vdl>

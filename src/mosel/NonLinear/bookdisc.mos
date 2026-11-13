@@ -1,0 +1,73 @@
+(!*********************************************************************
+   Mosel NL examples
+   =================
+   file bookdisc.mos
+   `````````````````
+   A bookstore has the following discount policy: 
+   For each $1 you spend you get 0.1% discount on your next purchase.
+   Example: 
+   If you have to buy three books that cost $10, $20 and $30, you could 
+   buy the $30 book today, the $10 book tomorrow (on which you'll get  
+   a 3% discount), and the $20 book the following day (on which you'll get 
+   a 1% discount). Or you could buy the $30 book and the $20 book today, 
+   and the $10 book tomorrow (with a 5% discount).
+   What is the cheapest way to buy N books (for given prices) ?
+
+   Based on AMPL model bookdisc.mos by M.J.Chlond
+   Reference: J. & L. Poniachik, Hard-to-Solve Brainteasers (p16), Sterling
+
+   (c) 2008 Fair Issac Corporation
+       author: S. Heipcke, Jul. 2003, rev. Mar 2013
+*********************************************************************!)
+
+model "bookdisc"
+ uses "mmxnlp"
+
+ parameters
+   N = 8                        ! Number of books
+   D = 4                        ! Number of days
+   DISC = 0.001                 ! Discount factor
+ end-parameters
+
+ declarations
+  BOOKS = 1..N                  ! Set of books
+  DAYS = 1..D                   ! Set of days
+  COST: array(BOOKS) of real	! Cost of books
+  ifbuy: array(BOOKS,DAYS) of mpvar  ! ifbuy[i,j]=1 if book i bought on day j, 0 otherwise
+  total: array(DAYS) of mpvar	! Total cost of books on day j
+  totcost: mpvar                ! Total cost of all books
+ end-declarations
+
+ forall(i in BOOKS,j in DAYS) ifbuy(i,j) is_binary
+! forall(j in DAYS) total(j) is_integer
+
+! Generate random book prices 
+ setrandseed(3)
+ forall(i in BOOKS) COST(i):= 10+round(50*random)     
+
+! Objective: total cost
+ totcost = sum(i in BOOKS) COST(i) -
+           sum(k in DAYS | k>1) DISC*total(k-1)*total(k)
+ 
+! Total cost per day
+ forall(j in DAYS) total(j) = sum(i in BOOKS) COST(i)*ifbuy(i,j)
+! Every book is bought on one day
+ forall(i in BOOKS) sum(j in DAYS) ifbuy(i,j) = 1
+
+! Solve the problem 
+ setparam("xnlp_verbose",true)
+ setparam("xnlp_solver",0)
+
+ minimize(totcost)
+
+! Solution printing
+ TOTCOST:= sum(i in BOOKS) COST(i)
+ writeln("Total cost: ", strfmt(getsol(totcost),5,2), " (orig: ", TOTCOST, ") discount:",
+         strfmt((TOTCOST-totcost.sol)/TOTCOST * 100,5,2), "%" )
+ forall(i in BOOKS) BDay(i):=round(getsol(sum(j in DAYS) j*ifbuy(i,j)))
+ forall(i in BOOKS)
+   writeln("Book ", i, " bought on day ", BDay(i), " at ",
+           strfmt(COST(i)*(1-if(BDay(i)>1, DISC*total(BDay(i)-1).sol,0)),5,2),
+           " (orig: ", strfmt(COST(i),5,2), ")" )
+ 
+end-model

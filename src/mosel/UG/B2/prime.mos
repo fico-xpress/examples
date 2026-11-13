@@ -1,0 +1,42 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file prime.mos 
+   ``````````````
+   Working with sets.
+ 
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2001
+*******************************************************!)
+
+model Prime 
+
+ parameters
+  LIMIT=100                     ! Search for prime numbers in 2..LIMIT
+ end-parameters
+
+ declarations
+  SNumbers: set of integer      ! Set of numbers to be checked
+  SPrime: set of integer        ! Set of prime numbers
+ end-declarations
+
+ SNumbers:={2..LIMIT} 
+ 
+ writeln("Prime numbers between 2 and ", LIMIT, ":")
+
+ n:=2
+ repeat
+   while (not(n in SNumbers)) n+=1
+   SPrime += {n}                ! n is a prime number
+   i:=n
+   while (i<=LIMIT) do          ! Remove n and all its multiples
+     SNumbers-= {i}
+     i+=n
+   end-do
+ until SNumbers={}    
+ 
+ writeln(SPrime)
+ writeln(" (", getsize(SPrime), " prime numbers.)")
+ 
+end-model

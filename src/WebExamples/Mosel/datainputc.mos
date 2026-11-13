@@ -1,0 +1,30 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file datainputc.mos
+   ```````````````````
+   Data input from calling application.
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S.Heipcke, Mar. 2006, rev. Nov. 2019
+*******************************************************!)
+
+model "Data input (C)"
+ parameters
+  DATA = ''                        ! Location of input data
+ end-parameters
+
+ declarations
+  A6: dynamic array(range,range) of real
+ end-declarations
+
+! Data input from calling application
+ initializations from 'raw:'
+  A6 as DATA
+ end-initializations
+
+! Print out the data we have read
+ writeln('A6 is: ', A6)
+
+end-model

@@ -1,0 +1,77 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file regex.mos 
+   ``````````````
+   Regular expression matching and replacement.
+ 
+   (c) 2015 Fair Isaac Corporation
+       author: S. Heipcke, Apr 2015
+*******************************************************!)
+model "test regex" 
+ uses "mmsystem"
+
+ declarations
+  m: array(0..3) of textarea  
+        ! m(0) whole identified zone,  m(1) [,...,m(9)] match results
+  t: text
+ end-declarations
+
+!**** Pattern matching ****
+ t:="MyValue=10,Sometext mytext MoretextMytext2, MYVAL=1.5 mYtext3"
+! Display all strings starting with 'My' (case insensitive)
+ m(0).succ:=1
+ while (regmatch(t, '\<My\(\w*\)', m(0).succ, REG_ICASE, m))
+  writeln("Word starting with 'My': ", 
+   copytext(t,m(0)), " (", copytext(t,m(1)),")")
+
+! Display all strings containing 'My' not at beginning (case insensitive)
+ m(0).succ:=1
+ while (regmatch(t, '\w+((My)(\w*))', m(0).succ, REG_ICASE+REG_EXTENDED, m))
+  writeln("String containing 'My' (not at beginning): ", 
+   copytext(t,m(0)), " (", copytext(t,m(1)), "=", copytext(t,m(2)) ,
+   "+", copytext(t,m(3)), ")")
+
+! Alternative way of stating the same expression   
+ m(0).succ:=1
+ while (regmatch(t, '[[:alnum:]_]+((My)([[:alnum:]_]*))', m(0).succ,  
+        REG_ICASE+REG_EXTENDED, m))
+  writeln("String containing 'My' (not at beginning): ", 
+   copytext(t,m(0)), " (", copytext(t,m(1)), "=", copytext(t,m(2)) ,
+   "+", copytext(t,m(3)), ")")
+ 
+(!
+ < beginning of word
+ w or [:alnum:]_  alphanumeric or underscore characters
+ * 0 or more times
+ () select the result to be returned as the match, mask with backslash in BRE
+ + 1 or more times (only in ERE) 
+!)
+
+
+!**** Replacement of matching expressions ****
+! Replace a dates of the format yyyy-mm-dd to the format dd/mm/yyyy
+ t:="date1=20/11/2010,date2=1-Oct-2013,date3=2014-6-30"
+ numr:= regreplace(t, '([[:digit:]]{4})-([01]?[[:digit:]])-([0-3]?[[:digit:]])',
+              '\3/\2/\1', 1, REG_EXTENDED) 
+ if numr>0 then
+  writeln(numr, " replacements: ", t)
+ end-if 
+
+! The same using BRE syntax:
+ t:="date1=20/11/2010,date2=1-Oct-2013,date3=2014-6-30"
+ writeln( regreplace(t, '\(\d\{4\}\)-\([01]\{0,1\}\d\)-\([0-3]\{0,1\}\d\)',
+         '\3/\2/\1' ),  " replacements: ", t)
+! The same more readable (ERE syntax):
+ numr:= regreplace(t, '(\d{4})-([01]{0,1}\d)-([0-3]{0,1}\d)',
+         '\3/\2/\1', 1, REG_EXTENDED ) 
+
+(!
+ \d or [:digit:]  numerical character
+ ?  0 times or once (ERE only)
+ {M,N}  minimum M and maximum N match count
+ []  set of possible character matches
+!) 
+
+end-model

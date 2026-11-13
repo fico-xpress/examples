@@ -1,0 +1,55 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file myns_test.mos 
+   ``````````````````
+   Testing namespaces
+
+   *** Compile mynspkg1.mos and mynspkg2.mos before running this model ****
+
+   (c) 2018 Fair Isaac Corporation
+       author: S. Heipcke, Sep. 2018
+*******************************************************!)
+
+model "mynstest"
+ uses 'mynspkg1', 'mynspkg2'
+! namespace ns1    ! Goes wrong (compilation): ns1 is restricted to pkg1+pkg2
+ namespace ns2     ! A new namespace
+ nssearch ns3      ! Symbols from 'ns3' can be used without prefix
+
+ declarations
+   ns2~vi: integer
+   I, ns2~R: range
+!   vi: integer    ! Goes wrong at runtime: clash with ns3~vi through nssearch
+ end-declarations
+
+ writeln("****Subroutine calls")
+ frompkg2(5)                           ! Public routine from package pkg2
+ writeln("n3~vi:",vi, " vp:",vp)       ! Display values of n3~vi and vp
+
+! ns1~proc1(10)    ! Goes wrong (compilation): ns1 is restricted to pkg1+pkg2
+ proc2(4)          ! This works: public subroutine from pkg1
+! proc3(6)         ! Goes wrong (compilation): private subroutine of pkg1
+
+ ! Store and display contents of namespace 'ns3'
+ writeln("****Contents of ns3:")
+ initializations to "tee:mem:mynsav&"
+   ns3
+ end-initializations
+
+ ! Initialize entities with matching names from saved namespace
+ writeln("****Values read:")
+ initializations from "mem:mynsav"
+   ns2 as "ns3"
+!   I as "ns3~R"
+ end-initializations
+ writeln("ns2~vi:", ns2~vi)            ! Has received the value of ns3~vi
+
+ ! Read an individual entity from the saved namespace
+ initializations from "mem:mynsav"
+   I as "ns3~R"
+ end-initializations
+ writeln("I:", I)  
+
+end-model

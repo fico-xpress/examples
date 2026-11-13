@@ -1,0 +1,87 @@
+(!*******************************************************
+   Mosel Example Problems
+   ======================
+
+   file mandelbrotsub.mos
+   ``````````````````````
+   Mandelbrot function: f(z) = z^2 + c with z,c complex numbers.
+
+   Submodel for solving the function for all points in the
+   rectangular box (MINX,MINY,MAXX,MAXY).
+
+   - Testing Java GUI with distributed computing -
+
+   *** Not intended to be run standalone - run from mandelbrot.java ***
+
+   (c) 2010 Fair Isaac Corporation
+       author: S. Heipcke, June 2010, rev. Sep. 2018
+  *******************************************************!)
+
+model "mandelbrot (sub)"
+  uses "mmjobs" 
+ 
+  parameters
+    CONFIG=3                    ! Color scheme and zoom
+    MINX = 0                    ! Min/Max X/Y coordinates of box solved by this model
+    MAXX = 0
+    MINY = 0
+    MAXY = 0
+    HX = 0.1                    ! Distance between points
+    HY = 0.1
+    NUM = 0                     ! Model ID
+    MAX_ITER = 1000             ! Iteration limit for Mandelbrot function 
+    IODRV = "bin:zlib.deflate:"    ! File format: compressed binary
+  end-parameters	
+
+  declarations
+    x,y: real
+    SOL: dynamic array(range,range) of integer
+  end-declarations 
+ 
+
+!***************** Subroutines ******************
+  function PXcolor(r,g,b:real): integer
+    returned:= round(r + g*256 + b*65536) 
+  end-function 
+
+! Color for a pixel on the screen    (x0,y0) = (x,y) co-ordinates of pixel
+  function pixel_color(x0,y0: real): integer 
+    x:= 0
+    y:= 0
+    iterct:= 0
+ 
+    while ( x*x + y*y <= (2*2)  and  iterct < MAX_ITER ) do
+      xtemp := x*x - y*y + x0
+      y:= 2*x*y + y0
+      x:= xtemp
+      iterct += 1
+    end-do
+    if iterct = MAX_ITER then 
+      returned := 0     ! Black
+    else 
+      if CONFIG = 0 then
+       returned := PXcolor(round((iterct) mod 255), 255-round(iterct*2 mod 255), 255-round((ln(iterct)*40) mod 255))
+      elif CONFIG = 1 then
+       returned := PXcolor(round((iterct) mod 255), round((ln(iterct)*50) mod 255), 255-round(iterct mod 255))
+      elif CONFIG = 2 then
+       returned := PXcolor(iterct*3 mod 255, round(iterct*2 mod 255), 255-round(iterct*3 mod 255))
+      elif CONFIG = 3 then
+       returned := PXcolor(ln(iterct)*50 mod 255, round(iterct*2 mod 255), 255-round(iterct*1.5 mod 255))
+      elif CONFIG = 4 then
+       returned := PXcolor(255-(iterct mod 255), 255-round(iterct*2 mod 255), round(iterct mod 255))
+      end-if
+    end-if  
+ end-function
+
+!***************** Main ******************
+  
+ ! Do the actual calculation for a box and save the solution
+   forall(x0 in MINX..MAXX, y0 in MINY..MAXY)  
+     SOL(x0,y0):= pixel_color(x0*HX,y0*HY)
+   initializations to IODRV+"rmt:solmod"+NUM+".txt"
+     SOL as "sol"
+   end-initializations
+
+   exit(NUM)
+
+end-model 

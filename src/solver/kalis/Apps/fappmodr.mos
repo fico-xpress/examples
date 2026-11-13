@@ -1,0 +1,244 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file fappmodr.mos
+   `````````````````
+   Frequency Assignment Problem with Polarity
+   - Submodel executed by runfappr.mos -
+   - Using the raw: I/O driver -
+
+  (c) 2008 Artelys S.A. and Fair Isaac Corporation
+      Creation: 2005, rev. Apr. 2022
+*****************************************************************!)
+
+model FAPP
+ uses "kalis", "mmjobs"
+
+ parameters
+  PHASE=1                                 ! 1: lower bound, 2: solve problem
+  BOUND=0                                 ! lower bound value (phase 2 only)
+ end-parameters
+
+ ! Evaluate the relaxation level of the current solution 
+ forward function evaluate_solution(k:integer): integer 
+ ! Post the electromagnetic compatibility constraints for a certain level 'k'
+ forward function post_CEMX(k:integer) : boolean 
+ ! Find a solution minimizing 'k' knowing that kmin is a lower bound on 'k' 
+ forward procedure solve_FAPP(kmin:integer)
+ ! Find a lower bound on 'k' 
+ forward function find_lb_FAPP : integer    
+ 
+ declarations
+  nbTravel:integer                        ! Number of travels
+  nbFreqDom:integer                       ! Number of frequency domains
+  nbCI:integer                            ! Number of hard constraints
+  nbCEME:integer                          ! Number of CEME soft constraints
+  nbCEMD:integer                          ! Number of CEMD soft constraints
+  Travels: range                          ! Set of Travels
+  Freqs: range                            ! Set of frequency domains
+  FREQDOMS: array(Freqs,range) of integer ! Frequency domains
+  SIZEDOMS: array(Freqs) of integer       ! Frequency domain sizes
+  VKEV: array(range,range) of integer     ! Soft constraint indices 
+  VKE : array(range,range) of integer     ! CEME coefficients
+  VKD : array(range,range) of integer     ! CEMD coefficients
+  Types={"F","P"}                         ! Type of constraint ('F' stands for frequency and 'P' for polarity)
+  Ops={"E","I"}                           ! Type of constraint ('E' stands for equality and 'I' for inequality)
+  TR: array(Travels, Types) of integer    ! Travel data
+  CI:dynamic array(Travels, Travels, Types, Ops) of integer ! Hard constraints data
+ end-declarations 
+
+! ***** Read data from memory *****
+ initializations from "raw:"
+  nbTravel as "shmem:nbTravel" nbFreqDom as "shmem:nbFreqDom" 
+  nbCI as "shmem:nbCI" nbCEME as "shmem:nbCEME" nbCEMD as "shmem:nbCEMD"
+  FREQDOMS as "shmem:FREQDOMS" SIZEDOMS as "shmem:SIZEDOMS" 
+  TR as "shmem:TR" CI as "shmem:CI" 
+  VKEV as "shmem:VKEV" VKE as "shmem:VKE" VKD as "shmem:VKD"
+ end-initializations 
+ finalize(Travels)
+
+! ***** Define the problem ***** 
+ declarations 
+  freq: array(Travels) of cpvar           ! Frequency variables
+  pols: array(Travels) of cpvar           ! Polarity variables
+  strategy: array(range) of cpbranching   ! Branching strategy
+  BACKTRACKSLIMIT: integer                ! Limit on no. of backtracks
+ end-declarations
+
+! Domains of decision variables
+ forall(t in Travels) do                  ! for all travels:
+  setdomain(freq(t), union(f in 0..SIZEDOMS(TR(t,"F"))-1) {FREQDOMS(TR(t,"F"),f)})                  ! set the corresponding frequency domain
+                                          ! set the corresponding polarity domain
+  case TR(t,"P") of    
+    -1: pols(t)=-1
+     0: setdomain(pols(t), {-1,1})   
+     1: pols(t)=1
+  end-case      
+ end-do
+
+! Building Hard constraints    
+ forall(i,j in Travels, s in Types, o in Ops | exists(CI(i,j,s,o))) do  
+  case s of    
+   "F": if CI(i,j,s,o) = 0 then           ! a constraint between frequency of travels
+         if o="E" then                    ! an equality constraint
+           freq(i) = freq(j)              ! posting the constraint Fi = Fj
+         elif o="I" then                  ! a difference constraint
+           freq(i) <> freq(j)             ! posting the constraint Fi <> Fj
+         end-if  
+        elif CI(i,j,s,o) <> -1 then  
+         if o="E" then                    ! an equality constraint              
+           CI(i,j,s,o) = distance(freq(i),freq(j))  ! Hard Constraint: |Fi - Fj| == CI(i,j,s,o)
+         elif o ="I" then                 ! a difference constraint             
+           CI(i,j,s,o) <> distance(freq(i),freq(j)) ! Hard Constraint: |Fi - Fj| <> CI(i,j,s,o)
+         end-if  
+        end-if       
+   "P": if CI(i,j,s,o) = 0 then           ! a constraint between polarity of travels
+          if o="E" then                   ! an equality constraint
+            pols(i) = pols(j)             ! Hard Constraint: Pi == Pj
+          elif o="I" then                 ! a difference constraint
+            pols(i) <> pols(j)            ! Hard Constraint: Pi <> Pj
+          end-if  
+        end-if
+   end-case     
+ end-do
+
+
+! ***** Start solution algorithm *****
+ if PHASE=1 then
+  lb := find_lb_FAPP                      ! Determine a lower bound
+  initializations to "raw:"               ! Send solution to main problem
+   lb as "shmem:lb"
+  end-initializations
+ else
+  solve_FAPP(lb)                          ! Solve the problem
+ end-if
+
+
+!============================================================================
+! Calculating a lower bound by posting soft constraints
+!============================================================================
+ function find_lb_FAPP: integer  
+  k := 11
+  while ((k >= 0) and post_CEMX(k))  k := k - 1
+  writeln("==================================================================")
+  writeln("LOWER BOUND : K = " + (k+1))
+  writeln("==================================================================")
+  returned := k+1
+ end-function
+
+!============================================================================
+! Solving algorithm
+!============================================================================
+ procedure solve_FAPP(kmin:integer)
+  currentStrategy := 0                     ! current strategy  
+  strategy(0) := assign_var(KALIS_SMALLEST_DOMAIN,KALIS_RANDOM_VALUE)  ! first strategy  
+  strategy(1) := assign_var(KALIS_SDOMDEG_RATIO,KALIS_NEAREST_VALUE)   ! second strategy
+  strategy(2) := assign_var(KALIS_MAX_DEGREE,KALIS_NEAREST_VALUE)      ! third strategy
+  k := 11                                  ! initial relaxation level
+  BACKTRACKSLIMIT := integer(nbTravel)     ! initial backtracks limit
+
+  while (k >= kmin) do                     ! while the relaxation level of the current solution is greater than our lower bound.
+   cp_set_branching(strategy(currentStrategy)) ! set the search strategy
+   setparam("KALIS_MAX_COMPUTATION_TIME",2)    ! limit the computation time to two seconds
+   writeln("### Now searching for a solution of level ", k, " / ", kmin, " (", BACKTRACKSLIMIT, ")") 
+   if not cp_find_next_sol then            ! if no solution was found in the given time
+    currentStrategy := (currentStrategy + 1) mod 3  ! switch the search strategy for diversification of search
+    if currentStrategy = 0 then            ! all the strategy have been used
+     BACKTRACKSLIMIT := BACKTRACKSLIMIT + 10   ! increase backtracks limit
+    end-if
+    writeln("No solution has been found ... diversification of the search: ", currentStrategy)   
+   else                                    ! a solution has been found
+    BACKTRACKSLIMIT := integer(nbTravel)   ! reset the backtracks limit
+    currentStrategy := 0                   ! reset the current strategy
+    k := evaluate_solution(11)             ! evaluate solution 
+    writeln( "==================================================================")
+    writeln("a solution of level k = ", k, " has been found with strategy ", currentStrategy)
+    writeln( "==================================================================")
+    cp_reset_search                        ! resetting the search tree
+    if not post_CEMX(k-1) then             ! posting the soft CEM constraints at level k-1
+     writeln("optimal")                    ! a contradiction has occured so the minimal k level i
+     break
+    end-if       
+    k := k - 1                             ! solution current relaxation level is k-1
+   end-if  
+   cp_reset_search                         ! reset the search tree
+  end-do
+  writeln("==================================================================")
+  writeln("OPTIMAL SOLUTION FOUND : K = " + (k))
+  writeln("==================================================================")
+ end-procedure 
+
+!============================================================================
+! Posting soft constraints
+!============================================================================
+ function post_CEMX(k:integer): boolean
+  writeln("### Now Posting " + (nbCEME) + " CEMX Constraints of level " + k)  
+  returned := true
+  if k <>11 then
+   forall(c in 0..nbCEME-1) do    ! for all CEM soft constraints:
+    f0 := VKEV(c,0)               ! first frequency variable involved in the constraint
+    f1 := VKEV(c,1)               ! second frequency variable involved in the constraint
+    vke := VKE(c,k)               ! minimal distance between frequency variables when polarity are equals
+    vkd := VKD(c,k)               ! minimal distance between frequency variables when polarity are differents
+    if not cp_post(distance(freq(f0),freq(f1)) >= vkd) then  ! posting and propagating the constraint
+     returned := false            ! a contradiction occured proving that no solution of level k exists
+     break 
+    end-if
+    implies(pols(f0) = pols(f1),distance(freq(f0),freq(f1)) >= vke)  ! posting the distance constraint
+   end-do 
+  end-if
+ end-function
+
+!============================================================================
+! Evaluating the relaxation level of the current solution
+!============================================================================
+ function evaluate_solution(k:integer): integer
+  forall (kk in 0..10) nbViols(kk) := 0    ! initialization of the constraints violation table
+  ksol := -1                
+  forall(f in 0..nbTravel-1) do
+   settarget(freq(f),getsol(freq(f)))    
+   settarget(pols(f),getsol(pols(f)))
+  end-do
+ 
+  forall(c in 0..nbCEME-1) do     ! for every soft CEM constraints
+   v0 := VKEV(c,0)                ! first frequency variable involved in the constraint
+   v1 := VKEV(c,1)                ! second frequency variable involved in the constraint
+   fv0 :=  getsol(freq(v0))       ! value of the first frequency variable in the current solution
+   fv1 :=  getsol(freq(v1))       ! value of the second frequency variable in the current solution
+   pv0 :=  getsol(pols(v0))       ! value of the first polarity variable in the current solution
+   pv1 :=  getsol(pols(v1))       ! value of the second polarity variable in the current solution
+   kv := 0    
+ 
+   forall(kk in 0..k-1) do        ! for all level of  relaxation 'k'
+    vke := VKE(c,kk)              ! look the 
+    vkd := VKD(c,kk)          
+    if (pv0 = pv1)  then          ! polarity are equals in solution 
+     if not ((fv0 - fv1 >= vke) or (fv1 - fv0 >= vke)) then  ! test of constraint violation
+      nbViols(kk) += 1            !
+      kv := kk                    !
+     end-if
+    else                          ! polarity are different in solution 
+     if not ((fv0 - fv1 >= vkd) or (fv1 - fv0 >= vkd)) then ! test of constraint violation   
+      nbViols(kk) += 1            ! increase number of constraints violation at level 'kk'
+      kv := kk                    !
+     end-if
+    end-if
+   end-do
+  
+   if kv > ksol then
+    ksol := kv                    ! Relaxation level of the solution equal max of relaxation level of all violated constraints.
+   end-if
+  end-do
+  
+  sumvk1 := 0
+  forall(kk in 0..ksol-1) sumvk1 := sumvk1 + nbViols(kk)  ! compute the sum of violation at level k-1
+ 
+ ! Write some statistics about the solution
+  writeln(nbViols(ksol), " constraints violated at level ", ksol)  
+  writeln(sumvk1, " constraints violated at level < ", ksol)
+  returned := ksol+1              ! return the relaxation level of the solution
+ end-function
+
+end-model
+

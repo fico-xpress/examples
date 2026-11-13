@@ -1,0 +1,205 @@
+! XNLP example demonstrating non-connected feasible regions and initial points
+!
+! This examples defines a feasible region that resembles a uniformly layed out
+! mesh of feasible rectangles 2*2 experiments are carried out:
+!  - starting from a random rectangle, can the solver move to another one where
+!    the optimum is?
+!  - starting from a random rectangle, can the solver stay in the same rectangle
+!    if the optimum is located there?
+! The experiment is repeated with and without model transformation
+!
+! This example demonstrates a particular non-linear optimization concept as related
+! to Xpress NonLinear.
+! The version of the example is for Xpress 7.5.
+!
+!  (c) 2013-2026 Fair Isaac Corporation
+!       author: Zsolt Csizmadia
+model mmxnlp_nonconnected
+uses "mmxnlp";
+
+Mesh := 300..400;
+
+declarations
+  x,y : mpvar
+  slp_average, knitro_average : real
+  slp_average_stay, knitro_average_stay : real
+  reform_slp_average, reform_knitro_average : real
+  reform_slp_average_stay, reform_knitro_average_stay : real
+end-declarations
+x is_free
+y is_free
+
+! This example is about the behaviour of local solvers
+setparam("XPRS_NLPSOLVER",1)
+
+! These constrants define a feasible region resembling a mesh
+sin(x*3.14) >= 0
+sin(y*3.14) >= 0
+
+! the target is to get as close to (0,0) as possbile
+! it is interesting to see how far a solver can jump between the
+! non-connected parts of the feasible region
+
+forall (PASS in 1..2) do
+
+	if (PASS = 1) then
+		! Make sure XNLP does not reformulate the problem, so it is always solved
+		! purely with the selected solver
+		setparam("xnlp_loadasnl",1)
+		setparam("xnlp_reformulate",0)
+	else
+		! Allow for reformulation
+		setparam("xnlp_loadasnl",0)
+		setparam("xnlp_reformulate",-1)
+	end-if
+
+	writeln("XSLP:")
+	setparam("xnlp_solver",XNLP_SOLVER_XSLP)
+	if (PASS = 1) then
+		slp_average := 0;
+	else
+		reform_slp_average := 0;
+	end-if
+	forall (i in Mesh) do
+		setinitval(x,i)
+		setinitval(y,100-i)
+		minimize( x^2 + y^2 )
+	    if (getparam("xnlp_nlpstatus") <> XNLP_STATUS_LOCALLY_OPTIMAL) then
+			writeln("UNEXPECTED solve status!")
+		else
+		    writeln(i," - ", getobjval)
+		end-if
+		if (PASS = 1) then
+			slp_average := slp_average + getobjval;
+		else
+			reform_slp_average := reform_slp_average + getobjval;
+		end-if
+	end-do
+	if (PASS = 1) then
+		slp_average := slp_average / getsize(Mesh);
+	else
+		reform_slp_average := reform_slp_average / getsize(Mesh);
+	end-if
+
+	writeln
+	writeln("----------------------")
+	writeln("Knitro:")
+	setparam("xnlp_solver",XNLP_SOLVER_KNITRO)
+	if (PASS = 1) then
+		knitro_average := 0;
+	else
+		reform_knitro_average := 0;
+    end-if
+	forall (i in Mesh) do
+		setinitval(x,i)
+		setinitval(y,100-i)
+		minimize( x^2 + y^2 )
+	    if (getparam("xnlp_nlpstatus") <> XNLP_STATUS_LOCALLY_OPTIMAL) then
+			writeln("UNEXPECTED solve status!")
+		else
+		    writeln(i," - ", getobjval)
+		end-if
+		if (PASS = 1) then
+			knitro_average := knitro_average + getobjval;
+		else
+			reform_knitro_average := reform_knitro_average + getobjval;
+		end-if
+	end-do
+	if (PASS = 1) then
+		knitro_average := knitro_average / getsize(Mesh);
+	else
+		reform_knitro_average := reform_knitro_average / getsize(Mesh);
+	end-if
+
+
+	writeln("XSLP:")
+	setparam("xnlp_solver",XNLP_SOLVER_XSLP)
+	if (PASS = 1) then
+		slp_average_stay := 0;
+	else
+		reform_slp_average_stay := 0;
+	end-if
+	forall (i in Mesh) do
+		setinitval(x,i)
+		setinitval(y,100-i)
+		minimize( (x-i)^2 + (y-(100-i))^2 )
+	    if (getparam("xnlp_nlpstatus") <> XNLP_STATUS_LOCALLY_OPTIMAL) then
+			writeln("UNEXPECTED solve status!")
+		else
+		    writeln(i," - ", getobjval)
+		end-if
+		if (PASS = 1) then
+			slp_average_stay := slp_average_stay + getobjval;
+		else
+			reform_slp_average_stay := reform_slp_average_stay + getobjval;
+		end-if
+	end-do
+	if (PASS = 1) then
+		slp_average_stay := slp_average_stay / getsize(Mesh);
+	else
+		reform_slp_average_stay := reform_slp_average_stay / getsize(Mesh);
+	end-if
+
+	writeln
+	writeln("----------------------")
+	writeln("Knitro:")
+	setparam("xnlp_solver",XNLP_SOLVER_KNITRO)
+	if (PASS = 1) then
+		knitro_average_stay := 0;
+	else
+		reform_knitro_average_stay := 0;
+	end-if
+	forall (i in Mesh) do
+		setinitval(x,i)
+		setinitval(y,100-i)
+		minimize( (x-i)^2 + (y-(100-i))^2 )
+	    if (getparam("xnlp_nlpstatus") <> XNLP_STATUS_LOCALLY_OPTIMAL) then
+			writeln("UNEXPECTED solve status!")
+		else
+		    writeln(i," - ", getobjval)
+		end-if
+		if (PASS = 1) then
+			knitro_average_stay := knitro_average_stay + getobjval;
+		else
+			reform_knitro_average_stay := reform_knitro_average_stay + getobjval;
+		end-if
+	end-do
+	if (PASS = 1) then
+		knitro_average_stay := knitro_average_stay / getsize(Mesh);
+	else
+		reform_knitro_average_stay := reform_knitro_average_stay / getsize(Mesh);
+	end-if
+end-do
+
+writeln
+writeln("I. NLP formulation as is")
+writeln("Move towards a selected cell:")
+writeln("----------------------")
+writeln("Average distance:")
+writeln("XSLP   : ", slp_average)
+writeln("Knitro : ", knitro_average)
+writeln
+writeln("Stay in the starting cell:")
+writeln("----------------------")
+writeln("Average distance:")
+writeln("XSLP   : ", slp_average_stay)
+writeln("Knitro : ", knitro_average_stay)
+writeln
+writeln
+
+! Reformulating allows for a more global view in terms of the quadratic objective
+writeln("II. Reformulated")
+writeln("Move towards a selected cell:")
+writeln("----------------------")
+writeln("Average distance:")
+writeln("XSLP   : ", reform_slp_average)
+writeln("Knitro : ", reform_knitro_average)
+writeln
+writeln("Stay in the starting cell:")
+writeln("----------------------")
+writeln("Average distance:")
+writeln("XSLP   : ", reform_slp_average_stay)
+writeln("Knitro : ", reform_knitro_average_stay)
+
+end-model
+

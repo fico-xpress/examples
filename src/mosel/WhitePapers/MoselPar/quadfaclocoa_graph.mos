@@ -1,0 +1,218 @@
+(!*********************************************************************
+   Mosel NL examples
+   =================
+   file quadfaclocoa.mos
+   `````````````````````
+   Quadratic Facility Location model
+
+   Model of a quadratic facility location problem solved
+   by outer approximation (main problem: MIP, subproblem: QP).
+   The goal is to assign facilities to customers to minimize cost. 
+
+   -- Graphical solution display --
+   
+   Original AMPL model by Sven Leyffer, see
+   https://www.researchgate.net/publication/2827082_Solving_Mixed_Integer_Nonlinear_Programs_by_Outer_Approximation
+ 
+   (c) 2018 Fair Isaac Corporation
+       author: Z.Csizmadia, Sven Leyffer, Aug. 2018, rev. Apr.2021
+*********************************************************************!)
+
+model QuadFacLocOA
+ uses "mmxprs", "mmnl", "mmsystem"
+ uses "mmsvg"
+
+ parameters
+   ILIM = 100
+ end-parameters
+
+ forward procedure printsol
+ forward procedure drawsol
+
+ declarations
+   Iter: integer
+ end-declarations
+
+ declarations
+   I = 1..5                      ! Set of facilities
+   J = 1..10                     ! Set of customers
+
+   FacX,FacY: array(I) of real   ! X/Y coordinates of facility location
+   CustX,CustY: array(J) of real ! X/Y coordinates of customer location
+   C: array(I) of real           ! Fixed cost of opening facility at location
+   Q: array(I,J) of real         ! Quadr. cost of meeting demand j from facility i
+   UBD,LBD: real                 ! Upper/lower bound on solution
+ end-declarations
+
+ ! **** Generate random data:
+ ! **** Cost coefficients and coordinates of all facility + customer locations
+ setrandseed(42)
+ SCALE:=100                      ! Scaling factor for graph display
+ forall(i in I) do
+   C(i) := SCALE*100*random
+   FacX(i) := SCALE*random
+   FacY(i) := SCALE*random
+ end-do
+
+ forall(j in J) do
+   CustX(j) := SCALE*random
+   CustY(j) := SCALE*random
+ end-do
+
+ forall(i in I, j in J)         ! Formula used by Lee to create instances
+   Q(i,j) := 50 * sqrt( (FacX(i) - CustX(j))*(FacX(i) - CustX(j)) + 
+                        (FacY(i) - CustY(j))*(FacY(i) - CustY(j)))
+
+ ! **** Optimization model formulation ****
+ declarations
+   eta: mpvar                   ! Linearization of quad. objective terms
+   x: array(I,J) of mpvar       ! Percentage of customer j served by facility j
+   z: array(I) of mpvar         ! =1, iff facility i built
+   LastPoint: array(I) of real  ! Latest discrete solution values from main
+   LastMain: real               ! Latest obj solution value for main problem
+   LastX: array(I,J) of real    ! Latest 'x' solution values from subproblem
+   LastSub: real                ! Latest obj solution value for subproblem
+ end-declarations
+
+ ! **** Main problem (MIP)
+ declarations
+   MainProb: mpproblem
+ end-declarations
+
+ with MainProb do
+   declarations
+     LinCost: linctr
+   end-declarations
+
+   eta is_free
+
+  ! Linearized objective function
+   LinCost:= sum(i in I) C(i)*z(i)
+! After the initial iteration, the objective is changed to this form:
+!   LinCost:= sum(i in I) C(i)*z(i) + eta
+
+  ! Variable upper bound (only serve customers from open facilities)
+   forall(i in I, j in J) x(i,j) <= z(i)
+
+  ! Meet all customers' demands
+   forall(j in J) sum(i in I) x(i,j) = 1
+
+   forall(i in I) z(i) is_binary
+
+!   setparam("xprs_verbose",true)   
+ end-do
+
+ ! **** Submodel (continuous QP)
+ declarations
+   SubNLP: mpproblem
+ end-declarations
+
+ with SubNLP do
+   declarations
+     QuadCost: nlctr
+     Fixings: array(I) of linctr
+   end-declarations
+
+  ! Quadratic objective function
+   QuadCost:= sum(i in I) C(i)*z(i) + sum(i in I, j in J) Q(i,j)*x(i,j)^2;
+
+  ! Variable upper bound (only serve customers from open facilities)
+   forall(i in I, j in J) x(i,j) <= z(i)
+
+  ! Meet all customers' demands
+   forall(j in J) sum(i in I) x(i,j) = 1
+
+!   setparam("xprs_verbose",true)   
+ end-do
+
+ ! **** Outer approximation algorithm
+ UBD := 1E20; LBD := -1E20
+ Iter:= 0; starttime:=gettime
+ while (LBD < UBD-(SCALE*1E-2) and Iter <= ILIM) do
+   Iter += 1
+   with MainProb do
+     minimize(LinCost)
+     ! writeprob('MainProb_'+Iter,'l')
+     if getprobstat<>XPRS_OPT then break; end-if
+     forall(i in I) LastPoint(i) := getsol(z(i))
+     LastMain := getobjval
+   end-do
+
+   with SubNLP do
+     forall(i in I) Fixings(i):= z(i) = LastPoint(i)  ! Fix discrete variables
+     minimize(QuadCost)
+     ! writeprob('SubNLP_'+Iter,'l')
+     forall(i in I, j in J) LastX(i,j) := getsol(x(i,j))
+     LastSub := getobjval
+   end-do
+
+   with MainProb do
+    ! After the first iteration add the linearization term to the objective 
+     if Iter=1 then LinCost+= eta; end-if
+    ! Linearization of quadratic part
+     eta >= 
+       sum(i in I, j in J) Q(i,j)*LastX(i,j)^2 +    ! Objective value
+       sum(i in I, j in J) 2*Q(i,j)*LastX(i,j)*(x(i,j) - LastX(i,j))  ! Gradient
+   end-do
+
+   UBD := minlist( UBD, LastSub )
+   LBD := LastMain
+   writeln(gettime-starttime, "sec Iter = ", Iter, ": LBD = ", LBD, "  UBD = ", UBD)
+! Uncomment these lines to display intermediate solutions in detail:
+!   printsol
+!   drawsol
+ end-do
+ if Iter > ILIM then writeln("Iteration limit reached"); end-if
+
+ printsol
+ drawsol
+ svgsave("quadfacloc.svg")
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+
+
+ ! **** Display the solution ****
+ procedure printsol
+   write("Open         Customer locations\nfacility")
+   forall(j in J) write(formattext("%6d",j))
+   forall(i in I | LastPoint(i)>0) do
+     write("\n  ", textfmt(i,-8))
+     forall(j in J) write(formattext("%5.1f%%",LastX(i,j).sol*100))
+   end-do
+   writeln
+ end-procedure
+
+ ! **** Draw the solution ****
+ procedure drawsol
+   svgerase
+   svgaddgroup("CF", "Closed facilites", SVG_SILVER)
+   svgsetstyle(SVG_FILL,SVG_CURRENT)
+   svgsetstyle(SVG_FONTSIZE,"x-small")
+   svgaddgroup("OF", "Open facilites", SVG_BLACK)
+   svgsetstyle(SVG_FILL,SVG_CURRENT)
+   svgsetstyle(SVG_FONTSIZE,"x-small")
+   svgaddgroup("D", "Customers", SVG_RED)
+   svgsetstyle(SVG_FILL,SVG_CURRENT)
+   svgsetstyle(SVG_FONTSIZE,"xx-small")
+   svgaddgroup("F", "Delivery quantity", SVG_BLUE)
+   svgsetstyle(SVG_FILL,SVG_CURRENT)
+   forall(i in I | LastPoint(i)>0) do
+     svgaddcircle("OF", FacX(i), FacY(i), 2)
+     svgaddtext("OF", FacX(i)+3, FacY(i), text(i))
+   end-do
+   forall(i in I | LastPoint(i)=0) svgaddcircle("CF", FacX(i), FacY(i), 2)
+   forall(j in J) do
+     svgaddcircle("D", CustX(j), CustY(j), 2)
+     svgaddtext("D", CustX(j)-6, CustY(j)-9, text(j))
+   end-do
+   forall(i in I, j in J | LastX(i,j)>0) do
+     svgaddline("F", FacX(i), FacY(i), CustX(j), CustY(j))
+     svgsetstyle(svggetlastobj,SVG_STROKEWIDTH, LastX(i,j)*2)
+     svgsetstyle(svggetlastobj,SVG_STROKEOPACITY, maxlist(0.75*LastX(i,j),0.1))
+   end-do
+
+   svgrefresh
+!   svgpause             ! Uncomment to inspect intermediate solutions
+ end-procedure
+
+end-model
+

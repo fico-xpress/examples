@@ -1,0 +1,45 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file resource_altern.mos
+   ````````````````````````
+   Scheduling tasks with non-constant resource usage profiles.
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+
+*****************************************************************!)
+model "Alternative resources and non constant resource usage"
+ uses "kalis"
+ 
+ declarations  
+  res1,res2   : cpresource
+  taska,taskb : cptask 
+  arr1,arr2   : list of integer
+ end-declarations
+ 
+! Fix start times and durations  
+ taska.start   = 3
+ taska.duration = 4
+ taskb.start   = 3
+ taskb.duration = 4
+ 
+! Define 2 cumulative resources 
+ set_resource_attributes(res1, KALIS_DISCRETE_RESOURCE, 4)
+ set_resource_attributes(res2, KALIS_DISCRETE_RESOURCE, 4)
+ 
+ setname(taska,"taska"); setname(taskb,"taskb")
+ setname(res1,"R1"); setname(res2,"R2")
+ 
+! Define alternative resources for both tasks
+ arr1 := [1,3,2,3]
+ arr2 := [2,4,1,3]
+ requires(taska, {resusage(res1,arr1),resusage(res2,arr2)}, 1, 1)
+ requires(taskb, {resusage(res1,1,1),resusage(res2,1,1)}, 1, 1)
+
+! Find all solutions 
+ while (cp_find_next_sol) do
+  cp_show_sol
+ end-do
+  
+end-model

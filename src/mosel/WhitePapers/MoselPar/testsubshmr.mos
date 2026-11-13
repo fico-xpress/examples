@@ -1,0 +1,33 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file testsubshmr.mos
+   ````````````````````
+   Simple model printing some output.
+   Communication of data from/to parent model
+   using 'shmem' IO driver with 'raw'.
+
+   *** Not intended to be run standalone - run from runsubshmr.mos ***
+       
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, May 2006
+*******************************************************!)
+
+model "Test submodel"
+ declarations
+  A: range 
+  B: array(A) of real
+ end-declarations
+
+ initializations from "raw:"
+  A as "shmem:A"
+ end-initializations
+ 
+ forall(i in A) B(i):= i^2
+
+ initializations to "raw:"
+  B as "shmem:B"
+ end-initializations
+
+end-model 

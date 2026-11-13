@@ -1,0 +1,51 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file soleg.mos
+   ``````````````
+   Writing out solution values to
+   a spreadsheet or database via ODBC.
+   - Using 'initializations to' with the odbc driver -
+  
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2006, rev. Oct. 2017
+*******************************************************!)
+
+model "Solution values output"
+ uses "mmxprs", "mmodbc"
+
+ parameters
+!  CNCT = "soleg.xls"             ! Use Excel spreadsheet `soleg.xls'
+  CNCT = "soleg.mdb"            ! Use Access database `soleg.mdb'
+                                 ! Use SQLite database `soleg' via ODBC
+!  CNCT = 'DSN=sqlite;DATABASE=soleg.sqlite'
+!  CNCT = 'soleg.sqlite'         ! Use SQLite database `soleg' directly
+ end-parameters
+ 
+ declarations
+  R = 1..3
+  S = 1..2
+  SOL: array(R,S) of real        ! Array for solution values
+  x: array(R,S) of mpvar         ! Decision variables
+ end-declarations
+
+! Define and solve the problem
+ forall(i in R) sum(j in S) x(i,j) <= 4
+ forall(j in S) sum(i in R) x(i,j) <= 6
+ maximise( sum(i in R, j in S) (i*j)*x(i,j) )
+
+! Get solution values from LP into the array SOL
+ forall(i in R, j in S) SOL(i,j) := getsol(x(i,j)) 
+
+! Data output using an initializations block with the odbc driver
+ initializations to "mmodbc.odbc:debug;"+CNCT
+  SOL as "MyOut1"
+ end-initializations
+
+(! Alternative form:
+ initializations to "mmodbc.odbc:debug;"+CNCT
+  evaluation of array(i in R, j in S) x(i,j).sol as "MyOut1"
+ end-initializations
+!)
+end-model

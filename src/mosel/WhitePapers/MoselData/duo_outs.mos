@@ -1,0 +1,60 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file duo_out.mos 
+   ```````````````` 
+   Two ways of writing data to spreadsheets or 
+   databases via ODBC.
+ 
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2006, rev. Aug. 2023
+*******************************************************!)
+
+model "Duo output (ODBC)"
+ uses "mmodbc"
+ options keepassert
+
+ parameters
+                                 ! Use mysql database `data' (not provided)
+!  CNCT = 'DSN=mysql;DB=data'
+!  CNCTIO = "debug;DSN=mysql;DB=data"
+                                 ! Use SQLite database `data.sqlite' via ODBC
+!  CNCT = 'DSN=sqlite;DATABASE=data.sqlite'
+!  CNCTIO = "debug;DSN=sqlite;DATABASE=data.sqlite"
+                                 ! Use SQLite database `data.sqlite' directly
+  CNCT = 'data.sqlite'
+  CNCTIO = "debug;data.sqlite"
+ end-parameters
+
+ declarations
+  A: array(-1..1,5..7) of real
+ end-declarations
+
+ A :: [ 2,  4,  6,
+       12, 14, 16,
+       22, 24, 26]
+
+! First method: use an initializations block with the odbc driver
+! ATTENTION: results from previous runs must be removed previously;
+! otherwise the new results will either be appended to the existing ones
+! or, if one of the fields has been defined as a key field in a database,
+! the insertion will fail.
+
+ initializations to "mmodbc.odbc:"+CNCTIO
+  A as "MyOutTable1"
+ end-initializations
+
+! Second method: use SQL statements 
+ SQLconnect(CNCT)
+ assert(getparam("SQLsuccess"))
+ SQLexecute("delete from MyOutTable2") ! Cleaning up previous results: works
+                                       ! only for databases, cannot be used
+                                       ! with spreadsheets (instead, delete
+                                       ! previous solutions directly in the
+                                       ! spreadsheet file)
+ SQLexecute("insert into MyOutTable2 (Index1,Index2,AValue) values (?,?,?)", A)
+ assert(getparam("SQLsuccess"))
+ SQLdisconnect
+
+end-model

@@ -1,0 +1,119 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file folioinsightxml.mos
+   ````````````````````````
+   Modeling a small LP problem 
+   to perform portfolio optimization.
+   -- Insight deployment version of foliodata.mos,
+      saving solution values into a Mosel array --
+   
+  (c) 2012 Fair Isaac Corporation
+      author: S.Heipcke, Oct. 2012, rev. July 2017
+*******************************************************!)
+
+model "Portfolio optimization"
+ uses "mmxprs"                       ! Use Xpress Optimizer
+ uses "mminsight"                    ! Use Xpress Insight
+
+ version 1.0.0
+
+ parameters
+  DATAFILE= "folio.dat"              ! File with problem data
+  MAXRISK = 1/3                      ! Max. investment into high-risk values
+  MAXVAL = 0.3                       ! Max. investment per share
+  MINAM = 0.5                        ! Min. investment into N.-American values
+ end-parameters
+
+ forward procedure readdata
+
+ !@insight.manage=input
+ public declarations
+  !@insight.alias Shares
+  SHARES: set of string              ! Set of shares
+  !@insight.alias High-risk values
+  RISK: set of string                ! Set of high-risk values among shares
+  !@insight.alias Shares issued in N.-America
+  NA: set of string                  ! Set of shares issued in N.-America
+  !@insight.alias Estimated return in investment
+  RET: array(SHARES) of real         ! Estimated return in investment
+ end-declarations
+
+ !@insight.resultdata.delete=on-queue
+
+ case insightgetmode of
+  INSIGHT_MODE_RUN: 
+      insightpopulate                ! Inject scenario data
+  INSIGHT_MODE_NONE:                 ! Read in data for baseline
+      readdata
+  INSIGHT_MODE_LOAD: do
+      readdata
+      exit(0)                        ! Stop here in 'load data' mode
+      end-do
+  else
+      writeln_("Unknown run mode")
+      exit(1)
+ end-case
+
+ procedure readdata
+  initializations from DATAFILE
+    RISK RET NA
+  end-initializations
+ end-procedure
+
+ !@insight.manage=result
+ public declarations
+  !@insight.alias Fraction used
+  frac: array(SHARES) of mpvar       ! Fraction of capital used per share
+  Return: linctr           !@insight.alias Total return
+  LimitRisk: linctr        !@insight.alias Max. percentage of high-risk values
+  LimitAM: linctr          !@insight.alias Min. percentage of North-American values
+  !@insight.hidden=true
+  TotalOne: linctr         !@insight.alias Spend all the capital
+  !@insight.alias Constraints
+  CTRS: set of string                            ! Constraint names
+  !@insight.alias Value
+  CTRINFO: set of string                         ! Constraint info type
+  !@insight.alias Evaluation of constraints and bounds
+  CtrSol: dynamic array(CTRS,CTRINFO) of real    ! Solution values 
+  !@insight.alias Summary constraint activity
+  CtrSolSum: dynamic array(CTRS) of real
+!  TotalReturn: array(range) of real
+ end-declarations
+
+! Objective: total return
+ Return:= sum(s in SHARES) RET(s)*frac(s) 
+
+! Limit the percentage of high-risk values
+ LimitRisk:= sum(s in RISK) frac(s) <= MAXRISK
+
+! Minimum amount of North-American values
+ LimitAM:= sum(s in NA) frac(s) >= MINAM
+
+! Spend all the capital
+ TotalOne:= sum(s in SHARES) frac(s) = 1
+ 
+! Upper bounds on the investment per share
+ forall(s in SHARES) frac(s) <= MAXVAL
+
+! Solve the problem through Insight
+ insightmaximize(Return)
+
+! Save solution values for GUI display
+ CtrSol::("Limit high risk shares", ["Activity","Lower limit","Upper limit"])
+          [LimitRisk.act,0,MAXRISK]
+ CtrSol::("Limit North-American", ["Activity","Lower limit","Upper limit"])
+          [LimitAM.act,MINAM,1]
+ forall(s in SHARES | frac(s).sol>0) do
+  CtrSol("Limit per value: "+s,"Activity"):= frac(s).sol
+  CtrSol("Limit per value: "+s,"Upper limit"):= MAXVAL
+  CtrSol("Limit per value: "+s,"Lower limit"):= 0
+ end-do
+
+ CtrSolSum("Total return"):=getsol(Return)
+ CtrSolSum("Total high risk shares"):=LimitRisk.act
+ CtrSolSum("Total North-American"):=LimitAM.act
+ CtrSolSum("Largest position"):=max(s in SHARES) frac(s).sol
+
+end-model 

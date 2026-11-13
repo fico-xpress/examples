@@ -1,0 +1,62 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file arcs5.mos
+   ``````````````
+   Working with records.
+   - Sets of constant records -
+   
+   (c) 2020 Fair Isaac Corporation
+       author: S. Heipcke, Apr. 2020
+*******************************************************!)
+
+model "Arcs constants"
+
+ public declarations
+  NODES: list of string                 ! List of nodes
+  arc = public record                   ! Arcs:
+   Source,Sink: string                  !   Source and sink of arc
+   Cost: real                           !   Cost coefficient
+  end-record 
+  ARCS: set of arc  
+!!! Only records with scalar fields of basic types can be declared as constants
+  ARCSC: set of constant arc  
+  myarc=arc(.Source:='S',.Sink:='A',.Cost:=10)    ! A constant record  
+ end-declarations
+
+ function newarc(s,t:string, c:real): arc
+  returned.Source:=s
+  returned.Sink:=t
+  returned.Cost:=c
+ end-function
+
+ NODES:=['A','B','C','D','E','F']
+
+ forall(j in NODES) do
+  ARCS += {newarc("","",0)}      ! Add several elements with the same contents
+  ARCSC += {newarc("","",0)}     ! Add repeatedly the same set element
+! Same as:
+  ARCSC += {arc(.Cost:=0)}
+ end-do 
+ 
+ writeln("ARCS =", ARCS, " size=", ARCS.size)
+ writeln("ARCSC=", ARCSC, " size=", ARCSC.size)
+
+ i:='S'; ct:=0
+ forall(j in NODES, ct as counter) do
+  ARCS+= {arc(.Source:=i,.Sink:=j,.Cost:=10*ct)}
+  ARCSC+= {arc(.Source:=i,.Sink:=j,.Cost:=10*ct)}
+! Same as:
+  ARCSC += {newarc(i,j,10*ct)}
+  i:=j
+ end-do 
+ 
+ writeln("myarc=", myarc)
+ writeln("ARCS =", ARCS, " size=", ARCS.size)
+ writeln("myarc is in ARCS: ", myarc in ARCS)
+
+ writeln("ARCSC=", ARCSC, " size=", ARCSC.size)
+ writeln("myarc is in ARCS: ", myarc in ARCSC)
+
+end-model 

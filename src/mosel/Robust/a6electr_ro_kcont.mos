@@ -1,0 +1,228 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file a6electr_ro_kcont.mos
+   ``````````````````````````
+   Security constrained robust unit commitment under
+   contingencies. The present model gives a solution
+   that does not require unit commitment change, even 
+   if at most 'k' units are forced in outage.
+
+   For the sake of simplicity the power generation units of
+   a power generation plant are considered identical.
+   
+   source: see a6electr.mos for the original formulation
+
+   *** This model cannot be run with a Community Licence 
+       for the provided data instance ***
+
+   (c) 2014 Fair Isaac Corporation
+       author: S. Heipcke, Mar. 2002
+               S. Lannez, Mar. 2014
+*******************************************************!)
+
+model "A-6 Electricity production"
+ uses "mmsystem"
+ uses "mmrobust"
+ 
+ declarations
+  K = 2                               ! Max. num. of simultaneous contingencies
+  NT = 7                              ! Number of time periods
+  TIME = 1..NT                        ! Time periods
+  PLANTS = 1..4                       ! Power generation plant
+  UNITS: set of string                ! Power generation units
+
+  LEN, DEM: array(TIME) of integer    ! Length and demand of time periods 
+  PMIN,PMAX: array(PLANTS) of integer ! Min. and max output of a generator type
+  CSTART: array(PLANTS) of integer    ! Start-up cost of a generator
+  CMIN: array(PLANTS) of integer      ! Hourly cost of gen. at min. output
+  CADD: array(PLANTS) of real         ! Cost/hour/MW of prod. above min. level
+  PLANT: array(UNITS) of integer      ! Unit generation plant
+
+  start: array(UNITS,TIME) of mpvar  ! No. of gen.s started in a period
+  work: array(UNITS,TIME) of mpvar   ! No. of gen.s working during a period
+  padd: array(UNITS,TIME) of mpvar   ! Production above min. output level
+     
+  Cost: linctr
+
+  outage: dynamic array(UNITS,TIME) of uncertain ! uncertain event
+  RobCtrMinDem: dynamic array(TIME) of robustctr ! Min demand satisfaction
+  RobCtrMaxDem: dynamic array(TIME) of robustctr ! Max demand satisfaction
+     
+  lossOfLoad: array(UNITS) of real
+  
+ end-declarations
+ 
+ initializations from 'a6electr_ro_simple.dat'
+  LEN DEM PMIN PMAX CSTART CMIN CADD PLANT
+ end-initializations 
+
+ write("\n",strfmt("Unit type",-20))
+ forall(p in PLANTS) write(strfmt(p,8),"   ")
+ write("\n",strfmt("Pmax",20))
+ forall(p in PLANTS) write(strfmt(PMAX(p),8),"  ")
+ write("\n",strfmt("Pmin",20))
+ forall(p in PLANTS) write(strfmt(PMIN(p),8),"  ")
+ writeln("\n")
+
+!***************************Subroutines***************************
+!**** Ensure enough power production capacity allows to
+!**** satisfy load even if 'k' units are forced in outage.
+ procedure robust_contingency(k: integer)
+
+   forall(t in TIME, u in UNITS) create(outage(u,t))
+   forall(t in TIME, u in UNITS) outage(u,t) >= 0
+   ! If the unit is forced in outage, the total capacity
+   ! of the generating units are lost
+   forall(t in TIME, u in UNITS) outage(u,t) <= 1
+ 
+   ! forall(t in TIME) sum(u in UNITS) outage(u,t) <= k
+   forall(t in TIME) cardinality(union(u in UNITS | exists(outage(u,t))) {outage(u,t)}, k)
+
+   forall(t in TIME)
+     RobCtrMaxDem(t) := 	   
+       sum(u in UNITS) PMAX(PLANT(u))*work(u,t) -
+       sum(u in UNITS) PMAX(PLANT(u))*work(u,t)*outage(u,t) >= DEM(t)
+
+   ! In order to reduce the number of variables we reuse
+   ! outage() and let the solver do the variable duplication
+   ! by setting the ROBUST_UNCERTAIN_OVERLAP parameter   
+   setparam("ROBUST_UNCERTAIN_OVERLAP",true)
+   forall(t in TIME)
+     RobCtrMinDem(t) :=
+       sum(u in UNITS) PMIN(PLANT(u))*work(u,t) -
+       sum(u in UNITS) PMIN(PLANT(u))*work(u,t)*outage(u,t) <= DEM(t)
+
+ end-procedure
+
+!**** Print highest loss of load in case of 'k' simultaneous contingencies
+ procedure print_risk(k: integer)
+   declarations
+     l: list of string
+   end-declarations
+   write("\n", textfmt("Demand ",20))
+   forall(t in TIME)
+     write(strfmt(DEM(t),8))
+
+   write("\n", textfmt("Greatest loss of",20))
+   forall(t in TIME) do
+     forall(u in UNITS) lossOfLoad(u) := work(u,t).sol*PMAX(PLANT(u))
+     qsort(SYS_DOWN,lossOfLoad,l)
+     cuttail(l,-K)
+     s := sum(u in UNITS) (work(u,t).sol*PMAX(PLANT(u))) ! Total capacity
+     v := sum(u in l) lossOfLoad(u) ! Lost capacity 
+     if(s-v<DEM(t)) then 
+       write(strfmt(DEM(t)-s+v,8)) 
+     else 
+       write(strfmt("",8)) 
+     end-if
+   end-do
+   write("\n", textfmt("load ("+k+" outages)",20))
+   writeln("\n\n", textfmt("** Most critical units **",-20))
+   writeln("\n", textfmt("In case of high demand:",20))
+   ct:=0
+   
+   forall(t in TIME) do
+     write(strfmt(ct,5), "-", strfmt(ct+LEN(t),2), " : ")
+     ct+=LEN(t)
+     if (sum(u in UNITS) getsol(outage(u,t),RobCtrMaxDem(t)) <1) then
+       write(" No identified units.")
+     end-if
+     cnt := 0
+     forall(u in UNITS | getsol(outage(u,t),RobCtrMaxDem(t))>1e-6, cnt as counter) write(textfmt(u,8))
+     if (cnt>k) then
+       writeln("Warning: The opponent partially forced in outage some units.")
+     end-if
+     writeln
+   end-do
+   
+   writeln("\n", textfmt("In case of low demand:",20))
+   forall(t in TIME) do
+     write(strfmt(ct,5), "-", strfmt(ct+LEN(t),2), " : ")
+     ct+=LEN(t)
+     if (sum(u in UNITS) getsol(outage(u,t),RobCtrMinDem(t)) <1) then
+       write(" No identified units.")
+     end-if
+     cnt := 0
+     forall(u in UNITS | getsol(outage(u,t),RobCtrMinDem(t))>1e-6, cnt as counter) write(textfmt(u,8))
+     if (cnt>k) then
+       writeln("Warning: The opponent partially forced in outage some units.")
+     end-if
+     writeln
+   end-do
+
+ end-procedure
+
+!**** Solution printing ****
+  procedure print_solution(k: integer)
+   writeln("Total cost: ", getobjval)
+
+   write(strfmt("Time period ",-20))
+   ct:=0
+   forall(t in TIME) do
+    write(strfmt(ct,5), "-", strfmt(ct+LEN(t),2), "")
+    ct+=LEN(t)
+   end-do 
+
+   write("\n", strfmt("Up Units",-20))
+   forall(t in TIME) write(strfmt(sum(u in UNITS) work(u,t).sol,8))
+   write("\n", strfmt("Gen. Pwr.",20))
+   forall(t in TIME)  
+     write(strfmt(sum(u in UNITS) (work(u,t).sol*PMIN(PLANT(u))+padd(u,t).sol),8))
+   write("\n", strfmt("Gen. Cap.",20))
+   forall(t in TIME)
+     write(strfmt(sum(u in UNITS) (work(u,t).sol*PMAX(PLANT(u))),8))
+   write("\n", strfmt("Res. Dn",20))
+   forall(t in TIME) write(strfmt(sum(u in UNITS) (padd(u,t).sol),8))
+   write("\n", strfmt("Res. Up",20))
+   forall(t in TIME)
+     write(strfmt(sum(u in UNITS) work(u,t).sol*PMAX(PLANT(u)) - DEM(t),8))
+   print_risk(K)
+   writeln	  
+ end-procedure
+
+!***************************Main model***************************
+! Create decision variables 
+ forall(u in UNITS, t in TIME) do
+  start(u,t) is_binary
+  work(u,t) is_binary
+ end-do
+
+! Objective function: total daily cost 
+ Cost:= sum(u in UNITS, t in TIME) (CSTART(PLANT(u))*start(u,t) +
+  LEN(t)*(CMIN(PLANT(u))*work(u,t) + CADD(PLANT(u))*padd(u,t))) 
+
+! Number of generators started per period and per type
+ forall(u in UNITS, t in TIME) 
+  start(u,t) >= work(u,t) - if(t>1, work(u,t-1), work(u,NT))
+
+! Limit on power production range
+ forall(u in UNITS, t in TIME) 
+  padd(u,t) <= (PMAX(PLANT(u))-PMIN(PLANT(u)))*work(u,t)
+
+! Power balance
+ forall(t in TIME) 
+  sum(u in UNITS) (PMIN(PLANT(u))*work(u,t) + padd(u,t)) = DEM(t)
+
+! Symmetry breaker
+ forall(t in TIME, p in PLANTS) 
+  forall(u1, u2 in UNITS | PLANT(u1) = PLANT(u2) and u1<u2) 
+   work(u1,t) >= work(u2,t)
+
+!**** Solving and solution reporting **** 
+! Solve the original problem  
+ minimize(Cost)
+
+ writeln("\n=== Nominal case ===\n")
+ print_solution(0)
+
+! Add robust constraints
+ robust_contingency(K)
+! Solve the robust problem  
+ minimize(Cost)
+
+ writeln("\n=== Robust against N-", K, " Contingency ===\n")
+ print_solution(K)
+
+end-model

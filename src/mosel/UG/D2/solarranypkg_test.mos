@@ -1,0 +1,57 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   File solarranypkg_test.mos
+   ``````````````````````````
+   Using the package 'solarrayanypkg'
+
+   *** Compile solarrayanypkg.mos before running this model ****
+
+   (c) 2022 Fair Isaac Corporation 
+       author: S. Heipcke, Jan 2022
+*******************************************************!)
+
+model "Test solarrayanypkg package"
+ uses "solarrayanypkg", "mmxprs"
+
+ declarations
+  R1=1..2
+  R2={6,7,9}
+  R3={5,-1}
+  x: array(R1,R2,R3) of mpvar
+  sol: array(R1,R2,R3) of real
+  sola: array(integer,integer,integer) of real
+  x2: array(R2,R3) of mpvar
+  sol2: array(R2,R3) of real
+  sol3: array(R1,R2,R3) of integer
+  sol4: array(R1,R2,string) of real
+ end-declarations
+
+! Define and solve a small problem  
+ sum(i in R1, j in R2, k in R3) (i+j+2*k) * x(i,j,k) <= 20
+ forall(i in R1, j in R2, k in R3) x(i,j,k)<=1
+ forall(j in R2, k in R3) x(1,j,k)=x2(j,k)
+ maximize(sum(i in R1, j in R2, k in R3) (i+2*j+k) * x(i,j,k))
+
+! Get the solution array  
+ solarray(x,sol)
+
+! Print the solution (3-dimensional array)
+ forall(i in R1, j in R2, k in R3)
+  writeln(" (", i, ",", j, ",", k, ") ", sol(i,j,k), " ", getsol(x(i,j,k)))
+ writeln(sol)
+
+ solarray(x,sola)
+ writeln(sola)
+
+! Testing with 2-dimensional array
+ solarray(x2,sol2)
+ writeln(sol2)
+
+! Testing various error situations
+ solarray(x,sol2)
+ solarray(x,sol3)
+ solarray(x,sol4)
+
+end-model

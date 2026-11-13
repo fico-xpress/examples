@@ -1,0 +1,29 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file rtparams3.mos
+   ``````````````````
+   Model with different runtime parameter types;
+   can be run as submodel from models 'runrtpar*.mos'.
+       
+   (c) 2010 Fair Isaac Corporation
+       author: S. Heipcke, May 2010
+*******************************************************!)
+
+model "Runtime parameters"
+ uses "mmjobs", "mmsystem"
+ parameters
+  PARAM1 = 0
+  PARAM2 = 0.5
+  PARAM3 = ''
+  PARAM4 = false
+ end-parameters
+
+ sleep(1000*round(5*random))
+ writeln("Node: ", getparam("NODENUMBER"), " ", getsysinfo(SYS_NODE), 
+         ". Parent: ", getparam("PARENTNUMBER"),
+	 ". Model number: ", getparam("JOBID"), 
+         ". Parameters: ", 
+         PARAM1, "  ", PARAM2, "  ", PARAM3, "  ", PARAM4)
+end-model 

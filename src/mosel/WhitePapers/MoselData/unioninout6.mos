@@ -1,0 +1,62 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file unioninout6.mos
+   ````````````````````
+   Reading/writing unions from/to spreadsheets.
+   - Using 'initializations from' with the csv driver -
+   
+   (c) 2021 Fair Isaac Corporation
+       author: S. Heipcke, Apr. 2021, rev. Feb. 2024
+*******************************************************!)
+model "Union handling (CSV)"
+ uses "mmsheet", "mmsystem"
+
+ parameters
+  CSTR_IN= 'mmsheet.csv:uniondata.csv'
+  CSTR_IN2= 'mmsheet.csv:uniondata2.csv'
+  CSTR_OUT= 'mmsheet.csv:uniondataout.csv'
+ end-parameters
+ 
+ declarations
+   L,L2: list of any
+   LU: list of text or real
+ end-declarations
+
+! Reading data of different types from a CSV file
+ initializations from CSTR_IN
+   L as "skiph;[]"
+   LU as "skiph;[]"
+ end-initializations
+
+ write("L orig: ")
+ forall(i in L) write (i,": ", i.typeid, "; ")
+ writeln
+! Date and time types are read in textual form 
+ L(5).date:=date(text(L(5)))
+ L(6).time:=time(text(L(6)))
+ write("L new:  ")
+ forall(i in L) write (i,": ", i.typeid, "; ")
+ writeln
+
+! List defined with a restricted set of types
+ write("LU:     ")
+ forall(i in LU) write (i,": ", i.typeid, "; ")
+ writeln
+
+ ! Quoted (simple double quotes) CSV contents results in same types as for 'L'
+ initializations from CSTR_IN2
+   L2 as "[]"
+ end-initializations
+ write("L2:     ")
+ forall(i in L2) write (i,": ", i.typeid, "; ")
+ writeln
+
+ ! Writing data of type 'any' to a CSV file
+ initializations to CSTR_OUT
+   L as "[A:A]"
+   LU as "[R1C3:R1C"+(2+LU.size)+"]"
+ end-initializations
+
+end-model

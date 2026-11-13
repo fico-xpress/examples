@@ -1,0 +1,67 @@
+(!*******************************************************
+  * Mosel Example Problems                              *
+  * ======================                              *
+  *                                                     *
+  * file lcdiv.mos                                      *
+  * ``````````````                                      *
+  * Example for the use of the Mosel language           *
+  * (Largest common divisor of two numbers)             *
+  *                                                     *
+  * (c) 2008 Fair Isaac Corporation                     *
+  *     author: S. Heipcke, 2001                        *
+  *******************************************************!)
+
+model Lcdiv
+
+! **** Subroutine calling itself recursively
+ public function lcdiv(a,b:integer):integer
+  if(a=b) then
+   returned:=a
+  elif(a>b) then
+   returned:=lcdiv(b,a-b)
+  else
+   returned:=lcdiv(a,b-a)
+  end-if   
+ end-function
+
+(!
+ This example shows an implementation that uses recursive function calls.
+ With large values for A or B the implementation in function 'lcdiv' can 
+ result in quite a large number of levels of recursive calls, which may 
+ exceed the system capacity.
+
+ Instead of using such recursive calls without any predetermined limit
+ on the recursion depth it is generally preferrable to formulate this 
+ programming task as a while loop as shown in function 'lcdiv2':
+!)
+
+! **** Alternative implementation without recursive function calls
+ public function lcdiv2(a,b:integer):integer
+  while (a <> b) do
+   if (a>b) then 
+    a:=a-b 
+   else b:=b-a 
+   end-if
+  end-do
+  returned:=a
+ end-function
+
+!*******************************************************
+
+ declarations
+  A,B: integer                  ! Two integer numbers
+ end-declarations
+
+ write("Enter two integer numbers:\n  A: ")
+ fflush
+ readln(A)
+ write("  B: ")
+ fflush
+ readln(B)
+
+ writeln("Largest common divisor: ", lcdiv(A,B))
+
+! Using the alternative implementation: 
+! writeln("Largest common divisor: ", lcdiv2(A,B))
+
+end-model

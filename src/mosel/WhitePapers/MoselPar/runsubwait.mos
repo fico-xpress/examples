@@ -1,0 +1,33 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file runsubwait.mos
+   ```````````````````
+   Running a model from another Mosel model,
+   waiting for the submodel termination.
+       
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, May 2006
+*******************************************************!)
+
+model "Run model testsub"
+ uses "mmjobs"
+
+ declarations
+  modSub: Model
+ end-declarations
+                                   ! Compile the model file
+ if compile("testsub.mos")<>0 then exit(1); end-if
+ load(modSub, "testsub.bim")       ! Load the bim file  
+ run(modSub)                       ! Start model execution
+ wait(1)                           ! Wait 1 second for an event
+
+ if isqueueempty then              ! No event has been sent: model still runs
+  writeln("Stopping the submodel")
+  stop(modSub)                     ! Stop the model
+  wait                             ! Wait for model termination
+ end-if
+ dropnextevent                     ! Ignore termination event message
+
+end-model 

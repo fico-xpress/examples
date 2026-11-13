@@ -1,0 +1,42 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file listinit.mos 
+   ````````````````` 
+   Initializing lists with values.
+ 
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Nov. 2006
+*******************************************************!)
+
+model "Initializing lists"
+
+ declarations
+  K,L: list of integer
+  M,N: array(range,set of integer) of list of string
+  S: set of integer
+  R: array(range,set of integer) of set of string
+ end-declarations
+ 
+ L:= [1,2,3,4,5,6,7,8,9,10]
+ M:: (2..4,1)[['A','B','C'],['D','E'],['F','G','H','I']]
+
+ writeln("L: ", L)
+ writeln("An entry of M: ", M(2,1))
+
+ initializations from "listinit.dat"
+  K  N
+ end-initializations
+
+ writeln("K: ", K)
+ writeln("An entry of N: ", N(5,3))
+
+ initializations from "listinit.dat"
+  S as 'K'  R as 'N'
+ end-initializations
+
+ writeln("Reading data into sets:")
+ writeln("S: ", S, "\nR: ", R)
+
+end-model

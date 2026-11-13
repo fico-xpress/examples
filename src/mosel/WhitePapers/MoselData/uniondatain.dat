@@ -1,0 +1,4 @@
+! Data file for unioninout1.mos
+L: [5 1.75 true FALSE "some text" "20-MAR-2021" "11:25:30"]
+L2: ["5" "1.75" "true" "FALSE" "some text" "20-MAR-2021" "11:25:30"]
+LU: [5 1.75 "true" "FALSE" "some text" "20-MAR-2021" "11:25:30"]

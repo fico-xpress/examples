@@ -1,0 +1,105 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file eulerkn3b.mos
+   ``````````````````
+   Euler knight problem.
+   Finding a tour on a chess-board for a knight figure, 
+   such that the knight moves through every cell exactly 
+   once and returns to its origin.
+   - Alternative implementation using a 'cycle' constraint 
+     with successor and predecessor variables -
+
+   *** This model cannot be run with a Community Licence 
+       for the default data instance ***
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+       Creation: 2007, rev. Mar. 2013       
+*****************************************************************!)
+
+model "Euler Knight Moves"
+ uses "kalis"
+
+ parameters
+  S = 8                                   ! Number of rows/columns
+  NBSOL = 1                               ! Number of solutions sought 
+ end-parameters
+ 
+ forward procedure calculate_successors(p: integer)
+ forward procedure print_solution(sol: integer)
+
+ N:= S * S                                ! Total number of cells
+ setparam("KALIS_DEFAULT_LB", 0)
+ setparam("KALIS_DEFAULT_UB", N)
+
+ declarations
+  PATH = 0..N-1                           ! Cells on the chessboard
+  succ: array(PATH) of cpvar              ! Successor of cell p
+  pred: array(PATH) of cpvar              ! Predecessor of cell p
+  predsucc: cpvarlist
+ end-declarations
+
+! Calculate set of possible successors
+ forall(p in PATH) calculate_successors(p)
+
+! Each cell is visited once, no subtours
+ cycle(succ, pred)
+
+! Branching strategy
+ forall(p in PATH) do 
+  predsucc += succ(p)
+  predsucc += pred(p)
+ end-do
+ cp_set_branching(assign_var(KALIS_SMALLEST_DOMAIN,KALIS_MIN_TO_MAX,predsucc))
+
+! Search for up to NBSOL solutions
+ solct:= 0
+ while (solct<NBSOL and cp_find_next_sol) do
+  solct+=1
+  cp_show_stats
+  print_solution(solct)
+ end-do
+
+
+! **** Calculate possible successors ****
+ procedure calculate_successors(p: integer)
+  declarations
+   SuccSet: set of integer                ! Set of successors
+  end-declarations
+
+  xp := p div S
+  yp := p mod S
+    
+  forall(q in PATH) do
+   xq := q div S
+   yq := q mod S
+   delta_x := abs(xp-xq)
+   delta_y := abs(yp-yq)  
+   if (delta_x<=2) and (delta_y<=2) and (delta_x+delta_y=3) then
+    SuccSet +={q}
+   end-if
+  end-do
+ 
+  setdomain(succ(p), SuccSet)
+  setdomain(pred(p), SuccSet)
+ end-procedure
+
+!****************************************************************
+! **** Solution printing ****
+ procedure print_solution(sol: integer)
+  writeln("Solution ", sol, ":")
+  thispos:=0
+  nextpos:=getval(succ(0))
+  ct:=1
+  while (nextpos<>0) do
+   write(thispos, if(ct mod 10 = 0, "\n ", ""), " -> ") 
+   val:=getval(succ(thispos))
+   thispos:=nextpos
+   nextpos:=getval(succ(thispos))
+   ct+=1
+  end-do
+  writeln("0")
+ end-procedure
+
+end-model

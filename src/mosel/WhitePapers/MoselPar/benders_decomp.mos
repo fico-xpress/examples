@@ -1,0 +1,172 @@
+(!*******************************************************
+   Mosel Example Problems
+   ======================
+
+   file benders_decomp.mos
+   `````````````````````
+   Benders decomposition for solving a simple MIP.
+   - Base model -
+
+   NOTE: This example is for illustration/tutorial purposes only. There is no
+   benefit in solving the generic problem defined below using Benders
+   decomposition.
+
+   Solves the problem:
+    min c1*x + c2*y
+    st  A1*x + A2*y <=b (m constraints)
+    x binary, y >=0 continuous
+
+   Benders example problem from:
+    * Georgios Patsakis (UC Berkeley, Amazon)
+    * Richard L.-Y. Chen (Amazon).
+
+   *** ATTENTION: This model will return an error if ***
+   *** no more than one Xpress licence is available. ***
+
+   (c) 2025-2026 Fair Isaac Corporation
+       author: S. Heipcke, Jan. 2006, rev. B. Vieira Oct. 2025
+*******************************************************!)
+
+model "Benders (base model)"
+ uses "mmxprs", "mmjobs", "mmsystem"
+
+ parameters
+  NINTVAR = 4               ! Number of integer variables
+  NCTVAR = 5                ! Number of continuous variables
+  NC = 5                    ! Number of constraints
+  DATAFILE = "bprob455.dat" ! Data file with problem data
+  SUBPROBLEM = "dual"            ! Select either "dual" or "cont" for the subproblem
+ end-parameters
+
+ forward procedure print_solution
+ forward procedure solve_original
+
+ declarations
+  ! Event codes exchanged with submodels
+  EVENT_READY=2
+  EVENT_SOLVED=3
+  EVENT_INFEAS=4
+  EVENT_ADDFEASCUT=5
+  EVENT_ADDOPTCUT=6
+  EVENT_MAINSOLVED=7
+
+  CtVars = 1..NCTVAR                   ! Continuous variables
+  IntVars = 1..NINTVAR                 ! Discrete variables
+  Ctrs = 1..NC                         ! Set of constraints (orig. problem)
+
+  A1: array(Ctrs,IntVars) of integer   ! Coeff.s of integer variables
+  A2: array(Ctrs,CtVars) of integer    ! Coeff.s of cont variables
+  b: array(Ctrs) of integer            ! RHS values
+  c1: array(IntVars) of integer        ! Obj. coeff.s of integer variables
+  c2: array(CtVars) of integer         ! Obj. coeff.s of cont variables
+
+  sol_x: array(IntVars) of real        ! Solution of integer vars
+  sol_y: array(CtVars) of real         ! Solution of continuous vars
+  sol_obj: real                        ! Objective function value
+
+  RM: range                            ! Model indices
+  stepmod: dynamic array(RM) of Model  ! Submodels
+
+  x: array(IntVars) of mpvar           ! Integer variables of original problem
+  y: array(CtVars) of mpvar            ! Continuous variables of original problem
+ end-declarations
+
+ initializations from DATAFILE
+  A1 A2 b c1 c2
+ end-initializations
+
+ ! Save problem data to be shared with submodels
+ initializations to "bin:shmem:probdata"
+  A1 A2 b c1 c2
+ end-initializations
+
+ ! Solve original problem without decomposing
+ solve_original
+
+ ! Compile + load all submodels
+ if compile("benders_int.mos")<>0: exit(1)
+ create(stepmod(1)); load(stepmod(1), "benders_int.bim")
+ if compile("benders_" + SUBPROBLEM + ".mos")<>0: exit(2)
+ create(stepmod(2)); load(stepmod(2), "benders_" + SUBPROBLEM + ".bim")
+                                      ! Start the execution of the submodels
+ run(stepmod(1), "NINTVAR=" + NINTVAR + ",NC=" + NC)
+ run(stepmod(2), "NCTVAR=" + NCTVAR + ",NINTVAR=" + NINTVAR + ",NC=" + NC)
+
+ forall(m in RM) do
+  wait                                ! Wait for "Ready" messages
+  ev:= getnextevent
+  if getclass(ev) <> EVENT_READY then
+   writeln("Error occurred in a subproblem")
+   exit(4)
+  end-if
+ end-do
+
+ ! **** Benders decomposition - Solution algorithm ****
+ writeln("\n**** Benders decomposition algorithm ****")
+ status:= EVENT_READY                       ! Initialize status flag
+ ct:= 1                                     ! Iteration counter
+ repeat
+ writeln("\n**** Iteration ", ct, " ****")
+  send(stepmod(1), status, ct)              ! 1. Solve main problem (with int. vars)
+  wait                                      ! Wait for next event
+  ev:=getnextevent                          ! Get the event data
+  status:= getclass(ev)                     ! Store status of main problem
+  if status = EVENT_MAINSOLVED then
+   send(stepmod(2), status, ct)             ! 2. Solve subproblem (with cont. vars)
+   wait                                     ! Wait for next event
+   ev:= getnextevent                        ! Get the event data
+   status:= getclass(ev)                    ! Store status of main problem
+  else
+   writeln("Error occurred with solving the main problem")
+   exit(4)
+  end-if
+
+  ct+=1
+ until status = EVENT_SOLVED
+
+ if status = EVENT_SOLVED then
+  print_solution                           ! Retrieve and display the solution
+ end-if
+
+ ! **** Cleaning up temporary files ****
+ forall(m in RM) stop(stepmod(m))           ! Stop all submodels
+ fdelete("benders_int.bim")
+ fdelete("benders_cont.bim")
+ fdelete("shmem:probdata")
+ fdelete("shmem:sol")
+
+!-----------------------------------------------------------
+ procedure print_solution
+  ! Retrieve results
+  initializations from "bin:shmem:sol"
+   sol_x sol_y
+  end-initializations
+
+  sol_obj := sum(i in IntVars) c1(i)*sol_x(i) + sum(i in CtVars) c2(i)*sol_y(i)
+  writeln("\n**** Final solution (Benders) ****")
+  writeln("\nSolution with Benders decomposition: obj: ", sol_obj, ", x: ",
+    sol_x, ", y: ", sol_y)
+ end-procedure
+
+!-----------------------------------------------------------
+ ! Solve the original problem without decomposing
+ procedure solve_original
+  writeln("\n**** Solving original problem without decomposing ****")
+  forall(i in IntVars) x(i) is_binary    ! Integrality condition vars x
+
+  forall(j in Ctrs)
+   Ctr(j):= sum(i in IntVars) A1(j,i) * x(i) + sum(i in CtVars) A2(j,i) * y(i) <= b(j)
+
+  minimize(sum(i in IntVars) c1(i) * x(i) + sum(i in CtVars) c2(i) * y(i))
+
+  ! Get and print solution
+  forall(i in IntVars)
+   sol_x(i):= getsol(x(i))
+  forall(i in CtVars)
+   sol_y(i):= getsol(y(i))
+
+  writeln("\nSolution without decomposing: obj: ", getobjval, ", x: ",
+    sol_x, ", y: ", sol_y)
+
+ end-procedure
+end-model

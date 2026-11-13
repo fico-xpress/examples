@@ -1,0 +1,133 @@
+(!*********************************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file binpacking.mos
+   ```````````````````
+   TYPE:         Bin packing problem
+   DIFFICULTY:   2
+   FEATURES:     simple MIP problem, random generation of data,
+                 use of model parameters, setting Optimizer controls
+   DESCRIPTION:  A number of items of different sizes are to be put
+                 into bins of different capacities. Item sizes and bin 
+                 capacities are randomly generated integers that lie in 
+                 the given intervals. We wish to minimize the total
+                 number of bins used.
+   FURTHER INFO: Similar problem:
+                 `Applications of optimization with Xpress-MP', 
+                 Section 9.4 `Backing up files'
+   
+   (c) 2008 Fair Isaac Corporation
+       Creation: Feb. 2004, rev. Sep. 2017
+**********************************************************************!)
+
+model Binpacking
+ options noimplicit
+ uses "mmxprs", "mmsvg"
+
+ parameters
+  NITEMS = 20                             ! Number of items
+  NBINS = 11                              ! Number of bins
+  MinSize = 20                            ! Min. size of items
+  MaxSize = 39                            ! Max. size of items
+  MinCapacity = 40                        ! Min. capacity of bins
+  MaxCapacity = 89                        ! Max. capacity of bins
+ end-parameters
+
+(! To obtain a hard instance:
+ NITEMS = 50
+ NBINS = 30
+!)
+ 
+ declarations
+  ITEMS = 1..NITEMS                       ! Items
+  BINS = 1..NBINS                         ! Bins
+  SIZE: array(ITEMS) of integer           ! Sizes of items
+  TOTALSIZE: integer                      ! Total size of items
+  CAP: array(BINS) of integer             ! Bin capacities
+ 
+  contains: array(BINS,ITEMS) of mpvar    ! 1 if item in bin, 0 otherwise
+  binused: array(BINS) of mpvar           ! 1 if bin used, 0 otherwise
+ 
+  BinCapacity: array(BINS) of linctr
+  ItemInOneBinOnly: array(ITEMS) of linctr
+  PackAll, BinsUsed: linctr
+ end-declarations
+
+! Initialize random number generator with a fixed value to reproduce
+! always the same sequence of numbers. Comment this line to generate a
+! different sequence of numbers at every execution.
+ setrandseed(2)
+
+! Generate random bin capacities in the interval [MinCapacity,MaxCapacity]
+ forall(b in BINS)
+  CAP(b):= MinCapacity+round(random*(MaxCapacity+1-MinCapacity) - 0.5)
+
+! Generate random item sizes in the interval [MinSize,MaxSize]
+ TOTALSIZE:=0
+ forall(i in ITEMS) do
+  SIZE(i):= MinSize+round(random*(MaxSize+1-MinSize) - 0.5)
+  TOTALSIZE+=SIZE(i)
+ end-do
+ 
+! Binary variables
+ forall(b in BINS,i in ITEMS) contains(b,i) is_binary
+ forall(b in BINS) binused(b) is_binary
+ 
+! Each item can go in at most one bin
+ forall(i in ITEMS)
+  ItemInOneBinOnly(i):= sum(b in BINS) contains(b,i) <= 1 
+
+! Ensure bin capacity is not exceeded 
+ forall(b in BINS)
+  BinCapacity(b):= sum(i in ITEMS) contains(b,i)*SIZE(i) <= CAP(b) * binused(b)
+ 
+! Pack all items
+ PackAll:= sum(b in BINS,i in ITEMS) contains(b,i) = NITEMS
+
+! Objective function: number of bins used
+ BinsUsed:=sum(b in BINS) binused(b)
+
+! We can infer this lower bound on the objective function
+! LowerLimit:= BinsUsed>= round(TOTALSIZE/MaxCapacity)
+
+! Setting parameters for Xpress Optimizer
+! setparam("xprs_verbose",true)          ! Display Optimizer log
+ setparam("xprs_cutstrategy",3)         ! Use aggressive cut strategy
+
+! Solve the problem
+ minimize(BinsUsed) 
+ 
+! Solution printing
+ writeln("Total number of bins used: ", getobjval)
+ forall(b in BINS) do
+  write("Bin ", b, "(", CAP(b), "): ")
+  forall(i in ITEMS)
+   write( if(getsol(contains(b,i))>0, string(i)+"("+SIZE(i)+") ", ""))
+  writeln
+ end-do 
+
+! Draw the solution
+ declarations
+   lev: integer
+ end-declarations
+
+ svgsetgraphviewbox(0,0,2*ceil(getobjval)+1, max(b in BINS)CAP(b)+10)
+ svgsetgraphscale(2)
+ svgsetgraphlabels("Bins", "Size")
+ svgaddgroup("Cap", "Bin capacity", SVG_RED)
+ forall(b in BINS) do
+  svgaddline("Cap", 2*b-0.5, CAP(b)+0.2, 2*b+1.5, CAP(b)+0.2)
+  lev:=0
+  forall(i in ITEMS | getsol(contains(b,i))>0) do
+   svgaddgroup("I"+i, "Item "+i)
+   svgsetstyle(SVG_FILL,SVG_CURRENT)
+   svgaddrectangle(2*b, lev, 1, SIZE(i))
+   lev+=SIZE(i)
+  end-do
+ end-do 
+
+ svgsave("binpack.svg")
+ svgrefresh
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+end-model

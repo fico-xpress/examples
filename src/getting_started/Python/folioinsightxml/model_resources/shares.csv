@@ -1,0 +1,11 @@
+ShareIds,Return,HighRisk,NorthAmerica
+Bank,6.0,False,False
+Brewery,8.0,False,False
+Cars,7.0,False,False
+Electronics,21.0,True,False
+Hardware,17.0,True,True
+Highways,9.0,False,False
+Software,31.0,True,False
+Telecom,12.0,True,True
+Theater,26.0,True,True
+Treasury,5.0,False,True

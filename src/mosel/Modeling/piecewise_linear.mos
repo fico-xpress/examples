@@ -1,0 +1,47 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file piecewise_linear.mos
+   `````````````````````````
+   Approximating nonlinear univariate functions using
+   piecewise linear constraints.
+
+   -- Mosel version of the Python example piecewise_linear.py --
+
+   (c) 2020 Fair Isaac Corporation
+       author: Y.Colombani, Jun. 2020
+*******************************************************!)
+model piecewise_linear
+uses 'mmxnlp'
+
+parameters
+  N = 100                    ! Number of points of the approximation
+  FREQ = 27.5                ! Frequency of sine curve
+end-parameters
+
+public declarations
+  STEP = 2 * M_PI / (N - 1)  ! Width of each x segment
+  x: mpvar
+end-declarations
+
+! Piecewise linear, continuous concave function formulated via piecewise
+! linear segments
+pw1:= pwlin([pws(0,       10*x),
+             pws(1, 10 +  3*(x-1)),
+             pws(2, 13 +  2*(x-2)),
+             pws(3, 15 +    (x-3))])
+
+!**** Approximate sin(FREQ * x) for x in [0, 2*pi]
+! Piecewise linear, discontinuous function over N points: over the
+! i-th interval, the function is equal to v[i] + s[i] * (x - b[i])
+! where v, s, b are value, slope, and breakpoint.
+pw2:= pwlin(union(i in 0..N-1,s=i*STEP)[pws(s,sin(s*FREQ)+FREQ*cos(s*FREQ)*(x-s))])
+
+minimise(pw1 - pw2)
+
+writeln("solution: x = ", x.sol)
+writeln("values of piecewise linear functions:", [pw1.sol, pw2.sol])
+writeln("objective function:", getobjval)
+
+end-model

@@ -1,0 +1,71 @@
+'RISK': ['hardware1' 'hardware2' 'hardware3' 'hardware4' 'hardware5' 'theater1' 'theater2'
+ 'theater3' 'theater4' 'theater5' 'telecom1' 'telecom2' 'telecom3' 'telecom4'
+ 'telecom5' 'software1' 'software2' 'software3' 'software4' 'software5' 'electronics1'
+ 'electronics2' 'electronics3' 'electronics4' 'electronics5']
+'RET': [('treasury1') 5.29 ('treasury2') 2.8 ('treasury3') 3.59 ('treasury4') 6.97
+ ('treasury5') 3.3 ('hardware1') 10.26 ('hardware2') 10.13 ('hardware3') 11.59
+ ('hardware4') 13.37 ('hardware5') 13.13 ('theater1') 17.37 ('theater2') 26.35
+ ('theater3') 24.95 ('theater4') 32.28 ('theater5') 21.04 ('telecom1') 6.57
+ ('telecom2') 11.99 ('telecom3') 17.54 ('telecom4') 13.07 ('telecom5') 9.03
+ ('brewery1') 11.11 ('brewery2') 5.97 ('brewery3') 7.23 ('brewery4') 10.65
+ ('brewery5') 5.2 ('highways1') 9.36 ('highways2') 8.94 ('highways3') 8.65
+ ('highways4') 12.77 ('highways5') 10.98 ('cars1') 6.35 ('cars2') 10.49 ('cars3') 7.18
+ ('cars4') 3.81 ('cars5') 3.56 ('bank1') 7.94 ('bank2') 6.23 ('bank3') 5.55
+ ('bank4') 8.3 ('bank5') 6.97 ('software1') 34.08 ('software2') 36.22 ('software3') 34.4
+ ('software4') 45.07 ('software5') 24.07 ('electronics1') 24.3 ('electronics2') 12.52
+ ('electronics3') 15.71 ('electronics4') 28.66 ('electronics5') 13.81]
+'LOC': [('EU') ['treasury1' 'hardware5' 'telecom2' 'telecom4' 'highways3' 'highways5' 'cars3'
+ 'bank4' 'bank5' 'software1' 'software4' 'electronics1' 'electronics2' 'electronics3']
+ ('NA') ['treasury2' 'hardware1' 'hardware2' 'hardware3' 'theater4' 'telecom1' 'brewery1'
+ 'brewery3' 'highways2' 'highways4' 'cars2' 'cars4' 'bank3'] ('APAC') ['treasury4' 'treasury5' 'hardware4' 'theater1' 'theater2' 'theater5' 'telecom3'
+ 'telecom5' 'brewery2' 'brewery4' 'cars1' 'cars5' 'bank1' 'bank2' 'electronics4'
+ 'electronics5']]
+'LOCTAB': [('EU' 'treasury1') 1 ('EU' 'hardware5') 1 ('EU' 'telecom2') 1 ('EU' 'telecom4') 1
+ ('EU' 'highways3') 1 ('EU' 'highways5') 1 ('EU' 'cars3') 1 ('EU' 'bank4') 1
+ ('EU' 'bank5') 1 ('EU' 'software1') 1 ('EU' 'software4') 1 ('EU' 'electronics1') 1
+ ('EU' 'electronics2') 1 ('EU' 'electronics3') 1 ('NA' 'treasury2') 1 ('NA'
+ 'hardware1') 1 ('NA' 'hardware2') 1 ('NA' 'hardware3') 1 ('NA' 'theater4') 1
+ ('NA' 'telecom1') 1 ('NA' 'brewery1') 1 ('NA' 'brewery3') 1 ('NA' 'highways2') 1
+ ('NA' 'highways4') 1 ('NA' 'cars2') 1 ('NA' 'cars4') 1 ('NA' 'bank3') 1 ('APAC'
+ 'treasury4') 1 ('APAC' 'treasury5') 1 ('APAC' 'hardware4') 1 ('APAC' 'theater1') 1
+ ('APAC' 'theater2') 1 ('APAC' 'theater5') 1 ('APAC' 'telecom3') 1 ('APAC'
+ 'telecom5') 1 ('APAC' 'brewery2') 1 ('APAC' 'brewery4') 1 ('APAC' 'cars1') 1
+ ('APAC' 'cars5') 1 ('APAC' 'bank1') 1 ('APAC' 'bank2') 1 ('APAC' 'electronics4') 1
+ ('APAC' 'electronics5') 1]
+'DEV': [('treasury1') 0.12 ('treasury2') 0.13 ('treasury3') 0.08 ('treasury4') 0.13
+ ('treasury5') 0.08 ('hardware1') 22.05 ('hardware2') 21.44 ('hardware3') 13.65
+ ('hardware4') 21.93 ('hardware5') 18.77 ('theater1') 36.53 ('theater2') 33.44
+ ('theater3') 29.51 ('theater4') 34.41 ('theater5') 33.57 ('telecom1') 24.26
+ ('telecom2') 22.03 ('telecom3') 21.76 ('telecom4') 19.22 ('telecom5') 17.91
+ ('brewery1') 3.82 ('brewery2') 4.3 ('brewery3') 2.81 ('brewery4') 3.22 ('brewery5') 2.84
+ ('highways1') 2.69 ('highways2') 4.14 ('highways3') 3 ('highways4') 2.68 ('highways5') 3.21
+ ('cars1') 5.12 ('cars2') 4.33 ('cars3') 3.76 ('cars4') 4.98 ('cars5') 5.16
+ ('bank1') 1.24 ('bank2') 1.23 ('bank3') 1.45 ('bank4') 1.86 ('bank5') 1.67
+ ('software1') 32.6 ('software2') 29.06 ('software3') 19.47 ('software4') 23.77
+ ('software5') 24.07 ('electronics1') 18.19 ('electronics2') 18.28 ('electronics3') 20.14
+ ('electronics4') 14.86 ('electronics5') 13.13]
+'SEC': [('bonds') ['treasury1' 'treasury2' 'treasury3' 'treasury4' 'treasury5'] ('technology') ['hardware1' 'hardware2' 'hardware3' 'hardware4' 'hardware5' 'software1' 'software2'
+ 'software3' 'software4' 'software5' 'electronics1' 'electronics2' 'electronics3'
+ 'electronics4' 'electronics5']
+ ('entertainment') ['theater1' 'theater2' 'theater3' 'theater4' 'theater5']
+ ('telecom') ['telecom1' 'telecom2' 'telecom3' 'telecom4' 'telecom5'] ('food') ['brewery1' 'brewery2' 'brewery3' 'brewery4' 'brewery5']
+ ('construction') ['highways1' 'highways2' 'highways3' 'highways4' 'highways5']
+ ('manufacturing') ['cars1' 'cars2' 'cars3' 'cars4' 'cars5'] ('finance') ['bank1' 'bank2' 'bank3' 'bank4' 'bank5']]
+'SECTAB': [('bonds' 'treasury1') 1 ('bonds' 'treasury2') 1 ('bonds' 'treasury4') 1 ('bonds'
+ 'treasury5') 1 ('bonds' 'treasury3') 1 ('technology' 'hardware5') 1 ('technology'
+ 'software1') 1 ('technology' 'software4') 1 ('technology' 'electronics1') 1
+ ('technology' 'electronics2') 1 ('technology' 'electronics3') 1 ('technology'
+ 'hardware1') 1 ('technology' 'hardware2') 1 ('technology' 'hardware3') 1 ('technology'
+ 'hardware4') 1 ('technology' 'electronics4') 1 ('technology' 'electronics5') 1
+ ('technology' 'software2') 1 ('technology' 'software3') 1 ('technology' 'software5') 1
+ ('entertainment' 'theater4') 1 ('entertainment' 'theater1') 1 ('entertainment'
+ 'theater2') 1 ('entertainment' 'theater5') 1 ('entertainment' 'theater3') 1
+ ('telecom' 'telecom2') 1 ('telecom' 'telecom4') 1 ('telecom' 'telecom1') 1
+ ('telecom' 'telecom3') 1 ('telecom' 'telecom5') 1 ('food' 'brewery1') 1 ('food'
+ 'brewery3') 1 ('food' 'brewery2') 1 ('food' 'brewery4') 1 ('food' 'brewery5') 1
+ ('construction' 'highways3') 1 ('construction' 'highways5') 1 ('construction'
+ 'highways2') 1 ('construction' 'highways4') 1 ('construction' 'highways1') 1
+ ('manufacturing' 'cars3') 1 ('manufacturing' 'cars2') 1 ('manufacturing' 'cars4') 1
+ ('manufacturing' 'cars1') 1 ('manufacturing' 'cars5') 1 ('finance' 'bank4') 1
+ ('finance' 'bank5') 1 ('finance' 'bank3') 1 ('finance' 'bank1') 1 ('finance'
+ 'bank2') 1]

@@ -1,0 +1,75 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file prime2.mos 
+   ```````````````
+   Working with sets.
+   -- Debugging and profiling --
+ 
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2001, rev. Jul. 2014
+*******************************************************!)
+
+model Prime 
+
+ parameters
+  LIMIT=20000                   ! Search for prime numbers in 2..LIMIT
+ end-parameters
+
+ declarations
+  SNumbers: set of integer      ! Set of numbers to be checked
+  SPrime: set of integer        ! Set of prime numbers
+ end-declarations
+
+ SNumbers:={2..LIMIT} 
+ 
+ writeln("Prime numbers between 2 and ", LIMIT, ":")
+
+ n:=2
+ repeat
+   while (not(n in SNumbers)) n+=1
+   SPrime += {n}                ! n is a prime number
+   i:=n
+   while (i<=LIMIT) do          ! Remove n and all its multiples
+     SNumbers-= {i}
+     i+=n
+   end-do
+ until SNumbers={}    
+ 
+ writeln(SPrime)
+ writeln(" (", getsize(SPrime), " prime numbers.)")
+ 
+end-model
+
+(!
+
+Debugging
+=========
+Use the following command sequence in the Mosel command line:
+
+mosel debug prime2.mos 'LIMIT=50'
+break 31
+bcond 1-1 getsize(SNumbers) < 10
+cont
+print n
+display SNumbers
+display SPrime
+cont
+quit
+
+
+Profiling
+=========
+Use the following command in the Mosel command line:
+
+mosel profile prime2.mos 'LIMIT=50'
+
+Obtain information about memory usage:
+
+mosel debug prime2.mos
+info SPrime
+lsmods
+quit
+
+!)

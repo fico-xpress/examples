@@ -1,0 +1,126 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file jobshop2b.mos
+   ``````````````````
+   Job-shob scheduling problem.
+   - Scheduling search with user branching strategy - 
+
+   *** This model cannot be run with a Community Licence 
+       for the provided data instance ***
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation 
+       Creation: 2006, rev. Apr. 2022
+*****************************************************************!)
+
+model "Job shop (CP)"
+ uses "kalis", "mmsystem"
+
+ parameters
+  DATAFILE = "jobshop.dat"
+  NJ = 6                                 ! Number of jobs
+  NM = 6                                 ! Number of resources
+ end-parameters
+
+ forward function select_task(tlist: cptasklist): integer
+ forward procedure print_solution
+
+ declarations
+  JOBS = 1..NJ                           ! Set of jobs
+  MACH = 1..NM                           ! Set of resources
+  RES: array(JOBS,MACH) of integer       ! Resource use of tasks
+  DUR: array(JOBS,MACH) of integer       ! Durations of tasks
+
+  res: array(MACH) of cpresource         ! Resources
+  task: array(JOBS,MACH) of cptask       ! Tasks
+ end-declarations
+
+ initializations from "Data/"+DATAFILE
+  RES DUR
+ end-initializations
+
+ HORIZON:= sum(j in JOBS, m in MACH) DUR(j,m)
+ forall(j in JOBS) getend(task(j,NM)) <= HORIZON 
+
+! Setting up the resources (capacity 1)  
+ forall(m in MACH) 	  
+  set_resource_attributes(res(m), KALIS_UNARY_RESOURCE, 1)
+
+! Setting up the tasks (durations, resource used) 
+ forall(j in JOBS, m in MACH)  	
+  set_task_attributes(task(j,m), DUR(j,m), res(RES(j,m)))
+
+! Precedence constraints between the tasks of every job
+ forall (j in JOBS, m in 1..NM-1)
+  setsuccessors(task(j,m), {task(j,m+1)})
+
+! Branching strategy
+ Strategy(1):=task_serialize(->select_task, KALIS_MIN_TO_MAX, 
+              KALIS_MIN_TO_MAX,
+              union(j in JOBS, m in MACH | exists(task(j,m))) {task(j,m)})
+
+(! Alternative strategy: 
+ Strategy(1):=task_serialize(KALIS_SMALLEST_LCT, KALIS_MIN_TO_MAX, 
+              KALIS_MIN_TO_MAX,
+              union(j in JOBS, m in MACH | exists(task(j,m))) {task(j,m)})
+!)
+
+ cp_set_schedule_strategy(KALIS_INITIAL_SOLUTION, Strategy)
+
+ cp_set_solution_callback(->print_solution)   ! Define solution callback   
+ setparam("KALIS_VERBOSE_LEVEL", 2)           ! Enable solver output
+
+! Solve the problem
+ starttime:= gettime 
+
+ if cp_schedule(getmakespan)=0 then
+  writeln("Problem is infeasible")
+  exit(1)
+ end-if
+ 
+! Solution printing
+ cp_show_stats
+ write(gettime-starttime, "sec ")
+ writeln("Total completion time: ", getsol(getmakespan))
+ forall(j in JOBS) do
+  write("Job ", strfmt(j,-2))
+  forall(m in MACH | exists(task(j,m)))
+   write(formattext("%3d:%3d-%2d", RES(j,m), getsol(getstart(task(j,m))),  
+         getsol(getend(task(j,m)))))
+  writeln
+ end-do
+
+!*******************************************************************
+! Task selection for branching
+ function select_task(tlist: cptasklist): integer 
+  declarations
+   Tset: set of integer
+  end-declarations
+
+ ! Get the number of elements of "tlist"
+  listsize:= getsize(tlist)  
+
+ ! Set of uninstantiated tasks
+  forall(i in 1..listsize) 
+   if not is_fixed(getstart(gettask(tlist,i))) then 
+    Tset+= {i}   		
+   end-if
+ 
+  returned:= 0
+ 	
+  ! Get a task with smallest start time domain
+  smin:= min(j in Tset) getsize(getstart(gettask(tlist,j))) 
+  forall(j in Tset)
+   if getsize(getstart(gettask(tlist,j))) = smin then  
+    returned:=j; break
+   end-if
+
+ end-function
+ 
+ procedure print_solution
+  writeln("(", gettime-starttime, "sec) Solution found with makespan = ",
+          getsol(getmakespan))
+ end-procedure
+
+end-model

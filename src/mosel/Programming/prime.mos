@@ -1,0 +1,46 @@
+(!*******************************************************
+  * Mosel Example Problems                              *
+  * ======================                              *
+  *                                                     *
+  * file prime.mos                                      *
+  * ``````````````                                      *
+  * Example for the use of the Mosel language           *
+  * (Calculation of prime numbers)                      *
+  *                                                     *
+  * Implements the Sieve of Eratosthenes: each time a   *
+  * prime number is found all of its multiples are      *
+  * deleted from the set of remaining numbers.          *
+  *                                                     *
+  * (c) 2008 Fair Isaac Corporation                     *
+  *     author: S. Heipcke, 2001                        *
+  *******************************************************!)
+
+model Prime                    ! Start a new model
+
+parameters
+ LIMIT=100                     ! Search for prime numbers in 2..LIMIT
+end-parameters
+
+declarations
+ SNumbers: set of integer      ! Set of numbers to be checked
+ SPrime: set of integer        ! Set of prime numbers
+end-declarations
+
+ SNumbers:={2..LIMIT} 
+ 
+ writeln("Prime numbers between 2 and ", LIMIT, ":")
+
+ n:=2
+ repeat
+   while (not(n in SNumbers)) n+=1
+   SPrime += {n}
+   i:=n
+   while (i<=LIMIT) do
+     SNumbers-= {i}
+     i+=n
+   end-do
+ until SNumbers={}    
+
+ writeln(SPrime)
+ 
+end-model

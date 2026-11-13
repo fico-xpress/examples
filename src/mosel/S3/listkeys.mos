@@ -1,0 +1,81 @@
+(!*******************************************************
+  * Mosel S3 Integration Examples                       *
+  * =============================                       *
+  *                                                     *
+  * file upload.mos                                     *
+  * ```````````````                                     *
+  * Example of listing available keys in an S3 bucket.  *
+  *                                                     *
+  * Note: this must either be run on a cloud component  *
+  * (e.g. Xpress Workbench on DMP), or the user must    *
+  * enter their own S3 bucket URL and access            *
+  * credentials where indicated below.                  *
+  *                                                     *
+  * (c) 2017 Fair Isaac Corporation                     *
+  *     author: James Farmer, 2017                      *
+  *******************************************************!)
+model S3ListExample
+ uses "s3"
+
+ parameters
+  ! Set to 'true' when running this model within DMP,
+  ! 'false' when on-premise
+  ON_CLOUD=true
+  
+  ! On-premise, user must specify their own S3 credentials
+  ! Fill in yours in the lines below
+  S3_BUCKET_URL = ''
+  S3_REGION = ''
+  S3_ACCESS_KEY_ID = ''
+  S3_SECRET_KEY = ''
+  S3_SESSION_TOKEN = ''  ! Optional
+ end-parameters
+
+ declarations
+  PREFIX="MyPrefix/"
+  mybucket: s3bucket
+  objslistresult: s3objectlist
+ end-declarations
+
+
+ if ON_CLOUD then
+  ! On the cloud, use the DMP 'solutiondata' bucket
+  s3init( mybucket, S3_DMP_SOLUTIONDATA )
+  if s3status(mybucket)<>S3_OK then
+   writeln("Error initializing S3 folder: ", s3getlasterror(mybucket))
+   exit(1)
+  end-if
+ 
+ else
+  ! On-premise, user must specify their own S3 credentials
+  ! Fill in yours in the lines below
+  mybucket.url := S3_BUCKET_URL
+  mybucket.region := S3_REGION
+  mybucket.accesskeyid := S3_ACCESS_KEY_ID
+  mybucket.secretkey := S3_SECRET_KEY
+  mybucket.sessiontoken := S3_SESSION_TOKEN
+ end-if
+ 
+ writeln( "Listing all keys starting with prefix '",PREFIX,"'" )
+
+ repeat
+
+  ! Request objects list
+  s3listobjects( mybucket, PREFIX, "", objslistresult )
+  ! Check for errors
+  if s3status(mybucket)<>S3_OK then
+   writeln("Error returned by S3 service: ", s3getlasterror(mybucket))
+   exit(1)
+  end-if
+
+  ! Process objects returned
+  forall (o in objslistresult.objects) do
+   writeln('Object key:',o.key,', last-modified:',o.lastmodified)
+  end-do
+
+  ! Repeat until we’ve fetched the last batch of object keys
+ until not objslistresult.istruncated
+
+ writeln( "List successful" )
+ 
+end-model

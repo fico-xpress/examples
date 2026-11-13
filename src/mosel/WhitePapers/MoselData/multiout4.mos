@@ -1,0 +1,59 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file multiout4.mos
+   ``````````````````
+   Output several data arrays into a single table.
+   - Using 'initializations' and OCI statements -
+       
+   (c) 2012 Fair Isaac Corporation
+       author: S. Heipcke, Dec. 2012, rev. Aug. 2023
+*******************************************************!)
+
+model "Output multiple data columns (OCI)"
+ uses "mmoci"
+ options keepassert
+
+ parameters
+  DB="myname/mypassword@dbname"     ! Login to Oracle database (not provided)
+ end-parameters
+
+ declarations
+  PRODUCTS: set of string
+  MACH: range
+  COST: dynamic array(PRODUCTS,MACH) of real
+  DUR: dynamic array(PRODUCTS,MACH) of integer
+ end-declarations
+
+! Read data
+ initializations from "multiout.dat"
+  COST DUR
+ end-initializations
+
+
+! **** Using SQL statements ****
+
+ setparam("OCIdebug",true)
+ OCIlogon(DB)
+ assert(getparam("OCIsuccess"))
+ writeln("Connection number: ", getparam("OCIconnection"))
+
+ OCIexecute("create table CombData (Products varchar(10), Mach integer, Cost double, Duration integer)")
+ assert(getparam("OCIsuccess"))
+ OCIexecute("delete from CombData")
+ OCIexecute("insert into CombData(Products, Mach, Cost, Duration) values (:1,:2,:3,:4)", [COST,DUR])
+ assert(getparam("OCIsuccess"))
+
+ OCIlogoff
+
+
+! **** Using 'initializations to' ****
+! (this assumes that the table 'CombData' has been created previously)
+
+ initializations to "mmoci.oci:debug;"+DB
+  [COST,DUR] as 'CombData'
+ end-initializations
+
+
+end-model

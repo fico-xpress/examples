@@ -1,0 +1,92 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file parpkg.mos
+   ```````````````
+   Definition of package parameters.
+   
+   (c) 2018 Fair Isaac Corporation
+       author: Y. Colombani, May 2018
+*******************************************************!)
+package parpkg
+
+ ! Specify parameter names and types
+ parameters
+  "p1":real
+  "p2":integer
+  "p3":string
+  "p4":boolean
+ end-parameters
+
+ ! Entities for storing current parameter values
+ declarations
+  myp1: real
+  myp2: integer
+  myp3: string
+  myp4: boolean
+ end-declarations
+
+ ! Get value of a real parameter
+ public function parpkg~getrparam(p:string):real
+  case p of
+   "p1": returned:=myp1
+  end-case
+ end-function
+
+ ! Get value of an integer parameter
+ public function parpkg~getiparam(p:string):integer
+  case p of
+   "p2": returned:=myp2
+  end-case
+ end-function
+
+ ! Get value of a string parameter
+ public function parpkg~getsparam(p:string):string
+  case p of
+   "p3": returned:=myp3
+  end-case
+ end-function
+
+ ! Get value of a boolean parameter
+ public function parpkg~getbparam(p:string):boolean
+  case p of
+   "p4": returned:=myp4
+  end-case
+ end-function
+
+ ! Set value for real parameters
+ public procedure parpkg~setparam(p:string,v:real)
+  case p of
+   "p1": myp1:=v
+  end-case
+ end-procedure
+
+ ! Set value for integer parameters
+ public procedure parpkg~setparam(p:string,v:integer)
+  case p of
+   "p2": myp2:=v
+  end-case
+ end-procedure
+
+ ! Set value for string parameters
+ public procedure parpkg~setparam(p:string,v:string)
+  case p of
+   "p3": myp3:=v
+  end-case
+ end-procedure
+
+ ! Set value procedure for boolean parameters
+ public procedure parpkg~setparam(p:string,v:boolean)
+  case p of
+   "p4": myp4:=v
+  end-case
+ end-procedure
+
+ ! Set default values for parameters
+ myp1:=0.25
+ myp2:=10
+ myp3:="default"
+ myp4:=true
+
+end-package

@@ -1,0 +1,48 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file usrpkg.mos
+   ```````````````
+   Entry point template populated with user constraint definitions,  
+   including addition of new variables
+
+   Compile to file 'usrpkg.bim'   
+   
+  (c) 2021 Fair Isaac Corporation
+      author: S.Heipcke, Apr. 2021, rev. Aug. 2024
+*******************************************************!)
+package usrpkg
+ uses 'mmxprs'
+ ! uses "mmsvg"
+    ! Any libraries loaded here also need to be loaded by the main model
+
+ ! Entities from main model available to this package
+ ! (this results in an implicit 'public' declaration of these entities)
+  requirements
+    Return,LimRisk: linctr
+    SHARES: set of string
+    frac: array(SHARES) of mpvar 
+  end-requirements
+
+  declarations
+    newv: array(set of string) of mpvar
+    ! It is not possible to work in the declarations with a set name stated
+    ! in the 'requirements', so here we simply keep the index set unnamed
+  end-declarations
+
+  public procedure userctrdef
+    ! Change a constraint definition
+    settype(LimRisk, CT_GEQ)
+    setcoeff(LimRisk, -0.1)
+
+    ! Add a new set of variables and constraints
+    forall(s in SHARES) create(newv(s))
+    forall(s in SHARES) newv(s) is_binary
+    forall(s in SHARES) indicator(1, newv(s), frac(s)>=0.1)
+    sum(s in SHARES) newv(s)>=5
+
+    ! Add new variables to the objective
+    Return+=sum(s in SHARES) newv(s)
+  end-procedure
+end-package

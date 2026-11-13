@@ -1,0 +1,54 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file recordout1.mos
+   ```````````````````
+   Writing out records to a text file.
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Nov. 2007, rev. Jul. 2010
+*******************************************************!)
+
+model "Record output (Text file)"
+
+ declarations
+  PRODUCTS: set of string
+  MACH: range
+  ProdRec = record
+   Cost: real
+   Duration: integer
+  end-record 
+  PDATA: dynamic array(PRODUCTS,MACH) of ProdRec
+
+  R = 1..9
+  AllDataRec = record
+   Product: string
+   Mach: integer
+   Cost: real
+   Duration: integer
+  end-record 
+  ALLDATA: array(R) of AllDataRec
+ end-declarations
+
+! **** Reading data from a text file
+ initializations from "recorddata.dat"
+  PDATA as "ProdData"
+  ALLDATA as "AllData"
+ end-initializations
+
+! **** Write out complete records
+
+ initializations to "recordout.dat"
+  PDATA as "ProdDataOutH"
+  ALLDATA as "AllDataOutH"
+ end-initializations
+
+! **** Write out record fields
+
+ initializations to "recordout.dat"
+  PDATA(Cost) as "CostOutH"
+  ALLDATA(Product,Mach,Duration) as "DurationOutH"
+ end-initializations
+
+end-model

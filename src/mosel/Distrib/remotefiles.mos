@@ -1,0 +1,115 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file remotefiles.mos
+   ````````````````````
+   Cascade of recursive submodels in distributed architecture
+   
+   The same model is compiled and run in a cascade of submodels
+   on different machines/nodes. Compilation is local to the nodes, 
+   that is, nodes may use different versions of Xpress. 
+   From a given instance, data files at the parent and at the 
+   child node are accessed.
+   
+   This model requires write access on all machines that are used.
+
+   Before running this model, you need to set up the array
+   NODES with machine names/addresses of your local network.
+   All nodes that are used need to have Xpress installed
+   and suitably licensed, and the server "xprmsrv" must have
+   been started on these machines.
+       
+   (c) 2010 Fair Isaac Corporation
+       author: S. Heipcke, May 2010
+*******************************************************!)
+model "Accessing remote files"
+ uses "mmjobs", "mmsystem"
+ 
+ parameters
+  NUM=0
+ end-parameters
+ 
+ declarations
+  MAXNUM = 3
+  R = 1..MAXNUM
+  NODES: array(R) of string
+  NodeNum: integer
+  NodeName: string
+  NodeInfo: text
+  moselCnct: Mosel
+  rmtMod: Model 
+ end-declarations 
+ 
+!!! Set the entries of this array to local machines in your network, 
+!!! using machine names, or IP addresses.
+!!! Each instance needs to be on a different machine.
+!!! Names may include the working directory to be used for writing, e.g.: 
+!!!    remote Unix machine:     "somename|MOSEL_CWD=/tmp"
+!!!    remote Windows machine:   "xsrv:somename|MOSEL_CWD=c:\\mydir\\"
+ NODES::(1..MAXNUM)["a","b","c"]
+
+! Display and write out information about the current node 
+ NodeInfo:=
+  " "*NUM + "Level " + text(NUM) + ". Node: " + 
+  text(getparam("NODENUMBER")) + " " +
+  text(getsysinfo(SYS_NODE)) + ". "
+
+ initialisations to "nodeinfo.dat"
+  evaluation of getparam("NODENUMBER") as "NodeNum"
+  evaluation of getsysinfo(SYS_NODE) as "NodeName"
+ end-initialisations 
+
+ if NUM<MAXNUM then
+  ! Start a new instance of Mosel on a remote node
+  if connect(moselCnct, NODES(NUM+1))<>0 then exit(2); end-if
+
+  ! Compile (from source at the root node to memory)
+  if compile("","rmt:remotefiles.mos","remotefiles.bim")<>0 then
+   exit(1)
+  end-if
+
+  ! Load this model in the remote Mosel instance
+  load(moselCnct, rmtMod, "rmt:[-1]remotefiles.bim")
+  fdelete("remotefiles.bim")
+
+  ! Recursively call this model again and wait for its termination
+  run(rmtMod, "NUM=" + (NUM+1))
+  wait
+  dropnextevent
+ end-if
+
+! Access a file at the parent node  
+ if NUM>0 then
+  initialisations from "rmt:[-1]nodeinfo.dat"
+   NodeNum  NodeName
+  end-initialisations 
+  
+  NodeInfo += "Parent node: " + text(NodeNum) + " " + NodeName + ". "
+ else
+  NodeInfo += "Root node. "
+ end-if 
+
+! Access a file at the descendant node
+ if NUM<MAXNUM then
+  DescNum:= getid(moselCnct)
+  initialisations from "rmt:[" + DescNum + "]nodeinfo.dat"
+   NodeNum  NodeName
+  end-initialisations 
+  
+   NodeInfo += "Child node: " + text(NodeNum) + " " + NodeName + ". "
+
+  fdelete("rmt:[" + DescNum + "]nodeinfo.dat")      ! Cleaning up 
+ else
+  NodeInfo += "Leaf node."
+ end-if 
+ 
+! Write out all the information we have collected about this node
+ writeln(NodeInfo)
+ 
+! Cleaning up locally at the end 
+ if NUM=0 then
+  fdelete("nodeinfo.dat")
+ end-if
+ 
+end-model 

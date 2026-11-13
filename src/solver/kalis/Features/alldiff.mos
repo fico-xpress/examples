@@ -1,0 +1,41 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file alldiff.mos
+   ````````````````
+   all_different constraints.
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+       Creation: 2005
+*****************************************************************!)
+model "all_different example"
+ uses "kalis"
+
+ declarations  
+  PEOPLE = {"Sebastian", "Frederic", "Jan-Georg",
+            "Krzysztof","Maarten","Luca"}  ! Set of speakers  
+  x: array(PEOPLE) of cpvar                ! Time slot per person    
+ end-declarations
+
+ 3 <= x("Sebastian") ; x("Sebastian") <= 6
+ 3 <= x("Frederic")  ;  x("Frederic") <= 4
+ 2 <= x("Jan-Georg") ; x("Jan-Georg") <= 5
+ 2 <= x("Krzysztof") ; x("Krzysztof") <= 4
+ 3 <= x("Maarten")   ;   x("Maarten") <= 4
+ 1 <= x("Luca")      ;      x("Luca") <= 6
+
+! A different time slot for every person
+ all_different(x)
+
+! Solve the problem
+ if not cp_find_next_sol then
+  writeln("Problem is infeasible")
+  exit(1)
+ end-if 
+
+! Solution printout 
+ writeln(x)
+
+end-model
+

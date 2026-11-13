@@ -1,0 +1,184 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file dataframesht.mos
+   `````````````````````
+   Dataframe-style reading for spreadsheet files in XLXS or
+   CSV format
+   
+  (c) 2021 Fair Isaac Corporation
+      author: S.Heipcke, Oct 2021, rev. Feb. 2024
+*******************************************************!) 
+model "dataframesht"
+ uses "mmsheet", "mmreflect", "mmsystem"
+
+!**** Initialize some global data used by reading and writing routines
+ declarations
+   ATYPE: array(integer) of string
+   Ar: dynamic array(range,string) of any
+   A2: dynamic array(range,range) of any
+   public data=`
+C_e,C_d,C_c,C_b,C_a,C_s
+1,,"3",true,5.5,"r 1"
+6,7,"8",,10.5,"r 2"
+`
+   public data2=`
+C_e,C_d,C_c,C_b,C_a,C_s
+1,,'3',true,5.5,r 1
+6,7,'8',,10.5,r 2
+`
+   public datanh=`
+1,,'3',true,5.5,r 1
+6,7,'8',,10.5,r 2
+`
+ end-declarations
+ ATYPE(integer.id):="integer"; ATYPE(real.id):="real";
+ ATYPE(string.id):="string"; ATYPE(boolean.id):="boolean"
+
+ initialisations from 'mmsheet.csv:mmsystem.text:data'
+   Ar as 'dataframe;skiph;[]'
+ end-initialisations
+ writeln("Ar=", Ar)
+
+ initialisations from 'mmsheet.csv:mmsystem.text:datanh'
+   A2 as 'dataframe;[]'
+ end-initialisations
+ writeln("A2=", A2, " size=", A2.size, A2.index(2))
+
+!**********************************************************
+
+! Reading dataframe input data into text format or union-type arrays 
+ procedure readdf(drvfile: string)
+   declarations
+     FieldsA: set of string
+     TabinfoA: array(RA:range,FieldsA) of any
+!    TabinfoA: dynamic array(RA:range,FieldsA) of any
+     TabinfoA2,TabinfoA3: array(range,string) of any
+     TabinfoT: array(RT:range,FieldsT:set of string) of text
+     TabinfoT2: array(range,range) of text
+     TabinfoR: array(range,string) of real
+   end-declarations
+
+ !**** Treating all data as text
+   initialisations from drvfile
+     TabinfoT as 'dataframe;skiph;[]'
+     TabinfoT2 as 'dataframe;[B:D]'       ! Title row included as data
+   end-initialisations
+
+   writeln("Fields:", FieldsT)
+   writeln("Text format data with skiph:", TabinfoT) 
+   writeln("Text format data no skiph:", TabinfoT2)
+   writeln("Rows: ", RT, " ", TabinfoT2.index(1))
+
+ ! Parse contents to obtain numerical values:
+   writeln("Sum of NumFields: ", 
+     sum(i in RT) parsereal(TabinfoT(i,'NumField'),1))
+
+ !**** Reading suitable data into a typed array
+   initialisations from drvfile
+     TabinfoR as 'dataframe;skiph;[](NumField,IntField)'
+   end-initialisations
+
+   writeln("Fields:", TabinfoR.index(2))
+   writeln("Number format data:", TabinfoR)
+
+
+ !**** Reading typed data (union type); selection of fields by order number
+ ! Partially prepopulated set: index set is getting completed
+   FieldsA:={'test','NumField'}
+
+   initializations from drvfile
+      TabinfoA as "dataframe;skiph;[](#1,#2,#6,#3,#4)" 
+   end-initializations
+
+   writeln("Fields:", FieldsA)
+   writeln("Typed data:", TabinfoA)
+
+ ! Accessing specific elements:
+   writeln("entry (2,'IntField'): ", TabinfoA(2,"IntField"), 
+     " has type ", ATYPE(TabinfoA(2,'IntField').typeid) )
+   writeln("entry (3,'NumField'): ", TabinfoA(3,'NumField'), 
+     " has type ", ATYPE(TabinfoA(3,'NumField').typeid) )
+   writeln("entry (1,'BoolField'): ", TabinfoA(1,'BoolField'), 
+     " has type ", ATYPE(TabinfoA(1,'BoolField').typeid) )
+   writeln("entry (1,'DateField'): ", TabinfoA(1,'DateField'), 
+     " has type ", ATYPE(TabinfoA(1,'DateField').typeid) )
+
+ ! Use contents as numerical values:
+   forall(i in RA) writeln(i, "  ",TabinfoA(i,'NumField').real)
+   writeln("Sum of NumFields: ", sum(i in RA) TabinfoA(i,'NumField').real)
+
+ !**** Unnamed index sets 
+   initializations from drvfile
+  ! Selection of fields by name
+     TabinfoA2 as "dataframe;skiph;[](StrField,DateField,BoolField)" 
+  ! Column range specification; selection of fields by order number
+     TabinfoA3 as "dataframe;skiph;[B:E](#1,#4)" 
+   end-initializations
+
+   writeln("A2: Fields:", TabinfoA2.index(2))
+   writeln("Typed data:", TabinfoA2)
+
+   writeln("A3: Fields:", TabinfoA3.index(2))
+   writeln("Typed data:", TabinfoA3)
+ end-procedure
+
+!**********************************************************
+ 
+! This routine creates 3 new files (after deleting any already existing versions)
+! of the specified type each time it is invoked
+ procedure writedf(ftype: string)
+  ! Cleaning up any existing files
+   fdelete("dframeout."+ftype)
+   fdelete("dframeout2."+ftype)
+   fdelete("dframeout3."+ftype)
+   fdelete("dframeout4."+ftype)
+
+  ! Writing out field names with the array (option skiph+)
+   fname:=formattext("mmsheet.%s:dframeout.%1$s",ftype)
+   initialisations to fname
+     Ar as 'dataframe;skiph+;[A:F]'
+   end-initialisations
+
+  ! Pre-populated re-ordered field names in the first N columns
+  ! Writing the array without field names (option skiph)
+   fname:=formattext("mmsheet.%s:dframeout2.%1$s",ftype)
+   L:=["C_s","C_e","C_d","C_c","C_b","C_a"]      
+   initialisations to fname
+     L as '[A:F]'
+     Ar as 'dataframe;skiph;[]'
+   end-initialisations 
+
+  ! Pre-populated re-ordered field names in some column range
+  ! Selection of fields to be written out
+   fname:=formattext("mmsheet.%s:dframeout3.%1$s",ftype)
+   initialisations to fname
+     L as '[R2C3:R2C8]'
+     evaluation of array(i in Ar.index(1),j in ["C_e","C_s"]) 
+       Ar(i,j) as 'dataframe;skiph;grow;[R2C3:R2C8](C_e,C_s)'
+   end-initialisations !)
+
+  ! Writing out a range without any header line 
+  ! (Only possible if second index set is of type 'range')
+   fname:=formattext("mmsheet.%s:dframeout4.%1$s",ftype)
+   initialisations to fname
+     A2 as 'dataframe;[A:F]'  
+   end-initialisations
+ end-procedure
+
+!**********************************************************
+
+ writeln("****CSV")
+ readdf("mmsheet.csv:dframedata.csv")
+ writedf("csv")
+
+ writeln("****XLSX")
+ readdf("mmsheet.xlsx:dframedata.xlsx")
+ writedf("xlsx")
+
+ writeln("****XLS")
+ readdf("mmsheet.xls:dframedata.xls")
+ writedf("xls")
+
+end-model 

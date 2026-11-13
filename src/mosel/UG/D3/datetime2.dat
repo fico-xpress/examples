@@ -1,0 +1,13 @@
+!@encoding ISO8859-1
+! Data file for "dates2.mos"
+
+Time1:  "4pm" 
+Time2:  "16h00"
+Time3:  "16:00:00"
+
+Date1:  "2-20-2002"
+Date2:  "20/02/02"
+Date3:  "20-Feb-2002"
+Date4:  "20 février 2002"
+
+Dates: [ "1999-1-21" "2000-2-22" "2002-3-23" "2005-4-24" "2010-5-25"]

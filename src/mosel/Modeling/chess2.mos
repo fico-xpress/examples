@@ -1,0 +1,51 @@
+(!*******************************************************
+  * Mosel Example Problems                              *
+  * ======================                              *
+  *                                                     *
+  * file chess2.mos                                     *
+  * ```````````````                                     *
+  * Example for the use of the Mosel language           *
+  * (Small LP-problem)                                  *
+  *                                                     *
+  * (c) 2008 Fair Isaac Corporation                     *
+  *     author: S. Heipcke, 2001                        *
+  *******************************************************!)
+
+model Chess2                      ! Start a new model
+
+uses "mmxprs"                     ! Load the optimizer library
+
+declarations
+ Allvars: set of mpvar            ! Set of all variables
+ DescrV: array(Allvars) of string ! Descriptions of variables
+ xs: mpvar                        ! Number of small chess sets to make
+ xl: mpvar                        ! Number of large chess sets to make
+ Allctrs: set of linctr           ! Set of all constraints
+ DescrC: array(Allctrs) of string ! Descriptions of constraints
+ Profit,mc_time,wood: linctr      ! Declaration of constraints: optional
+end-declarations
+
+! Define the variable and constraint descriptions. Since the arrays and 
+! the indexing sets are dynamic they grow with each new variable 
+! description added:
+ DescrV(xs):= " Number of small chess sets"
+ DescrV(xl):= " Number of large chess sets"
+
+ DescrC(mc_time):= " Limit on available machine time"
+ DescrC(wood):= " Limit on available wood"
+ 
+ Profit:= 5*xs + 20*xl            ! Define the objective function
+
+ mc_time:= 3*xs + 2*xl <= 400     ! Limit on available machine time
+ wood:=      xs + 3*xl <= 200     ! Limit on available wood
+  
+ maximize(Profit)                 ! Solve the LP-problem
+
+                                  ! Print out the solution
+ writeln("Solution:\n Objective: ", getobjval)
+ writeln(DescrV(xs), ":",xs.sol, ",", DescrV(xl), ":", xl.sol)
+ writeln(" Constraint activity:")
+ writeln(DescrC(mc_time), ":", mc_time.act, ",",
+   DescrC(wood), ":", wood.act)
+
+end-model

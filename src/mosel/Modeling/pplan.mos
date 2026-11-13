@@ -1,0 +1,89 @@
+(!*******************************************************
+  * Mosel Example Problems                              *
+  * ======================                              *
+  *                                                     *
+  * file pplan.mos                                      *
+  * ``````````````                                      *
+  * Example for the use of the Mosel language           *
+  * (Manpower planning problem)                         *
+  *                                                     *
+  * (c) 2008 Fair Isaac Corporation                     *
+  *     author: S. Heipcke, 2001, rev. 2003, rev. 2010  *
+  *******************************************************!)
+
+model Pplan                      ! Start a new model
+
+uses "mmxprs"                    ! Load the optimizer library
+
+parameters
+ USESOS = false                  ! Set to true to use formulation with SOS
+end-parameters
+
+declarations
+ RProj = 1..3                    ! Range of projects
+ NTime = 6                       ! Time horizon
+ RTime = 1..NTime                ! Range of months to plan for
+ 
+ DUR: array(RProj) of integer    ! Duration of project p
+ RESUSE: array(RProj,RTime) of integer  ! Resource usage of project p in 
+                                        ! its t'th month
+ RESMAX: array(RTime) of integer ! Resource available in month t
+ BEN: array(RProj) of real       ! Benefit per month once project finished
+ 
+ x: array(RProj,RTime) of mpvar  ! 1 if project p starts in month t, else 0
+ start: array(RProj) of mpvar    ! Month in which project p starts
+end-declarations
+
+ DUR   :: [3, 3, 4]
+ RESMAX:: [5, 6, 7, 7, 6, 6]
+ BEN   :: [10.2, 12.3, 11.2]
+ RESUSE::(1,1..3) [3, 4, 2]
+ RESUSE::(2,1..3) [4, 1, 5]
+ RESUSE::(3,1..4) [3, 2, 1, 2]      ! Other RESUSE entries are 0 by default
+   
+! Objective: Maximize Benefit
+! If project p starts in month t, it finishes in month t+DUR(p)-1 and 
+! contributes a benefit of BEN(p) for the remaining NTime-(t+DUR(p)-1)
+! months:  
+ MaxBen:= 
+  sum(p in RProj,t in 1..NTime-DUR(p)) (BEN(p)*(NTime-t-DUR(p)+1)) * x(p,t)
+
+! Resource availability
+! A project starting in month s is in its t-s+1'st month in month t: 
+ forall(t in RTime) ResMax(t):=
+  sum(p in RProj,s in 1..t) RESUSE(p,t-s+1)*x(p,s) <= 
+   RESMAX(t)
+
+! Logical Constraints: Each project starts once and only once:  
+ forall(p in RProj) One(p):= sum(t in RTime) x(p,t) = 1.0
+ 
+! Connect variables x(p,t) and start(p)
+ forall(p in RProj) Connect(p):= sum(t in RTime) t*x(p,t) = start(p)
+
+! Finish everything by the end of the planning period
+ forall(p in RProj) start(p) <= NTime-DUR(p)+1
+ 
+ if not USESOS then              ! Turn variables x into binaries
+  forall(p in RProj,t in RTime) x(p,t) is_binary
+ else                            ! Define SOS-1 sets that ensure that at 
+                                 ! most one x is non-zero for each project p.
+                                 ! Use month index order for variables
+  forall(p in RProj) XSet(p):= sum(t in RTime) t*x(p,t) is_sos1
+ end-if
+  
+ maximize(MaxBen)                ! Solve the MIP-problem
+
+                                 ! Print out the solution
+ writeln("Solution ",if(USESOS,"(using SOS):","(without SOS):"))
+ writeln(" Objective: ", getobjval)
+ write("   ")
+ forall(t in RTime) write(t)
+ writeln
+ forall(p in RProj) do
+  write(p, ": ")
+  forall(t in RTime) 
+   write( if(t<getsol(start(p)), " ", if(t<getsol(start(p))+DUR(p), "*", "B")) )
+  writeln 
+ end-do
+ 
+end-model

@@ -1,0 +1,121 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file runrtparqueued.mos
+   ```````````````````````
+   Running several instances of a model from another
+   Mosel model.
+   - Queuing submodels for parallel execution in a
+     distributed architecture (one or several models per node) -
+
+   Before running this model, you need to set up the list
+   NodeList with machine names/addresses of your local network.
+   All nodes that are used need to have the same version of
+   Xpress installed and suitably licensed, and the server 
+   "xprmsrv" must have been started on these machines.
+
+   The maximum number of models per node in array MaxMod needs
+   to be adapted to the number of executions licensed on 
+   the corresponding nodes.
+   
+   All files are local to the root node, no write access is
+   required at remote nodes.
+       
+   (c) 2010 Fair Isaac Corporation
+       author: S. Heipcke, Apr. 2010, rev. Dec. 2017
+*******************************************************!)
+
+model "Run model rtparams with job queue"
+ uses "mmjobs", "mmsystem"
+
+ parameters
+   J=10                             ! Number of jobs to run
+   NUMPAR=2                         ! Number of parallel model executions
+ end-parameters                     ! (preferrably <= no. of processors)
+   
+ forward procedure start_next_job(submod: Model)
+ 
+ declarations
+   RM: range                        ! Model indices
+   JOBS = 1..J                      ! Job (instance) indices
+   modPar: dynamic array(RM) of Model       ! Models
+   jobid: array(set of integer) of integer  ! Job index for model UIDs
+   JobList: list of integer         ! List of jobs
+   JobsRun: set of integer          ! Set of finished jobs
+   JobSize: integer                 ! Number of jobs to be executed
+   Msg: Event                       ! Messages sent by models
+   NodeList: list of string         !
+   nodeInst: dynamic array(set of string) of Mosel  ! Mosel instances on remote nodes
+   nct: integer
+   modNode: array(set of integer) of string ! Node used for a model
+   MaxMod: array(set of string) of integer
+ end-declarations
+                                    ! Compile the model file locally
+ if compile("rtparams.mos")<>0 then exit(1); end-if
+
+!**** Setting up remote Mosel instances ****
+ sethostalias("localhost2","localhost")
+ NodeList:= ["localhost", "localhost2"]
+         !!! This list must have at least 1 element.
+         !!! Use machine names within your local network, IP addresses, or 
+         !!! empty string for the current node running this model.
+
+ forall(n in NodeList) MaxMod(n):= NUMPAR
+         !!! Adapt this setting to number of processors and licences per node
+
+ forall(n in NodeList, nct as counter) do
+  create(nodeInst(n))
+  if connect(nodeInst(n), n)<>0 then exit(1); end-if
+  if nct>= J then break; end-if     ! Stop if started enough instances
+ end-do 
+
+!**** Loading model instances ****
+ nct:=0
+ forall(n in NodeList, m in 1..MaxMod(n), nct as counter) do
+   create(modPar(nct))
+   load(nodeInst(n), modPar(nct), "rmt:[-1]rtparams.bim")  ! Load the bim file
+   modPar(nct).uid:= nct            ! Store the model ID as UID
+   modNode(modPar(nct).uid):= getsysinfo(nodeInst(n), SYS_NODE)
+ end-do 
+
+
+ JobList:= sum(i in JOBS) [i]       ! Define the list of jobs (instances)
+ JobSize:=JobList.size              ! Store the number of jobs
+ JobsRun:={}                        ! Set of terminated jobs is empty
+
+!**** Start initial lot of model runs ****
+ forall(m in RM) 
+   if JobList<>[] then
+     start_next_job(modPar(m))
+   end-if
+
+!**** Run all remaining jobs ****
+ while (JobsRun.size<JobSize) do
+   wait                             ! Wait for model termination
+  ! Start next job
+   Msg:= getnextevent
+   if Msg.class=EVENT_END then      ! We are only interested in "end" events
+     m:= Msg.fromuid                ! Retrieve the model UID
+     JobsRun+={jobid(m)}            ! Keep track of job termination
+     writeln("End of job ", jobid(m), " (model ", m, ")")
+     if JobList<>[] then            ! Start a new run if queue not empty
+      start_next_job(modPar(m))
+     end-if
+   end-if
+ end-do 
+
+ fdelete("rtparams.bim")            ! Cleaning up
+ 
+!*************************************************************************
+ procedure start_next_job(submod: Model)
+   i:=getfirst(JobList)             ! Retrieve first job in the list
+   cuthead(JobList,1)               ! Remove first entry from job list
+   jobid(submod.uid):= i   
+   writeln("Start job ", i, " (model ", submod.uid, ") on ",
+           modNode(submod.uid))
+   run(submod, "PARAM1=" + i + ",PARAM2=" + 0.1*i +
+               ",PARAM3='string " + i + "'" + ",PARAM4=" + isodd(i))
+ end-procedure
+
+end-model 

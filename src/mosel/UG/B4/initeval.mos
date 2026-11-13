@@ -1,0 +1,43 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file initeval.mos 
+   ````````````````` 
+   Initializations with evaluation.
+ 
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Sep. 2007
+*******************************************************!)
+
+model "Evaluations"
+ uses "mmxprs" 
+ 
+ declarations
+  small,large: mpvar                 ! Decision variables: produced quantities
+ end-declarations
+
+ Profit:=  5*small + 20*large        ! Objective function
+ Lathe:=   3*small + 2*large <= 160  ! Lathe-hours
+ Boxwood:=   small + 3*large <= 200  ! kg of boxwood
+ small is_integer; large is_integer  ! Integrality constraints
+
+ maximize(Profit)                    ! Solve the problem
+
+ initializations to "chessout.txt"   ! Solution output to a file
+  evaluation of getparam("XPRS_mipstatus") as "Status"
+  evaluation of getobjval as "Objective"
+  evaluation of small.sol as "small_sol"
+  evaluation of large.sol as "large_sol"
+  evaluation of Lathe.slack as "Spare time"
+  evaluation of Boxwood.act as "Used wood"
+  evaluation of Boxwood.act-200 as "Spare wood"
+  evaluation of [ small.sol, large.sol ] as "x_sol"
+ end-initializations 
+
+ writeln("Solution: ", getobjval)    ! Display solution values
+ writeln("Small: ", getsol(small), " large: ", getsol(large))
+ writeln("Time: ", getact(Lathe), " ", getslack(Lathe))
+ writeln("Wood: ", Boxwood.sol, "  ", Boxwood.act, "  ", Boxwood.slack)
+
+end-model

@@ -1,0 +1,130 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file i1assign.mos
+   `````````````````
+   Assigning workers to machines
+
+   Given a set of operators and a set of machines, an operator
+   must be assigned to each of the six machines in a workshop.
+   The productivity (pieces per hour) of each operator and 
+   each machine is given. What operator should be assigned 
+   to each machine to maximize the total productivity if machines
+   are running in parallel? What should the assignment be 
+   if machines are working in series?
+
+   For the parallel-machines problem version, a simple IP 
+   model is implemented. For the machines-working-in-series, 
+   since total productivity is defined by the bottleneck 
+   (operator-machine assignment with lowest productivity), 
+   a new variable is introduced to define a minmax problem. 
+   A procedure to obtain a heuristic solution is also 
+   implemented.
+
+   (c) 2008-2022 Fair Isaac Corporation
+       author: S. Heipcke, Mar. 2002, re. Mar. 2022
+*******************************************************!)
+
+model "I-1 Personnel assignment"
+ uses "mmxprs", "mmsystem"
+
+ forward procedure parallelheur
+ forward procedure printsol(txt1,txt2:text)
+
+ declarations
+  PERS = 1..6                        ! Personnel
+  MACH = 1..6                        ! Machines
+  OUTP: array(PERS,MACH) of integer  ! Productivity
+ end-declarations
+
+ initializations from 'i1assign.dat'
+  OUTP
+ end-initializations
+
+! **** Heuristic solution for parallel assignment ****
+ parallelheur
+ 
+! **** Exact solution for parallel assignment ****
+
+ declarations
+  assign: array(PERS,MACH) of mpvar  ! 1 if person assigned to machine, 
+                                     ! 0 otherwise
+ end-declarations
+
+! Objective: total productivity
+ TotalProd:= sum(p in PERS, m in MACH) OUTP(p,m)*assign(p,m)
+
+! One machine per person
+  forall(p in PERS) sum(m in MACH) assign(p,m) = 1
+
+! One person per machine
+  forall(m in MACH) sum(p in PERS) assign(p,m) = 1
+
+! Solve the problem
+ maximize(TotalProd)
+ printsol("Exact solution (parallel assignment)", "Total")
+
+! **** Exact solution for serial machines ****
+
+ declarations
+  pmin: mpvar                        ! Minimum productivity
+ end-declarations
+
+! Calculate minimum productivity
+ forall(p in PERS) sum(m in MACH) OUTP(p,m)*assign(p,m) >= pmin
+
+ forall(p in PERS, m in MACH) assign(p,m) is_binary
+
+! Solve the problem
+ maximize(pmin)
+ printsol("Exact solution (serial machines)", "Minimum")
+ 
+!-----------------------------------------------------------------
+
+! Heuristic solution for parallel assignment
+ procedure parallelheur
+  declarations
+   ALLP, ALLM: set of integer        ! Copies of sets PERS and MACH
+   HProd: integer                    ! Total productivity value
+   pmax,omax,mmax: integer
+  end-declarations
+  writeln("Heuristic solution:")
+
+ ! Copy the sets of workers and machines
+  forall(p in PERS) ALLP+={p}
+  forall(m in MACH) ALLM+={m}
+
+ ! Assign workers to machines as long as there are unassigned persons
+  while (ALLP<>{}) do
+   pmax:=0; mmax:=0; omax:=0
+
+ ! Find the highest productivity among the remaining workers and machines
+   forall(p in ALLP, m in ALLM)
+    if OUTP(p,m) > omax then
+     omax:=OUTP(p,m)
+     pmax:=p; mmax:=m
+    end-if   
+
+   HProd+=omax                       ! Add to total productivity
+   ALLP-={pmax}; ALLM-={mmax}        ! Remove person and machine from sets
+  
+   writeln("  ", pmax, " operates machine ", mmax, " (", omax, ")")
+  end-do
+
+  writeln("  Total productivity: ", HProd)
+ end-procedure
+
+!-----------------------------------------------------------------
+
+! Solution printing
+ procedure printsol(txt1,txt2:text)
+  writeln(txt1, ":")
+  forall(p in PERS) do
+   mp:=round(getsol(sum(m in MACH) m*assign(p,m)))
+   writeln("  ", p, " operates machine ", mp, " (", OUTP(p,mp), ")")
+  end-do 
+  writeln("  ", txt2, " productivity: ", getobjval)
+ end-procedure
+ 
+end-model

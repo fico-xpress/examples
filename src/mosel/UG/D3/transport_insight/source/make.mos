@@ -1,0 +1,86 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file make.mos
+   `````````````
+   Simple build program for Insight apps in the Mosel
+   examples set
+   - Configured for transport_insight -
+   
+  (c) 2019 Fair Isaac Corporation
+      author: S.Heipcke, Oct. 2019
+*******************************************************!)
+model "Insight App Build - Transport"
+  version 1.0.0
+  uses "mmsystem", "mmjobs"
+
+  parameters
+    APPNAME="transport_insight"
+    COMPOPT=""                ! "-g" or "-G" for debug compilation
+    PDIR="../source"          ! Path to location of this file
+  end-parameters
+
+  declarations
+    moselMainModel: text      ! Name of main model (w/o extension)
+    insightConfig: text       ! Name of Insight XML config file
+    moselResources: list of text   ! List of application data files
+    moselPackages: list of text    ! List in compilation order
+    appAttach: list of text   ! List of attachment files
+  end-declarations
+
+!------------------------------------------------------------------
+  moselMainModel:=APPNAME+".mos"
+  insightConfig:=APPNAME+".xml"
+  moselResources:=[text("folio.dat")]
+  moselPackages:=[moselMainModel]
+
+!------------------------------------------------------------------
+
+  writeln("Creating app archive '", APPNAME, "'...")
+
+  function createapparchive: boolean
+    declarations
+      mfname: text
+      lmf: list of text
+    end-declarations
+
+    curdir:=getcwd
+    setparam("workdir", PDIR) 
+    returned:=true
+    forall(f in moselPackages) returned:= returned and compile("bx=./ "+COMPOPT,f)=0
+    if not returned then
+      writeln("Compilation failed for app '", APPNAME, "'")
+    else 
+      mfname:=moselMainModel
+      asproc(pathsplit(SYS_EXTN,mfname,mfname))
+      fcopy(mfname+".bim", "../"+APPNAME+".bim")
+      returned:= getsysstat=0
+      if not returned then
+        writeln("No or incorrect name '",mfname,"' for main model")
+      end-if
+      forall(f in moselPackages | f<>moselMainModel) do
+        fcopy(f+".bim", "../model_resources")
+        returned:= returned and getsysstat=0
+      end-do
+      if returned then
+        setparam("workdir","..")
+        lmf:=[insightConfig,text(APPNAME)+".bim"]++sum(p in moselPackages)[text("source/")+p]
+        findfiles(SYS_RECURS,lmf,".",'model_resources/*;client_resources/*;attachments/*')
+	writeln(lmf)
+        newzip(APPNAME+'.zip', lmf)
+        returned:= getsysstat=0
+      else
+        writeln("Error copying package files")
+      end-if
+    end-if
+    if not returned then
+      writeln("...failed")
+    else
+      writeln("...succeeded")
+    end-if
+    setparam("workdir", curdir) 
+  end-function
+
+  asproc(createapparchive)
+end-model

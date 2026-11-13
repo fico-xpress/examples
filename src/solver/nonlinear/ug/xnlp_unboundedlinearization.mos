@@ -1,0 +1,53 @@
+! XNLP example demonstrating behaviour of problems with unbounded first order 
+! approximations
+!
+! In this example a simple but unconstraint optimization is solved from various 
+! starting points and solves, demonstrating their convergence properties on such 
+! problems.
+!
+! This example demonstrates a particular non-linear optimization concept as related 
+! to Xpress NonLinear.
+! The version of the example is for Xpress 7.5.
+!
+!  (c) 2013-2026 Fair Isaac Corporation
+!       author: Zsolt Csizmadia
+model mmxnlp_nlp_duals
+uses "mmxnlp"; 
+
+declarations
+ x: mpvar
+end-declarations
+
+x is_free
+
+! In this example, notice the different number of iterations made by the solvers, 
+! having a log available is helpful
+setparam("xnlp_verbose",1)
+
+! This example is about a comparison between SLP and Knitro
+setparam("XPRS_NLPSOLVER",1)
+
+! Start solving using a a first order method
+! Notice the log stating that step bounds are enforced
+! and nnotice the large number of iterations
+setparam("xnlp_solver",XNLP_SOLVER_XSLP)
+setinitval(x,10)
+minimize(x^4)
+
+! Resolve with second order methods
+setparam("xnlp_solver",XNLP_SOLVER_KNITRO)
+minimize(x^4)
+
+! Lets restart from the optimal solution
+! SLP's perturbation features means it will first move away from the optimum,
+! and then work it's way back
+setparam("xnlp_solver",XNLP_SOLVER_XSLP)
+setinitval(x,0.0)
+minimize(x^4)
+
+! Knitro will behave as expected: started from the optimum, and makes no moves
+setparam("xnlp_solver",XNLP_SOLVER_KNITRO)
+minimize(x^4)
+
+end-model
+

@@ -1,0 +1,56 @@
+! XNLP example demonstrating the need for penalty feasiblity breakers
+!
+! This is an SLP specific example.
+! Using Xpress-SLP, this examples solves two problem types that relate to various 
+! infeasibilities in SLP:
+!   One originating from steps taken along the linearization
+!   and one originating from deviation from the linearization
+!
+! This example demonstrates a particular non-linear optimization concept as related 
+! to Xpress NonLinear.
+! The version of the example is for Xpress 7.5.
+!
+!  (c) 2013-2026 Fair Isaac Corporation
+!       author: Zsolt Csizmadia
+model mmxnlp_nlp_duals
+uses "mmxnlp"; 
+
+declarations
+ x,y: mpvar
+end-declarations
+
+! This example is hard to be discussed without the solver logs
+setparam("xnlp_verbose",1)
+
+! This example presents SLP specific behavour
+setparam("XPRS_NLPSOLVER",1)
+setparam("xnlp_solver",XNLP_SOLVER_XSLP)
+
+x is_free
+y is_free
+
+! There is only one constraint. It is not possible to stay on the surface of
+! the nonlinear constraint, but feasiblity is achieved by virtue of 
+! convergnece
+x^2+y^2 = 1
+minimize(y)
+writeln("x = ", getsol(x),", y = ",getsol(y))
+
+! adding another constraint, not even necessarily nonlinear
+! it is no longer possible to move along the linearization
+Additional := nlctr(x + y = 1)
+! Note that the previous optimal solution is on this constraint 
+! This definition demonstrates an explicit type cast in Mosel
+! The constraint will still be loaded as linear, but the cast
+! will allow its redefinition as a nonlinear constraint
+minimize(y)
+writeln("x = ", getsol(x),", y = ",getsol(y))
+
+! In the previous example the extra linear constraint aided the search
+! Replacing it with a more complex nonlienar constrint demonstrates how SLP
+! sometimes struggle to stay on the linearizations 
+Additional := sin(x) + sin(y) = 1
+minimize(y)
+
+end-model
+

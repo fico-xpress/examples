@@ -1,0 +1,57 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================   
+
+   Example model for the 
+   Robust Optimization with Xpress white paper
+
+   (c) 2014 Fair Isaac Corporation
+       rev. May 2017 
+*******************************************************!)
+model Knapsack
+ uses "mmrobust"                               ! Load the robust library
+
+ parameters
+  NUM=5                                        ! Number of items
+  MAXVAL=100                                   ! Maximum value
+  MAXWEIGHT=80                                 ! Maximum weight
+  WTMAX=102                                    ! Max weight allowed for haul
+  WTPERCENT=0.3                                ! Uncertainty as a percentage 
+ end-parameters
+
+ declarations
+  Items=1..NUM                                 ! Index range for items
+  VALUE: array(Items) of real                  ! Value of items
+  WEIGHT: array(Items) of real                 ! Weight of items
+  x: array(Items) of mpvar  
+  WeightUncertainty: array(Items) of uncertain ! Uncertains representing 
+                                               ! deviation from weight
+ end-declarations
+
+ forall(i in Items) x(i) is_binary             ! All x are 0/1
+
+ setrandseed(5);
+ forall(i in Items) do
+  VALUE(i):=50+random*MAXVAL
+  WEIGHT(i):=1+random*MAXWEIGHT
+ end-do
+
+ MaxVal:= sum(i in Items) VALUE(i)*x(i)        ! Objective: maximize total value
+
+ forall(i in Items) do
+  WeightUncertainty(i) <=  WTPERCENT*WEIGHT(i) ! Uncertainty is a percentage of
+                                               ! the expected weight
+  WeightUncertainty(i) >=  0                   ! and only expected to go up this time
+ end-do
+ WtMax:= sum(i in Items) (WEIGHT(i) + WeightUncertainty(i))*x(i) <= WTMAX 
+                                               ! Weight restriction
+
+ maximize(MaxVal) 
+
+ writeln("Solution:\n Objective: ", getobjval)
+ writeln("Item  Weight  Value")
+ forall(i in Items)
+   writeln(i, ": ", getsol(x(i)), strfmt(WEIGHT(i),8,2), strfmt(VALUE(i),8,2))
+ writeln("Total weight: ", getact(WtMax)) 
+
+end-model

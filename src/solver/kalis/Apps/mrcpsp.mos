@@ -1,0 +1,91 @@
+(!****************************************************************
+   CP example problems
+   ===================
+
+   file mrcpsp.mos
+   ```````````````
+   Multi-mode resource constrained project scheduling problem (MRCPSP)
+
+   *** This model cannot be run with a Community Licence 
+       for the provided data instances ***
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+
+*****************************************************************!)
+
+model "MRCPSP"
+ uses "kalis", "mmsystem"
+ 
+ parameters
+  DATAFILE = "j102_2.dat"
+ end-parameters
+
+ declarations
+  HORIZON: integer                           ! Time horizon
+  TASKS: set of integer                      ! Set of tasks
+  RESOURCES: set of integer                  ! Set of resources
+  REN: array(RESOURCES) of boolean           ! Resource type: (non)renewable
+  MODES: array(TASKS) of set of integer      ! Task processing modes
+  SUCC: array(TASKS) of set of integer       ! Successors of each task
+  CAPA: array(RESOURCES) of integer          ! Resource capacities
+  DUR: dynamic array(TASKS,set of integer) of integer  ! Task durations
+  CONSO: dynamic array(TASKS,set of integer,RESOURCES) of integer  ! Resource use
+
+  tasks: array(TASKS) of cptask              ! Tasks
+  modes: array(TASKS) of cpvar               ! Mode selected per task
+  resources: array(RESOURCES) of cpresource  ! Resources
+ end-declarations
+
+ initializations from "Data/"+DATAFILE
+  TASKS RESOURCES HORIZON SUCC CAPA DUR CONSO REN MODES
+ end-initializations
+
+! Setting up the resources
+ forall(j in RESOURCES)
+  set_resource_attributes(resources(j), KALIS_DISCRETE_RESOURCE, CAPA(j))
+
+! Setting up the variables representing task properties
+ forall(i in TASKS) do
+  setdomain(getstart(tasks(i)), 0, HORIZON)
+  setdomain(getend(tasks(i)), 0, HORIZON)
+  setdomain(getduration(tasks(i)), min(k in MODES(i)) DUR(i,k), 
+            max(k in MODES(i)) DUR(i,k))
+  setdomain(modes(i), min(k in MODES(i)) k, max(k in MODES(i)) k)
+  setsuccessors(tasks(i), union(j in SUCC(i)) {tasks(j)})
+ end-do
+
+! Resource constraints
+ forall(i in TASKS, j in RESOURCES)
+  if REN(j) then 
+   requires(tasks(i), min(k in MODES(i)) CONSO(i,k,j), 
+            max(k in MODES(i)) CONSO(i,k,j), resources(j))
+  else
+   consumes(tasks(i), min(k in MODES(i)) CONSO(i,k,j), 
+            max(k in MODES(i)) CONSO(i,k,j), resources(j))
+  end-if
+
+! Constraints on modes
+ forall(i in TASKS) do
+  element(array(k in MODES(i)) DUR(i,k), modes(i)) = getduration(tasks(i))
+  forall(j in RESOURCES) do
+   if REN(j) then 
+    element(array(k in MODES(i)) CONSO(i,k,j), modes(i)) = 
+     getrequirement(tasks(i), resources(j))
+   else
+    element(array(k in MODES(i)) CONSO(i,k,j), modes(i)) = 
+     getconsumption(tasks(i), resources(j))
+   end-if
+  end-do
+ end-do
+
+! Solve the problem
+ starttime:= gettime
+ if cp_schedule(getmakespan) = 0 then
+  writeln("(", gettime-starttime, "sec) No solution found")
+ else
+  writeln("(", gettime-starttime, "sec) Best solution: Makespan = ",
+          getsol(getmakespan))
+ end-if
+ cp_show_stats
+ 
+end-model

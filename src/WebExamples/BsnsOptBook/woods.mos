@@ -1,0 +1,80 @@
+(!*********************************************************************
+   Mosel Example Problems
+   ======================
+
+   file woods.mos
+   ``````````````
+   Formulation of a production planning problem 
+   
+     Example solution of exercise 2.1 in section 2.13 and
+     problem discussed in section 2.3.2 of
+     J. Kallrath: Business Optimization Using Mathematical Programming -
+     An Introduction with Case Studies and Solutions in Various Algebraic 
+     Modeling Languages. 2nd edition, Springer Nature, Cham, 2021 
+
+   author: S. Heipcke, Mar 2020
+
+   (c) Copyright 2020 Fair Isaac Corporation
+  
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+*********************************************************************!)
+model 'woods'
+  uses "mmxprs", "mmetc"
+
+  declarations
+    WOODS={'pine','birch'}               ! Resources
+    PRODUCTS={'ply','board'}             ! Manufactured products
+    produce: array(PRODUCTS) of mpvar    ! Quantities produced
+    use: array(WOODS,PRODUCTS) of mpvar  ! Resource quantities used
+    Revenue, Cost, Profit: linctr
+  end-declarations
+
+ ! Satisfy demand
+  forall(p in PRODUCTS) produce(p)>=500
+ 
+ ! Raw material availabilities
+  sum(p in PRODUCTS) use('pine',p) <= 5000
+  sum(p in PRODUCTS) use('birch',p) <= 6000
+
+ ! Recipe constraints
+  3*produce('ply') = use('pine','ply'); 3*produce('ply') = use('birch','ply')
+  produce('board') = use('pine','board'); 5*produce('ply') = use('birch','board')
+
+ ! At least twice as much ply as board
+ ! produce('ply') >= 2*produce('board')
+
+ ! Objective: maximise Profit = Revenue - Cost
+  Revenue:= 10*produce('ply') + 8*produce('board')
+  Cost:= (4*(use('pine','ply')+use('pine','board')) + 
+         10*(use('birch','ply')+use('birch','board')))  *.1
+  Profit:= Revenue - Cost
+
+ ! Ratio between revenue and cost at least 1.5
+ ! Revenue >= 1.5*Cost
+
+ ! Solve the problem
+  setparam("XPRS_verbose", true)
+  maximise(Profit)
+  if getprobstat<>XPRS_OPT then
+    writeln("No solution")
+  else
+    writeln("Solution: Profit=", getobjval, " Revenue=", Revenue.sol, " Cost=", Cost.sol)
+    writeln("Production quantities and use of raw materials:")
+    forall(p in PRODUCTS) do
+      write("  ", p, ": ", produce(p).sol)
+      forall(r in WOODS) write("  ", r,"=", use(r,p).sol)
+      writeln
+    end-do
+  end-if
+end-model

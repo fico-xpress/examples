@@ -1,0 +1,44 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file duoexc.mos
+   ```````````````
+   Using the excel IO driver for reading 
+   sparse data tables from a spreadsheet.
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Jan. 2007, rev. Dec. 2012
+*******************************************************!)
+
+model "Duo input (Excel)"
+ uses "mmsheet"
+
+ parameters
+  CNCTIO = "data.xls"            ! Use Excel spreadsheet `data.xls'
+ end-parameters
+
+ declarations
+  A4: dynamic array(range,range) of real
+ end-declarations
+
+! Use the excel driver for reading the data
+! (the spreadsheet ranges include a header line -> use option 'skiph')
+ initializations from "mmsheet.excel:"+CNCTIO
+  A4 as 'skiph;MyDataTable'
+ end-initializations
+
+(! Alternatively:
+ initializations from "mmsheet.excel:"+CNCTIO
+  A4 as 'MyDataTable2'
+ end-initializations
+! Or:
+ initializations from "mmsheet.excel:"+CNCTIO
+  A4 as '[Sheet1$B3:D6]'
+ end-initializations
+!)
+
+! Now let us see what we have
+ writeln('A4 is: ', A4)
+
+end-model

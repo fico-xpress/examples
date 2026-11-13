@@ -1,0 +1,37 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file runsubclone.mos
+   ````````````````````
+   Sharing data between cloned models.
+       
+   (c) 2020 Fair Isaac Corporation
+       author: S. Heipcke, April 2020, rev. Apr. 2021
+*******************************************************!)
+
+model "Sharing data between clones"
+ uses "mmjobs"
+
+ declarations
+  modSub: Model
+  A = 30..40                           ! Constant sets are shared
+  B: shared array(A) of real           ! Shared array structure
+ end-declarations
+
+ if getparam("sharingstatus")<=0 then  
+  ! **** In main model ****
+  writeln("In main: ", B)            ! *** Output:  In main: [0,...0]
+  load(modSub)                         ! Clone the current model
+  run(modSub)                          ! Run the submodel...
+  waitforend(modSub)                   ! ...and wait for its end
+  writeln("After sub: ", B)            ! *** Output:  After sub: [900,...1600]
+
+ else 
+  ! **** In submodel ****
+  writeln("In sub: ", B)               ! *** Output:  In sub: [0,...0]
+  forall(i in A) B(i):= i^2            ! Modify the shared data
+
+ end-if
+
+end-model 

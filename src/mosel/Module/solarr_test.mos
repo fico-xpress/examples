@@ -1,0 +1,40 @@
+(!******************************************************
+   Mosel NI Examples
+   =================
+
+   File solarr_test.mos
+   ````````````````````
+   Using module solarray
+
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2002
+*******************************************************!)
+
+model "Test solarray module"
+
+ uses "solarray", "mmxprs"
+
+ declarations
+  R1=1..2
+  R2={6,7,9}
+  R3={5,-1}
+  x: array(R1,R2,R3) of mpvar
+  sol: array(R1,R2,R3) of real
+ end-declarations
+
+! Define and solve a small problem  
+ sum(i in R1, j in R2, k in R3) (i+j+2*k) * x(i,j,k) <= 20
+ forall(i in R1, j in R2, k in R3) x(i,j,k)<=1
+ maximize(sum(i in R1, j in R2, k in R3) (i+2*j+k) * x(i,j,k))
+
+! Get the solution array  
+ solarray(x,sol)
+
+! Print the solution 
+ forall(i in R1) do
+  forall(j in R2, k in R3) write(" (",i,",",j,",",k,")", sol(i,j,k)," ",getsol(x(i,j,k)))
+  writeln
+ end-do
+ writeln(sol)
+ 
+end-model

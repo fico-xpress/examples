@@ -1,0 +1,78 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file a4sugar_ka.mos
+   ```````````````````
+   Production of cane sugar
+   (See "Applications of optimization with Xpress-MP",
+        Section 6.4 Cane sugar production)
+
+   Assignment with resource-dependent cost.
+   Wagen loads need to be assigned time slots on production 
+   lines. The limit on the number of resources (= production lines)
+   is modeled by counting the 'occurrence' of the time slot values
+   in the assigment variables 'process'.
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+       rev. Apr. 2022
+*****************************************************************!)
+
+model "A-4 Cane sugar production (CP)"
+ uses "kalis", "mmsystem"
+ 
+ declarations
+  NW = 11                            ! Number of wagon loads of sugar
+  NL = 3                             ! Number of production lines
+  WAGONS = 1..NW
+  NS = ceil(NW/NL)
+  SLOTS = 1..NS                      ! Time slots for production
+  
+  LOSS: array(WAGONS) of integer     ! Loss in kg/hour
+  LIFE: array(WAGONS) of integer     ! Remaining time per lot (in hours)
+  DUR: integer                       ! Duration of the production (in hours)
+  COST: array(SLOTS) of integer      ! Cost per wagon
+  
+  loss: array(WAGONS) of cpvar       ! Loss per wagon
+  process: array(WAGONS) of cpvar    ! Time slots for wagon loads
+
+  totalLoss: cpvar                   ! Objective variable
+ end-declarations
+ 
+ initializations from 'Data/a4sugar.dat'
+  LOSS LIFE DUR
+ end-initializations
+
+ forall(w in WAGONS) setdomain(process(w), 1, NS)
+
+! Wagon loads per time slot
+ forall(s in SLOTS) occurrence(s, process) <= NL
+
+! Limit on raw product life
+ forall(w in WAGONS) process(w) <= floor(LIFE(w)/DUR)
+ 
+! Objective function: total loss  
+ forall(w in WAGONS) do
+  forall(s in SLOTS) COST(s):= s*DUR*LOSS(w)
+  loss(w) = element(COST, process(w))
+ end-do
+ totalLoss = sum(w in WAGONS) loss(w)
+
+ cp_set_branching(assign_var(KALIS_SMALLEST_MAX, KALIS_MIN_TO_MAX, process))
+
+! Solve the problem
+ if not cp_minimize(totalLoss) then
+  writeln("No solution found")
+  exit(0)
+ end-if
+
+! Solution printing
+ writeln("Total loss: ", getsol(totalLoss))
+ forall(s in SLOTS) do 
+  write("Slot ", s, ": ")
+  forall(w in WAGONS | getsol(process(w))=s)  
+   write(formattext("wagon %2d (%3g)  ", w, s*DUR*LOSS(w)))
+  writeln
+ end-do
+
+end-model

@@ -1,0 +1,71 @@
+(!*********************************************************************
+   Mosel Example Problems
+   ======================
+
+   file fracprog.mos
+   `````````````````
+   Fractional programming problem
+   -- 2 formulation alternatives: reformulation as LP problem 
+      or directly solved as NLP --
+   
+     Example discussed in section 11.1 of
+     J. Kallrath: Business Optimization Using Mathematical Programming -
+     An Introduction with Case Studies and Solutions in Various Algebraic 
+     Modeling Languages. 2nd edition, Springer Nature, Cham, 2021 
+
+   author: S. Heipcke, Jan. 2020
+
+   (c) Copyright 2020 Fair Isaac Corporation
+  
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+*********************************************************************!)
+
+model fracprog
+ uses "mmxprs", "mmxnlp"
+
+ declarations
+   R=1..2
+   y: array(R) of mpvar           ! Decision variables for LP reformulation
+   w: mpvar
+   x: array(R) of mpvar           ! Decision variables of original problem
+   LPprob, NLprob: mpproblem      ! Problem definitions
+ end-declarations
+
+ ! Reformulation as a linear problem
+ with LPprob do
+  y(1)+y(2)-w <=0
+  y(2)+2*w = 1
+
+  setparam("XPRS_VERBOSE", true)     ! Display solver log
+  minimize(y(1)+w)
+
+  writeln("LP reformulation:")
+  writeln("y1=", y(1).sol, " y2=", y(2).sol, " w=", w.sol)
+  x1:=y(1).sol/w.sol; x2:=y(2).sol/w.sol
+  writeln("x1=", x1, " x2=", x2, " z=", (x1+1)/(x2+2))
+ end-do
+
+ ! Original nonlinear formulation
+ with NLprob do
+  x(1)+x(2) <= 1
+
+  setparam("XNLP_VERBOSE", true)     ! Display solver log
+  setparam("XNLP_SOLVER", 0)         ! Use Xpress SLP solver
+  minimize((x(1)+1)/(x(2)+2))
+
+  writeln("NLP formulation:")
+  writeln("x1=", x(1).sol, " x2=", x(2).sol, " z=", getobjval)
+ end-do
+
+end-model

@@ -1,0 +1,160 @@
+(!******************************************************
+   CP Example Problems
+   ===================
+
+   file i1assign2_ka.mos
+   `````````````````````
+   Assigning workers to machines
+   (See "Applications of optimization with Xpress-MP",
+        Section 14.1 Assigning personnel to machines)
+   - User-defined search strategies -
+   
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+       Creation: 2005, rev. Sep. 2018       
+*******************************************************!)
+
+model "I-1 Personnel assignment (CP)"
+ uses "kalis"
+
+ forward public function varchoice(Vars: cpvarlist): integer
+ forward public function varchoicemin(Vars: cpvarlist): integer
+ forward public function valchoice(x: cpvar): integer
+ forward procedure print_sol(text1,text2:string, objval:integer)
+
+ declarations
+  PERS = 1..6                        ! Personnel
+  MACH = 1..6                        ! Machines
+  OUTP: array(PERS,MACH) of integer  ! Productivity
+ end-declarations
+
+ initializations from 'Data/i1assign.dat'
+  OUTP
+ end-initializations
+ 
+! **** Exact solution for parallel assignment ****
+
+ declarations
+  assign: array(PERS) of cpvar       ! Machine assigned to a person 
+  output: array(PERS) of cpvar       ! Productivity of every person
+  totalProd: cpvar                   ! Total productivity
+  O: array(MACH) of integer          ! Auxiliary array for constraint def.
+  Strategy: cpbranching              ! Branching strategy
+ end-declarations
+
+ forall(p in PERS) setdomain(assign(p), MACH)
+
+! Calculate productivity per worker
+ forall(p in PERS) do
+  forall(m in MACH) O(m):= OUTP(p,m)
+  element(O, assign(p)) = output(p)
+ end-do
+ 
+! Calculate total productivity
+ totalProd = sum(p in PERS) output(p)
+
+! One person per machine
+ all_different(assign)
+
+! Branching strategy
+ Strategy:= assign_var("varchoice", "valchoice", output)
+
+! Solve the problem
+ if cp_maximize(totalProd) then
+  print_sol("Exact solution (parallel assignment)", "Total", getsol(totalProd))
+ end-if
+
+! **** Exact solution for serial machines ****
+
+ declarations
+  pmin: cpvar                        ! Minimum productivity
+ end-declarations
+
+! Calculate minimum productivity
+ pmin = minimum(output)
+
+! Branching strategy
+ Strategy:= assign_var("varchoicemin", "valchoice", output)
+
+! Solve the problem
+ if cp_maximize(pmin) then
+  print_sol("Exact solution (serial machines)", "Minimum", getsol(pmin))
+ end-if
+ 
+!-----------------------------------------------------------------
+! **** Variable choice: choose the variable(s) with largest domain value and
+!      among these the one with the smallest next-best value
+ public function varchoice(Vars: cpvarlist): integer
+  declarations
+   Vset,Iset: set of integer
+  end-declarations
+
+ ! Set of uninstantiated variables
+  forall(i in 1..getsize(Vars))
+   if not is_fixed(getvar(Vars,i)) then Vset+= {i}; end-if
+ 
+  if Vset={} then
+   returned:= 0
+  else 
+  ! Get the variable(s) with largest upper bound
+   dmax:= max(i in Vset) getub(getvar(Vars,i)) 
+   forall(i in Vset)
+    if getub(getvar(Vars,i)) = dmax then Iset+= {i}; end-if
+   dmin:= dmax
+
+  ! Choose variable with smallest next-best value among those indexed by 'Iset'
+   forall(i in Iset) do
+    prev:= getprev(getvar(Vars,i),dmax)
+    if prev < dmin then
+     returned:= i
+     dmin:= prev
+    end-if 
+   end-do
+  end-if 
+ end-function
+
+! **** Variable choice: choose the variable(s) with smallest domain value and
+!      among these the one with the smallest upper bound
+ public function varchoicemin(Vars: cpvarlist): integer
+  declarations
+   Vset,Iset: set of integer
+  end-declarations
+
+ ! Set of uninstantiated variables
+  forall(i in 1..getsize(Vars))
+   if not is_fixed(getvar(Vars,i)) then Vset+= {i}; end-if
+ 
+  if Vset={} then
+   returned:= 0
+  else 
+  ! Get the variable(s) with smallest lower bound
+   dmin:= min(i in Vset) getlb(getvar(Vars,i)) 
+   forall(i in Vset)
+    if getlb(getvar(Vars,i)) = dmin then Iset+= {i}; end-if
+
+  ! Choose variable with smallest upper bound among those indexed by 'Iset'
+   dmax:= getparam("kalis_default_ub")
+   forall(i in Iset)
+    if getub(getvar(Vars,i)) < dmax then
+     returned:= i
+     dmax:= getub(getvar(Vars,i))
+    end-if 
+  end-if 
+ end-function
+
+! **** Value choice: choose the largest value in the variable's domain 
+ public function valchoice(x: cpvar): integer
+  returned:= getub(x)
+ end-function
+ 
+!-----------------------------------------------------------------
+
+! Solution printing
+ procedure print_sol(text1,text2:string, objval:integer)
+  writeln(text1,":")
+  forall(p in PERS)
+   writeln("  ",p, " operates machine ", getsol(assign(p)),
+           " (",getsol(output(p)), ")")
+  writeln("  ", text2, " productivity: ", objval)
+ end-procedure
+ 
+end-model

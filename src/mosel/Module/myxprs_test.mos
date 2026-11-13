@@ -1,0 +1,63 @@
+(!******************************************************
+   Mosel NI Examples
+   =================
+
+   File myxprs_test.mos
+   ````````````````````
+   Using module myxprs to solve an optimization problem.
+   - Defining an INTSOL callback
+   - Writing out the matrix from the solver
+
+   (c) 2022 Fair Isaac Corporation
+       author: Y. Colombani, S. Heipcke, Oct 2017
+*******************************************************!)
+model "Problem solving and solution retrieval"
+  uses "myxprs"                       ! Load the solver module
+
+  declarations
+    x,y: mpvar                        ! Some decision variables
+  end-declarations
+
+ ! ******** Implementation of a callback routine ********
+  procedure intsol
+    writeln("!!! New solution !!!")
+    writeln("x=", getsol(x), "; y=", getsol(y),
+      "; obj=", getparam("myxp_lpobjval"))
+  end-procedure
+
+ ! **** Definition of a MIP problem ****
+  Ctr1:= 3*x + 2*y <= 450  
+  Ctr2:= x + 3*y <= 300
+  MyObj:= 5*x + 20*y
+  x is_integer; y is_integer
+
+ ! Define a solver callback (invoked whenever an integer solution is found)
+  setcbintsol(->intsol)
+
+ ! Setting solver parameters
+!  setparam("myxp_verbose", true)      ! Display solver log
+  setparam("myxp_timelimit", 10)       ! Set a time limit
+
+ ! Solve the problem (includes matrix generation) 
+  maximize(MyObj)
+ ! Retrieve a solver parameter
+  writeln("Solver status: ", getparam("myxp_mipstatus"))
+ ! Access solution information
+  if getprobstat = MYXP_OPT then
+    writeln("Solution: ", getobjval, "; ", x.sol, "; ", y.sol)  
+  else
+    writeln("No solution found")
+  end-if
+
+ ! Matrix output using default names
+  writeprob("test1.lp", "l")
+
+ ! Remove callback definition
+  setcbintsol("")
+
+ ! Matrix output with names generation
+  setparam("myxp_loadnames", true)
+  maximize(5*x + 20*y)
+  writeprob("test2.lp", "l")
+
+end-model

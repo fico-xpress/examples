@@ -1,0 +1,77 @@
+(!******************************************
+   Mosel Example Problems
+   ======================
+
+   File solarraypkg.mos
+   ````````````````````
+   Example package providing the procedure
+     solarray(array of mpvar, array of real)
+   for getting solutions into an array.
+
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, May 2005
+*******************************************!)
+
+package solarraypkg 
+
+! **** Integer indices (including ranges) ****
+ public procedure solarray(x:array(R:set of integer) of mpvar,
+                           s:array(set of integer) of real)
+  forall(i in R) s(i):=getsol(x(i))
+ end-procedure 
+
+ public procedure solarray(x:array(R1:set of integer,
+                                   R2:set of integer) of mpvar,
+                           s:array(set of integer, set of integer) of real)
+  forall(i in R1, j in R2) s(i,j):=getsol(x(i,j))
+ end-procedure 
+ 
+ public procedure solarray(x:array(R1:set of integer,
+                                   R2:set of integer,
+				   R3:set of integer) of mpvar,
+                           s:array(set of integer,
+			           set of integer,
+				   set of integer) of real)
+  forall(i in R1, j in R2, k in R3) s(i,j,k):=getsol(x(i,j,k))
+ end-procedure 
+
+ public procedure solarray(x:array(R1:set of integer,
+                                   R2:set of integer,
+                                   R3:set of integer,
+				   R4:set of integer) of mpvar,
+                           s:array(set of integer, set of integer,
+			           set of integer, set of integer) of real)
+  forall(i in R1, j in R2, k in R3, l in R4) s(i,j,k,l):=getsol(x(i,j,k,l))
+ end-procedure 
+
+! ****String indices ****
+ public procedure solarray(x:array(R:set of string) of mpvar,
+                           s:array(set of string) of real)
+  forall(i in R) s(i):=getsol(x(i))
+ end-procedure 
+
+ public procedure solarray(x:array(R1:set of string,
+                                   R2:set of string) of mpvar,
+                           s:array(set of string, set of string) of real)
+  forall(i in R1, j in R2) s(i,j):=getsol(x(i,j))
+ end-procedure 
+ 
+ public procedure solarray(x:array(R1:set of string,
+                                   R2:set of string,
+				   R3:set of string) of mpvar,
+                           s:array(set of string,
+			           set of string,
+				   set of string) of real)
+  forall(i in R1, j in R2, k in R3) s(i,j,k):=getsol(x(i,j,k))
+ end-procedure 
+
+ public procedure solarray(x:array(R1:set of string,
+                                   R2:set of string,
+                                   R3:set of string,
+				   R4:set of string) of mpvar,
+                           s:array(set of string, set of string,
+			           set of string, set of string) of real)
+  forall(i in R1, j in R2, k in R3, l in R4) s(i,j,k,l):=getsol(x(i,j,k,l))
+ end-procedure   
+
+end-package

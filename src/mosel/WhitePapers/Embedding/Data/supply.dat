@@ -1,0 +1,50 @@
+! Data file for `scenar.mos'
+
+CAP: [(SUP1) 256 (SUP2) 234 (SUP3) 166 (SUP6) 100 (SUP9) 133 (SUP10) 200]
+
+COST: [ (SUP1 C1) 9
+        (SUP1 C2) 45
+        (SUP1 C6) 77
+        (SUP1 C33) 4
+        (SUP1 C67) 34
+        (SUP1 C84) 55
+        (SUP1 C49) 23
+        (SUP1 C38) 111
+        (SUP1 C55) 56
+        (SUP2 C13) 83
+        (SUP2 C6) 66
+        (SUP2 C67) 49
+        (SUP2 C84) 11
+        (SUP2 C55) 28
+        (SUP3 C1) 91
+        (SUP3 C13) 44
+        (SUP3 C6) 21
+        (SUP3 C15) 25
+        (SUP3 C67) 28
+        (SUP3 C49) 55
+        (SUP3 C38) 122
+        (SUP3 C55) 107
+        (SUP6 C13) 17
+        (SUP6 C2) 48
+        (SUP6 C6) 51
+        (SUP6 C15) 56
+        (SUP6 C67) 53
+        (SUP6 C38) 82
+        (SUP6 C55) 72
+        (SUP9 C1) 31
+        (SUP9 C2) 39
+        (SUP9 C6) 37
+        (SUP9 C67) 71
+        (SUP9 C49) 79
+        (SUP9 C38) 78
+        (SUP9 C55) 58
+        (SUP10 C1) 59
+        (SUP10 C13) 61
+        (SUP10 C2) 63
+        (SUP10 C6) 71
+        (SUP10 C15) 75
+        (SUP10 C33) 59
+        (SUP10 C67) 78
+        (SUP10 C84) 73
+        (SUP10 C49) 22
+        (SUP10 C38) 55 ]

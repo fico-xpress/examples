@@ -1,0 +1,90 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file ociselfunc.mos
+   ```````````````````
+   Accessing an Oracle database with SQL selection 
+   statements and functions.
+       
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2007, rev. Aug. 2023
+*******************************************************!)
+
+model "OCI selections and functions"
+ uses "mmoci"
+
+ parameters
+  DB="myname/mypassword@dbname"     ! Login to Oracle database (not provided)
+ end-parameters
+
+ declarations
+  Item: set of string
+  COST1,COST2,COST3: dynamic array(Item) of real
+ end-declarations
+
+! setparam("OCIdebug",true)
+ OCIlogon(DB)
+ if not getparam("OCIsuccess"): setioerr("Database connection failed")
+
+! Select data depending on the value of a second field, the limit for which 
+! is given in a second table USER_OPTIONS
+ OCIexecute("select ITEM,COST from MYDATA where DIST > (select MINDIST from USER_OPTIONS)", COST1)
+
+! Select data depending on the values of ITEM
+ OCIexecute("select ITEM,COST from MYDATA where ITEM in ('A', 'C', 'D', 'G')",
+            COST2)
+
+! Select data depending on the values of the ratio COST/DIST
+ OCIexecute("select ITEM,COST from MYDATA where COST/DIST between 0.01 and 0.1",
+            COST3)
+
+ writeln("COST1: ", COST1, ", COST2: ", COST2, ", COST3: ", COST3)
+	    
+! Print the DIST value of ITEM 'B'
+ writeln("Distance of 'B': ", 
+         OCIreadreal("select DIST from MYDATA where ITEM='B'"))
+
+! Number of entries with COST>30
+ writeln("Count COST>30: ", 
+         OCIreadinteger("select count(*) from MYDATA where COST>30"))
+
+! Total and average distances
+ writeln("Total distance: ", OCIreadreal("select sum(DIST) from MYDATA"), 
+         ", average distance: ", OCIreadreal("select avg(DIST) from MYDATA"))
+
+ OCIlogoff
+ 
+end-model
+
+
+**************************************************
+
+
+! Creation of the data table in an Oracle database:
+
+
+ declarations
+  tsucc: array ({false,true}) of string
+  ITEM: set of string
+  CO, DI: array(ITEM) of real
+ end-declarations
+
+ tsucc(false):="failed"; tsucc(true):="succeeded"
+ 
+ initializations from "ocidata.dat"
+  [CO, DI] as "CostDist"
+ end-initializations 
+
+ OCIexecute("create table MYDATA (ITEM varchar(5), COST float, DIST float)")
+ writeln(" - Create MYDATA (",tsucc(getparam("OCIsuccess")),")")
+ OCIexecute("insert into MYDATA (ITEM, COST, DIST) values (:1, :2, :3)", 
+            [CO,DI])
+ writeln(" - Insert values in MYDATA (",tsucc(getparam("OCIsuccess")),",",
+        getparam("OCIrowcnt"),'/',getparam("OCIrowxfr")," rows)")
+
+ OCIexecute("create table USER_OPTIONS (MINDIST float, ETC integer)")
+ writeln(" - Create USER_OPTIONS (",tsucc(getparam("OCIsuccess")),")")
+ OCIexecute("insert into USER_OPTIONS (MINDIST) values (:1)", [500])
+ writeln(" - Insert values in USER_OPTIONS (",tsucc(getparam("OCIsuccess")),",",
+        getparam("OCIrowcnt"),'/',getparam("OCIrowxfr")," rows)")

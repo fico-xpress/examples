@@ -1,0 +1,106 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file j2bigbro_graph.mos
+   `````````````````
+   CCTV surveillance
+
+   A town council has determined candidate street intersections
+   where cameras can be installed. A map providing the possible
+   locations is given. Where should the cameras be located
+   to monitor all the streets to minimize the total number
+   of installed cameras?
+
+   This problem is modeled as a graph-based IP model. Nodes
+   in the graph correspond to street intersections where
+   cameras can be installed, and links correspond to the
+   streets connecting nodes. The undirected graph is
+   encoded by a symmetric adjacency matrix. The unique set
+   of constraints guarantees that every street needs
+   to be surveyed by at least one camera.
+   The resulting street map is displayed graphically.
+
+   (c) 2008-2023 Fair Isaac Corporation
+       author: S. Heipcke, Mar. 2002, rev. Jun. 2023
+*******************************************************!)
+
+model "J-2 CCTV surveillance"
+ uses "mmxprs", "mmsvg"
+
+ declarations
+  NODES=1..49
+  STREET: dynamic array(NODES,NODES) of integer  ! 1 if a street connects two nodes, 0 otherwise
+
+  place: array(NODES) of mpvar     ! 1 if camera at node, 0 otherwise
+ end-declarations
+
+ initializations from 'j2bigbro.dat'
+  STREET
+ end-initializations
+
+! Connections are recyprocal
+ forall(n,m in NODES | exists(STREET(n,m)))
+  STREET(m,n):= STREET(n,m)
+
+! Objective: number of cameras to install
+ Total:= sum(n in NODES) place(n)
+
+! Flow balances in nodes - ensure all streets are covered
+ forall(n,m in NODES | exists(STREET(n,m)) ) place(n)+place(m) >= 1
+
+ forall(n in NODES) place(n) is_binary
+
+! Solve the problem
+ minimize(Total)
+
+! Solution printing
+ writeln("Total number of cameras: ", getobjval)
+ forall(n in NODES | getsol(place(n))>0) write(" ", n)
+ writeln
+
+! Solution drawing
+ declarations
+  XN,YN: array(NODES) of integer        ! x-y-coordinates of nodes (potential camera locations)
+ end-declarations
+
+ initializations from 'j2bigbro.dat'
+  [XN,YN] as 'POS'
+ end-initializations
+
+! Define settings of global picture
+ svgsetgraphviewbox(2,3,110,110) ! set dimensions of generated image (start x, start y, dim x, dim y)
+ svgsetgraphscale(3) ! scale of points/arrows and text
+
+ ! Add points related to nodes, highlighting the nodes chosen for a camera
+ svgaddgroup("CovNodes", "Optimal camera locations", SVG_GREEN) ! declare groups to add color
+ svgaddgroup("UncNodes", "Other possible locations", SVG_BLACK)
+ forall(n in NODES) do
+  if(getsol(place(n))>0) then ! if location is chosen depict a different color
+   svgaddcircle("CovNodes", XN(n), YN(n), 0.3)
+   svgsetstyle(svggetlastobj, SVG_FILL, SVG_GREEN)
+   svgaddcircle("CovNodes", XN(n), YN(n), 1.2)
+   svgaddtext("CovNodes", XN(n)+1, YN(n)+1, text(n))
+  else
+   svgaddcircle("UncNodes", XN(n), YN(n), 0.4)
+   svgsetstyle(svggetlastobj, SVG_FILL, SVG_BLACK)
+   svgaddtext("UncNodes", XN(n)+1, YN(n)+1, text(n))
+  end-if
+  svgsetstyle(svggetlastobj, SVG_FONTSIZE, 'xx-small')
+  svgsetstyle(svggetlastobj, SVG_FONTWEIGHT, 'bold')
+ end-do
+
+ ! Add lines between nodes representing streets
+ svgaddgroup("BuildStreets", "Streets", SVG_GRAY)
+  forall(n,m in NODES | exists(STREET(n,m))) do
+   svgaddline("BuildStreets", XN(n), YN(n), XN(m), YN(m))
+   svgsetstyle(svggetlastobj, SVG_COLOR, SVG_GRAY)
+   svgsetstyle(svggetlastobj, SVG_STROKEWIDTH, 4)
+   svgsetstyle(svggetlastobj, SVG_STROKEOPACITY, 0.3)
+  end-do
+
+ svgsave("j2bigbro.svg")
+ svgrefresh
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+
+end-model

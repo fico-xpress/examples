@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<!-- (C) Copyright 2026 Fair Isaac Corporation -->
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>FICO Xpress Optimization Examples Repository</title>
+<link rel="icon" type="image/svg" href="images/circle-logo.svg">
+<link rel="stylesheet" href="main.css" type="text/css">
+<script type="text/javascript" src="load-mathjax.js" async></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/knockout/3.5.0/knockout-min.js" integrity="sha512-xXZWdp+Qu5oSyYvkV6tcCsw+LhXwBZAh8qhD6Ml44PhxjroiMjrLhP9wvvBnhHzkc9A9kLBWBZ6HGaqqtxNd5g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" integrity="sha512-XMVd28F1oH/O71fzwBnV7HucLxVwtxf26XV8P4wPk26EDxuGZ91N8bsOttmnomcCD3CS5ZMRL50H0GgOHvegtg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<!-- Prism core + languages (no theme CSS — token colours defined in main.css) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js" integrity="sha512-9khQRAUBYEJDCDVP2yw3LRUQvjJ0Pjx0EShmaQjcHa6AXiOv6qHQu9lCAIR8O+/D8FtaCoJ2c0Tf9Xo7hYH01Q==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-markup.min.js" integrity="sha512-Ei5Vokmnc/f7vIt31aodVMuavT/xp2Lt5vGDYLgCzgBX/z5ghbZQfxt/9FkNs+RyG8IfBKAkdRsQQk4PZyHq5g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-clike.min.js" integrity="sha512-/Rynaa6ehLZJO9fdk+EUsgiOdJqFSFUB4Qgy+gP4vU4U1DrmPJWypfXe1CgyaV7rRdZjGxdpLe9djxhx1ZHvqQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-c.min.js" integrity="sha512-8VrjxGFLIkS0mgEmO3p46A5OkqATHhrNVwyv2V7yUeZrk1jmSDuI3SOEpC9XHEHUWEOsfzzcJeBlUkee9lKGrw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-cpp.min.js" integrity="sha512-namzGTZvHaug0jeipHRN2pMepMiJj+EbrloktVFlMYGnA0EwZhbdLeENjBYLCgoghVbZGinIz/FFYHmB0o3wLw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-java.min.js" integrity="sha512-xKcnbsdT0KMoA4yrozkqZM1XJVTrPsjdQwvigxlAlxEDu8YDvC/jl+LfVqn0fY3Vs6m2y4a89JCHEIA/Z9zpmQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js" integrity="sha512-AKaNmg8COK0zEbjTdMHJAPJ0z6VeNqvRvH4/d5M4sHJbQQUToMBtodq4HaV4fa+WV2UTfoperElm66c9/8cKmQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js" integrity="sha512-jwrwRWZWW9J6bjmBOJxPcbRvEBSQeY4Ad0NEXSfP0vwYi/Yu9x5VhDBl3wz6Pnxs8Rx/t1P8r9/OHCRciHcT7Q==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-xml-doc.min.js" integrity="sha512-2jSijdAPqcdQcDxSD6wfOaUxXmFDR0Y1sG2aIRGWDYlUmMzNcsWyY5vuVAih3ifD3cos7Awqk2Tp4eok/oOIkQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js" integrity="sha512-QXFMVAusM85vUYDaNgcYeU3rzSlc+bTV4JvkfJhjxSHlQEo+ig53BtnGkvFTiNJh8D+wv6uWAQ2vJaVmxe8d3w==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-r.min.js" integrity="sha512-RQ0HgkZNAWBAoL3DQOK5fac8U0Xt9eD/hXusL6YBgMXPQE7pjFjVtsO/embtTiv/PDpjRCVRGagbwXj7oQUPDg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-matlab.min.js" integrity="sha512-nPrTi1AVJF0WPp8W98leQ70MmvPdkQGv4eGVI+saZ8QfewGBLhZHRailGklmxtv0m5GIGzaYeAn8lUWE61ShGg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-csharp.min.js" integrity="sha512-pmt3kb6dRndjFXFFwCa3rSzuUQ0GjeCfC5QULWde+8ZBIsUzuP1heOIOSAMfAyXHSufrrTp8h7UHw85K4IJ2/g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-visual-basic.min.js" integrity="sha512-e/iNIg1sCEIKN2h9oy55RpKZT1iJ3HFyoQpJaQmuNqokIULt/ryZwOtGd/pQjQ4BWfxq0Pf+pFh9l7SR0h+PgQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-fortran.min.js" integrity="sha512-euQvOHm8+JS0EX/6qLuxHVwIHkgwUwv9oQovbABPJOOmFWchY14C21/7FO0FimAgkDm6KY/qPP7XVB8HoVHamg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="prism-mosel.js"></script>
+<script src="prism-mmpp.js"></script>
+<script src="prism-xpress.js"></script>
+<script src="model.js" defer></script>
+</head>
+
+<body>
+<center>
+
+<table cellspacing="0" cellpadding="0" border="0" width="100%">
+
+<!-- FICO banner -->
+<tr><td class="titlebar">
+<a class="titleimg" href="https://www.fico.com/"><img src="images/logo-large.png" border="0" width="80" alt="FICO" />
+</td></tr>
+
+<!-- Xpress banner -->
+<tr><td background="images/Banner3.png" width="920" height="129">
+  <table cellspacing="0" cellpadding="0" width="100%">
+    <tr><td><div class="bannertext">FICO Xpress Optimization Examples Repository</div></td></tr>
+    <tr><td class="bannermenu" align="right">
+      <table cellspacing="0"><tr>
+        <td class="bannermenutext"><a href="https://community.fico.com/category/fico-xpress-optimization" class="bannermenutext">FICO Optimization Community</a></td>
+        <td class="bannermenutext"><a href="https://www.fico.com/products/fico-xpress-optimization" class="bannermenutext">FICO Xpress Optimization Home</a></td>
+      </tr></table>
+    </td></tr>
+  </table>
+</td></tr>
+
+<!-- Content -->
+<tr><td class="content_body">
+<!-- ko if:sections().length===0 && !error() -->
+<p class="bodytext">Loading examples&hellip;</p>
+<!-- /ko -->
+<!-- Wrap everything in 'display:none' which will be overridden by binding "visible=true" when knockout bindings
+     are applied; this is so that page content does not appear before bindings applied. -->
+<div id="main-content" style="display: none" data-bind="visible:true">
+  <!-- Show any load error -->
+  <!-- ko if:error -->
+  <p class="bodytext"><b>Error loading examples:</b> <span data-bind="text:error"></span></p>
+  <!-- /ko -->
+
+  <!-- Contents page -->
+  <!-- ko if:pageType()==='contents' -->
+  <div>
+    <table border="0" cellspacing="0" cellpadding="0" width="700">
+      <tr><td>
+        <br>
+        <form id="search-form" data-bind="submit:onClickSearch">
+          <input type="hidden" name="examplesonly" value="1">
+          <table border="0" cellspacing="0" cellpadding="0">
+            <tr valign="center">
+              <td width="75"><b class="bodytext">Search for</b></td>
+              <td>
+                <input class="input" id="search-input" maxlength="35" name="keyword" size="36" data-bind="textInput:search,disable:sections().length===0">
+                <input class="button" type="submit" value="Search" name="submit" onmouseover="buttonover(this)" onmouseout="buttonout(this)" data-bind="disable:sections().length===0">
+              </td>
+            </tr>
+          </table>
+        </form>
+      </td></tr>
+      <tr><td><br></td></tr>
+      <tr><td>
+
+        <!-- Render search results -->
+        <!-- ko if:searchResults() -->
+        <!-- ko if:searchResults().length===0 -->
+        <p class="bodytext">No results found for <b data-bind="text:searchTerm"></b>.
+          <a href="?" data-bind="click:goHome">Back to browser</a>
+        </p>
+        <!-- /ko -->
+        <!-- ko if:searchResults().length>0 -->
+        <p class="bodytext"><b data-bind="text:searchResults().length"></b>
+          <span data-bind="text:(searchResults().length===1)?'result':'results'"></span>
+          for <b data-bind="text:searchTerm"></b>.
+          <a href="?" data-bind="click:goHome">Back to browser</a>
+        </p>
+        <table cellpadding="4" cellspacing="0" border="0" width="650" data-bind="foreach:searchResults">
+          <tr><td class="search-result">
+            <div class="search-result-title">
+              <a data-bind="attr: {href: href}, click: goExample, text:title"></a>
+            </div>
+            <div class="search-result-cat" data-bind="text:parent.searchcat || parent.title"></div>
+          </td></tr>
+        </table>
+        <!-- /ko -->
+        <!-- /ko -->
+
+        <!-- Render tree of sections / subsections / examples -->
+        <!-- ko if:!searchResults() -->
+        <ol id="root" data-bind="foreach:sections">
+          <li class="li1">
+            <a class="section" data-bind="attr: {title: description, href: href}, click:toggleExpanded">
+              <!-- ko if:!expanded() -->
+              <img class="image_visible" src="images/codefold.png" height="10" width="10" valign="bottom">
+              <!-- /ko -->
+              <!-- ko if:expanded() -->
+              <img class="image_visible" src="images/codeunfold.png" height="10" width="10">
+              <!-- /ko -->
+              <span data-bind="text:title"></span>
+            </a>
+
+            <!-- ko if:expanded() -->
+            <ol data-bind="foreach:subsections">
+              <li class="li2">
+                <a class="subsection" data-bind="attr: {title: description, href: href}, click:toggleExpanded">
+                  <!-- ko if:!expanded() -->
+                  <img class="image_visible" src="images/codefold.png" height="10" width="10" valign="bottom">
+                  <!-- /ko -->
+                  <!-- ko if:expanded() -->
+                  <img class="image_visible" src="images/codeunfold.png" height="10" width="10">
+                  <!-- /ko -->
+                  <span data-bind="text:title"></span>
+                </a>
+
+                <!-- ko if:expanded() -->
+                <ol data-bind="foreach:examples">
+                  <li class="li3">
+                    <a class="example" data-bind="attr: {href: href}, click: goExample">
+                      <img class="image_visible" src="images/ex_file.gif" width="12" height="14">
+                      <span data-bind="text:title"></span>
+                    </a>
+                    <div class="featuretext" data-bind="text:features"></div>
+                  </li>
+                </ol>
+                <!-- /ko -->
+              </li>
+            </ol>
+            <!-- /ko -->
+          </li>
+        </ol>
+        <!-- /ko -->
+
+      </td></tr></table><br>
+  </div>
+  <!-- /ko -->
+
+  <!-- ko if:pageType()==='example' -->
+  <!-- ko with:node -->
+  <!-- Controls - define as a KO template so we can repeat later-->
+  <script type="text/html" id="controls-template">
+    <table width="500"><tr><td align="right"><table cellpadding="8"><tr>
+      <td>
+        <a href="?" data-bind="click:function() {$root.goHomeWithHash(parent.id)}">
+          <img alt="Back to examples browser" border="0" width="18" src="images/home_g.png" onmouseover="this.src='images/home_b.png'" onmouseout="this.src='images/home_g.png'">
+        </a>
+      </td>
+      <td>
+        <!-- ko if:prev -->
+        <a data-bind="attr:{href:prev.href}, click:function() {prev.goExample();}">
+          <img alt="Previous example" border="0" width="18" src="images/chevron-left_g.png" onmouseover="this.src='images/chevron-left_b.png'" onmouseout="this.src='images/chevron-left_g.png'">
+        </a>
+        <!-- /ko -->
+        <!-- ko if:!prev -->
+        <img border="0" width="18" src="images/chevron-left_d.png">
+        <!-- /ko -->
+      </td>
+
+      <td>
+        <!-- ko if:next -->
+        <a data-bind="attr:{href:next.href}, click:function() {next.goExample();}">
+          <img alt="Next example" border="0" width="18" src="images/chevron-right_g.png" onmouseover="this.src='images/chevron-right_b.png'" onmouseout="this.src='images/chevron-right_g.png'">
+        </a>
+        <!-- /ko -->
+        <!-- ko if:!next -->
+        <img border="0" width="18" src="images/chevron-right_d.png">
+        <!-- /ko -->
+      </td>
+    </tr></table></td></tr></table>
+  </script>
+
+  <div data-bind="template: { name: 'controls-template' }"></div>
+  <br>
+
+  <!-- Example info -->
+  <font class="titletext" data-bind="text:title"></font><br><br>
+  <font class="subtitletext">Description</font><br>
+  <div class="descrtext" data-bind="html:description || ''"></div><br>
+
+  <!-- Download all files: use pre-packaged zip when listed in contents.xml,
+       otherwise offer client-side JSZip bundling for any downloadable example. -->
+  <div class="descrtext">
+    <table>
+      <tbody>
+        <!-- ko foreach:zipfiles -->
+        <tr>
+          <td width="100">
+            <font class="bodytext" data-bind="text:title"></font>
+          </td>
+          <td>
+            <font class="bodytext">
+              <a data-bind="attr:{href:srcPath}" download>[download all files]</a>
+            </font>
+          </td>
+        </tr>
+        <!-- /ko -->
+        <!-- ko if:zipfiles.length == 0 && (srcfiles.length > 0 || datafiles.length > 0) -->
+        <tr><td width="100">
+          <font class="bodytext">All files</font>
+        </td>
+        <td>
+          <font class="bodytext">
+            <!-- ko if:!isPackaging() -->
+            <a href="#" data-bind="click:downloadAllFiles">[download all files]</a>
+            <!-- /ko -->
+            <!-- ko if:isPackaging() -->
+            Packaging...
+            <!-- /ko -->
+          </font>
+        </td></tr>
+        <!-- /ko -->
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Source files -->
+  <!-- ko if:srcfiles.length > 0 -->
+  <br><font class="subtitletext">Source Files</font><br>
+  <div class="descrtext">
+    <font class="bodytextitalic">By clicking on a file name, a preview is opened at the bottom of this page.</font><br>
+    <table data-bind="foreach:srcfiles">
+      <tr><td width="100"><font class="bodytext">
+        <!-- ko if:viewable -->
+        <a data-bind="attr:{href:href},click:function() { goFile(true); },text:title"></a>
+        <!-- /ko -->
+        <!-- ko if:!viewable -->
+        <span data-bind="text:title"></span>
+        <!-- /ko -->
+      </font></td>
+      <td><font class="bodytext">
+        <a data-bind="attr:{href:srcPath}" download>[download]</a>
+      </font></td></tr>
+    </table>
+  </div>
+  <!-- /ko -->
+
+  <!-- Data files -->
+  <!-- ko if:datafiles.length > 0 -->
+  <br><font class="subtitletext">Data Files</font><br>
+  <div class="descrtext">
+    <table data-bind="foreach:datafiles">
+      <tr><td width="100"><font class="bodytext">
+        <!-- ko if:viewable -->
+        <a data-bind="attr:{href:href},click:goFile,text:title"></a>
+        <!-- /ko -->
+        <!-- ko if:!viewable -->
+        <span data-bind="text:title"></span>
+        <!-- /ko -->
+      </font></td>
+      <td><font class="bodytext">
+        <a data-bind="attr:{href:srcPath}" download>[download]</a>
+      </font></td></tr>
+    </table>
+  </div>
+  <!-- /ko -->
+
+  <!-- file viewer -->
+  <!-- ko if:selectedFile -->
+  <!-- ko with:selectedFile -->
+  <br><br><hr width="100%" color="#6e6d6a" bgcolor="#ffffff" height="1">
+  <div>
+    <br><br>
+    <a id="filedisploc"></a>
+    <font class="bodybold" data-bind="text:title"></font>
+
+    <!-- ko if:!content() && !loadError() -->
+    <p class="bodytext">Loading&hellip;</p>
+    <!-- /ko -->
+    <!-- ko if:loadError() -->
+    <p class="bodytext">Could not load file: <span data-bind="text:loadError"></span></p>
+    <!-- /ko -->
+    <!-- ko if:content() -->
+    <font class="examplefont">
+      <pre data-bind="html:highlightedContent"></pre>
+    </font>
+    <!-- /ko -->
+  </div>
+  <!-- /ko -->
+  <!-- /ko -->
+
+  <!-- Controls footer -->
+  <div data-bind="template: { name: 'controls-template' }"></div>
+
+  <!-- /ko -->
+  <!-- /ko -->
+</div>
+</td></tr>
+
+  <!-- Footer -->
+<tr><td width="100%" bgcolor="#6e6d6a" height="2"></td></tr>
+<tr><td class="footer">
+&copy; Copyright 2026 Fair Isaac Corporation.
+</td></tr>
+
+</table>
+
+</center>
+</body>
+</html>

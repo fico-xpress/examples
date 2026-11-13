@@ -1,0 +1,52 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file impequiv.mos
+   `````````````````
+   Logical constraints (implication, equivalence).
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+       Creation: 2005, rev. Mar. 2013
+*****************************************************************!)
+model "Logical constraints"
+ uses "kalis"
+
+! Default bounds for all variables
+ setparam("KALIS_DEFAULT_LB", 0); setparam("KALIS_DEFAULT_UB", 5)
+  
+ declarations
+  A, B, C, D, E: cpctr
+  x,y,z,b: cpvar
+ end-declarations
+
+ setname(b, "b"); setname(x, "x")
+ setname(y, "y"); setname(z, "z")
+ b <= 1
+
+! Definition of constraints (without posting)  
+ A:= x >= y + 5 + z + b
+ B:= b = 1
+ C:= all_different({x, y, z})    ! Cannot be used with 'equiv'
+ D:= y <= z
+ E:= distance(y,z) <= 2
+
+ writeln("Original domains: ", b, " ", x, " ", y, " ", z) 
+ 
+! If x, y and z are all different then b equals 1 (C=>B),
+! if b equals 1 then x, y and z are all different (B=>C).  
+ implies(C, B)
+ implies(B, C)
+
+! E<=>B: b equals 1 if and only if |y-z| <= 2 
+ equiv(E, B) 
+
+! A<=>D: x >= y + 5 + z + b if and only if y <= z 
+ equiv(A, D)
+ 
+ writeln("With constraints: ", b, " ", x, " ", y, " ", z)
+
+ while (cp_find_next_sol)  
+  writeln("Solution: ", b, " ", x, " ", y, " ", z)
+
+end-model

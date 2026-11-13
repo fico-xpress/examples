@@ -1,0 +1,11 @@
+<!-- Data file for `burglar2x.mos' -->
+<BurgData>
+  <Item name="camera">   <Value> 15</Value> <Weight> 2</Weight> </Item>
+  <Item name="necklace"> <Value>100</Value> <Weight>20</Weight> </Item>
+  <Item name="vase">     <Value> 90</Value> <Weight>20</Weight> </Item>
+  <Item name="picture">  <Value> 60</Value> <Weight>30</Weight> </Item>
+  <Item name="tv">       <Value> 40</Value> <Weight>40</Weight> </Item>
+  <Item name="video">    <Value> 15</Value> <Weight>30</Weight> </Item>
+  <Item name="chest">    <Value> 10</Value> <Weight>60</Weight> </Item>
+  <Item name="brick">    <Value>  1</Value> <Weight>10</Weight> </Item>
+</BurgData>

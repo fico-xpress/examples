@@ -1,0 +1,10 @@
+! Data file for `projplan.mos'
+
+ DUR: [ 3    3    4]         ! Duration of projects
+ BEN: [10.2 12.3 11.2]       ! Benefit per month once project is finished
+
+ RESMAX: [5 6 7 7 6 6]       ! Resource available per month
+
+ RESUSE: [(1 1) 3 4 2        ! Resource usage per project 
+          (2 1) 4 1 5        ! (other entries are 0 by default)
+          (3 1) 3 2 1 2]

@@ -1,0 +1,40 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file threedimarr.mos
+   ````````````````````
+   Reading 3-dimensional arrays.
+   - Using 'initializations from' with the odbc driver -
+       
+   (c) 2010 Fair Isaac Corporation
+       author: S. Heipcke, July 2010, rev. Jan. 2014
+*******************************************************!)
+
+model ThreeDimArr
+ uses "mmodbc"
+
+ parameters
+  CSTR = 'threedim.sqlite'    ! Use SQLite database `threedim.sqlite' directly
+                              ! Use SQLite database `threedim.sqlite' via ODBC
+!  CSTR = 'DSN=sqlite;DATABASE=threedim.sqlite'
+ end-parameters
+
+ declarations
+  I: range
+  J: set of string
+  K = 1..5	              ! The last index set must be defined in the model
+  A: dynamic array(I,J,K) of real
+ end-declarations
+
+ initializations from 'mmodbc.odbc:debug;noindex;' + CSTR
+  A as 'Tab_23'
+ end-initializations
+
+ writeln("A: ")
+ forall(i in I, j in J, k in K | exists(A(i,j,k)))
+  writeln("A(", i, ",", j, ",", k, "): ", A(i,j,k))
+
+end-model
+
+

@@ -1,0 +1,240 @@
+(!*******************************************************
+   Mosel User Guide Examples
+   =========================
+
+   file clean.mos
+   ``````````````
+   Solving a MIP by cut-and-branch or branch-and-cut.
+   - Callback definition via subroutine reference -
+
+   *** This model cannot be run with a Community Licence 
+       for the provided data instance ***
+
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2001, rev. July 2023
+*******************************************************!)
+
+model "Office cleaning"
+ uses "mmxprs","mmsystem"
+
+ forward procedure top_cut_gen
+ forward procedure tree_cut_gen
+
+ declarations
+  PARAM: array(1..3) of integer
+ end-declarations
+ 
+ initializations from 'clparam.dat'
+  PARAM
+ end-initializations
+
+ declarations
+  NSITES = PARAM(1)                     ! Number of sites 
+  NAREAS = PARAM(2)                     ! Number of areas (subsets of sites) 
+  NCONTRACTORS = PARAM(3)               ! Number of contractors 
+  AREAS = 1..NAREAS
+  CONTR = 1..NCONTRACTORS
+  SITES = 1..NSITES
+  AREA: array(SITES) of integer         ! Area site is in 
+  NUMSITE: array(AREAS) of integer      ! Number of sites in an area 
+  LOWCON: array(AREAS) of integer       ! Lower limit on the number of 
+                                        ! contractors per area 
+  UPPCON: array(AREAS) of integer       ! Upper limit on the number of 
+                                        ! contractors per area 
+  ADJACENT: array(AREAS,AREAS) of integer    ! 1 if areas adjacent, 0 otherwise
+  PRICE: array(SITES,CONTR) of real     ! Price per contractor per site 
+
+  clean: dynamic array(CONTR,SITES) of mpvar ! 1 iff contractor c cleans site s 
+  alloc: array(CONTR,AREAS) of mpvar    ! 1 iff contractor allocated to a site 
+                                        !  in area a 
+
+  feastol: real                         ! Zero tolerance
+  solc: array(CONTR,SITES) of real      ! Sol. values for variables `clean'
+  sola: array(CONTR,AREAS) of real      ! Sol. values for variables `alloc'
+ end-declarations
+
+ initializations from 'cldata.dat'
+  [NUMSITE,LOWCON,UPPCON] as 'AREADATA'
+  ADJACENT
+  PRICE
+ end-initializations 
+
+ ct:=1
+ forall(a in AREAS) do
+  forall(s in ct..ct+NUMSITE(a)-1)
+   AREA(s):=a
+  ct+= NUMSITE(a)
+ end-do
+ 
+ forall(c in CONTR, s in SITES | PRICE(s,c) > 0.01) create(clean(c,s))
+ 
+! Objective: Minimize total cost of all cleaning contracts 
+ Cost:= sum(c in CONTR, s in SITES) PRICE(s,c)*clean(c,s)
+
+! Each site must be cleaned by exactly one contractor 
+ forall(s in SITES) sum(c in CONTR) clean(c,s) = 1
+
+! Ban same contractor from serving adjacent areas 
+ forall(c in CONTR, a,b in AREAS | a > b and ADJACENT(a,b) = 1)
+  alloc(c,a) + alloc(c,b) <= 1   
+
+! Specify lower & upper limits on contracts per area 
+ forall(a in AREAS | LOWCON(a)>0)
+  sum(c in CONTR) alloc(c,a) >= LOWCON(a)
+ forall(a in AREAS | UPPCON(a)<NCONTRACTORS) 
+  sum(c in CONTR) alloc(c,a) <= UPPCON(a)
+
+! Define alloc(c,a) to be 1 iff some clean(c,s)=1 for sites s in area a 
+ forall(c in CONTR, a in AREAS) do
+  alloc(c,a) <= sum(s in SITES| AREA(s)=a) clean(c,s) 
+  alloc(c,a) >= 1.0/NUMSITE(a) * sum(s in SITES| AREA(s)=a) clean(c,s)  
+ end-do
+ 
+ forall(c in CONTR) do
+  forall(s in SITES) clean(c,s) is_binary
+  forall(a in AREAS) alloc(c,a) is_binary
+ end-do
+ 
+ starttime:= gettime
+
+! Uncomment to get detailed MIP output
+ setparam("XPRS_VERBOSE", true)
+ setparam("XPRS_LPLOG", 0)
+ setparam("XPRS_MIPLOG", 3)
+
+ feastol:= getparam("XPRS_FEASTOL")  ! Get the Optimizer zero tolerance
+ setparam("zerotol", feastol * 10)   ! Set the comparison tolerance of Mosel
+
+! Uncomment one or both of the following lines for user cut generation
+ tree_cut_gen                        ! Set up cut generation in B&B tree
+! top_cut_gen                         ! Constraint generation at top node
+ 
+ minimize(Cost)                      ! Solve the MIP problem
+ writeln("(", gettime-starttime, " sec) Global status ", 
+         getparam("XPRS_MIPSTATUS"), ", best solution: ", getobjval); 
+
+
+!*************************************************************************
+!  Cut generation loop at the top node:                                 
+!  * solve the LP and save the basis                                    
+!  * get the solution values                                            
+!  * identify and set up violated constraints                           
+!  * load the modified problem and load the saved basis                 
+!*************************************************************************
+
+ procedure top_cut_gen
+
+  declarations
+   MAXCUTS = 5000                ! Max no. of constraints added in total
+   MAXPCUTS = 1000               ! Max no. of constraints added per pass
+   MAXPASS  = 50                 ! Max no. passes
+   ncut, npass, npcut: integer        ! Counters for cuts and passes
+   objval: real
+   bas: basis                         ! LP basis
+  end-declarations
+
+  setparam("XPRS_CUTSTRATEGY", 0)     ! Disable automatic cuts
+  setparam("XPRS_PRESOLVE", 0)        ! Switch presolve off
+  ncut:=0 
+  npass:=0
+
+  while (ncut<MAXCUTS and npass<MAXPASS) do
+    npass+=1
+    npcut:= 0
+    minimize(XPRS_LIN, Cost)          ! Solve the LP
+    if (npass>1 and objval=getobjval) then break; end-if
+    savebasis(bas)                    ! Save the current basis
+    objval:= getobjval                ! Get the objective value
+
+    forall(c in CONTR) do             ! Get the solution values
+      forall(a in AREAS) sola(c,a):=getsol(alloc(c,a))
+      forall(s in SITES) solc(c,s):=getsol(clean(c,s))
+    end-do
+  
+! Search for violated constraints and add them to the problem:
+    forall(c in CONTR, s in SITES)
+     if solc(c,s) > sola(c,AREA(s)) then
+      alloc(c,AREA(s)) >= clean(c,s)
+      ncut+=1
+      npcut+=1
+      if (npcut>MAXPCUTS or ncut>MAXCUTS) then break 2; end-if
+     end-if
+   
+    writeln("Pass ", npass, " (", gettime-starttime, " sec), objective value ", 
+            objval, ", cuts added: ", npcut, " (total ", ncut,")")
+
+    if npcut=0 then
+      break
+    else
+      loadprob(Cost)                  ! Reload the problem
+      loadbasis(bas)                  ! Load the saved basis
+    end-if
+  end-do
+
+                                      ! Display cut generation status
+  write("Cut phase completed: ")
+  if (ncut >= MAXCUTS) then writeln("space for cuts exhausted")
+  elif (npass >= MAXPASS) then writeln("maximum number of passes reached")
+  else writeln("no more violations or no improvement to objective")
+  end-if
+ 
+ end-procedure
+
+!*************************************************************************
+!  Cut generation loop at tree nodes:                                 
+!  * get the solution values                                            
+!  * identify violated constraints and add them to the cut pool
+!*************************************************************************
+
+ function cb_node:boolean
+
+  declarations
+   ncut: integer                           ! Counters for cuts
+   cut: dynamic array(range) of linctr     ! Cuts
+   cutid: dynamic array(range) of integer  ! Cut type identification
+   type: dynamic array(range) of integer   ! Cut constraint type 
+  end-declarations
+
+  returned:=false                   ! OPTNODE: This node is not infeasible
+  depth:=getparam("XPRS_NODEDEPTH"); node:=getparam("XPRS_NODES")
+
+  if depth<4 then
+   ncut:=0 
+
+! Get the solution values
+   forall(c in CONTR) do
+    forall(a in AREAS) sola(c,a):=getsol(alloc(c,a))
+    forall(s in SITES) solc(c,s):=getsol(clean(c,s))
+   end-do
+
+! Search for violated constraints
+   forall(c in CONTR, s in SITES)
+    if solc(c,s) > sola(c,AREA(s)) then
+     cut(ncut):= alloc(c,AREA(s)) - clean(c,s)
+     cutid(ncut):= 1
+     type(ncut):= CT_GEQ
+     ncut+=1
+    end-if
+
+! Add cuts to the problem
+   if ncut>0 then 
+    addcuts(cutid, type, cut)  
+    writeln("Cuts added : ", ncut, " (depth ", depth, ", node ", node, 
+           ", obj. ", getparam("XPRS_LPOBJVAL"), ")")
+   end-if
+  end-if
+  
+ end-function
+
+! ****Optimizer settings for using the cut manager****
+
+ procedure tree_cut_gen
+ 
+  setparam("XPRS_CUTSTRATEGY", 0)     ! Disable automatic cuts
+  setparam("XPRS_PRESOLVE", 0)        ! Switch presolve off
+  setparam("XPRS_EXTRAROWS", 5000)    ! Reserve extra rows in matrix
+  setcallback(XPRS_CB_OPTNODE, ->cb_node)  ! Define the optnode callback
+
+ end-procedure
+
+end-model

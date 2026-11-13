@@ -1,0 +1,84 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file eulerfct.mos
+   `````````````````
+   Constructing a Eulerian circuit (a closed circuit 
+   that uses every given arc exactly once).
+   - Working with lists -
+   - Model version using subroutines -
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Oct. 2006
+*******************************************************!)
+
+model "Eulerian circuit"
+
+ forward function find_unused(J: list of integer):integer
+ forward function add_loop(node:integer, J: list of integer):integer
+
+ declarations
+  NODES = 1..12                        ! Set of nodes
+  UNUSED: array(NODES) of list of integer
+  TOUR: list of integer
+ end-declarations
+
+ initializations from 'euler.dat'
+  UNUSED
+ end-initializations
+ 
+ ct:=sum(i in NODES) getsize(UNUSED(i))
+
+! Main loop of the Eulerian circuit algorithm 
+ TOUR:=[1]                            ! Choose node 1 as start point
+ ct-=add_loop(1,TOUR)                 ! Construct a closed tour from node 1
+ while(ct>0)                          ! While there are unused arcs:
+  ct-=add_loop(find_unused(TOUR),TOUR)  ! Add new closed subtours to main tour
+
+ writeln("Tour: ", TOUR)              ! Print the result
+
+!-----------------------------------------------------------------
+
+! Find first node in list (tour) with unused outgoing arc(s)
+ function find_unused(J: list of integer):integer
+  returned:=0
+  forall(i in J)
+   if UNUSED(i) <> [] then
+    returned:=i
+    break
+   end-if 
+ end-function
+
+!-----------------------------------------------------------------
+
+! Add a subtour to the main tour
+ function add_loop(node:integer, J: list of integer):integer
+  declarations
+   NEWJ, TAIL: list of integer
+  end-declarations
+
+ ! Insertion position (first occurrence of 'node' in list J)
+  pos:= findfirst(J,node)
+
+ ! Construct a new subtour
+  cur:=node                           ! Start with current node
+  while(UNUSED(cur) <> []) do
+   NEWJ+=splithead(UNUSED(cur),1)     ! Take first unused arc
+   cur:=getlast(NEWJ)                 ! End point of arc is new current node
+  end-do
+  
+ ! Stop if the subtour is not a closed loop (=> no Eulerian circuit)
+  if cur<>node then                   ! Compare start and end of subtour
+   writeln("Tour cannot be closed")
+   exit(1)
+  end-if 
+
+ ! Add the new subtour to the main journey 
+  TAIL:=splittail(J, -pos)            ! Split off the tail from main tour
+  J += NEWJ + TAIL                    ! Attach subtour and tail to main tour
+ 
+  returned:=getsize(NEWJ)
+ end-function
+ 
+end-model

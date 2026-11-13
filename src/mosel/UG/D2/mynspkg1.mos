@@ -1,0 +1,43 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file mynspkg1.mos 
+   `````````````````
+   Testing namespaces
+   - main model: mynstest.mos -
+ 
+   (c) 2018 Fair Isaac Corporation
+       author: S. Heipcke, 15 May 2018
+*******************************************************!)
+
+package mynspkg1
+ namespace ns1, ns3, ns3~ns31         ! This package defines 3 namespaces:
+ nsgroup ns1: "mynspkg2"              !  * ns1 + ns3~ns31 restricted to pkg2
+ nsgroup ns3~ns31: "mynspkg2"         !  * ns3 is visible to all
+ nssearch ns1                         ! 'ns1' can be used without prefix
+
+ declarations
+   ns3~R = 1..10
+   ns1~Ar: array(ns3~R) of integer    ! Index set in different namespace
+   vi, ns3~vi, ns3~ns31~vi: integer   ! 3 different entities
+ end-declarations
+
+ public declarations
+   vp: integer
+ end-declarations
+
+ procedure ns1~proc1(val:integer)     ! Subroutine in a namespace
+   ns3~vi:=val; ns3~ns31~vi:=2*val; vi:=val; vp:=val
+   Ar(5):=val                         ! No prefix: 'ns1' is in search list
+   writeln(" In ns1~proc1: ", vi)
+ end-procedure
+
+ public procedure proc2(val:integer)  ! Public subroutine
+   writeln(" In proc2: ", val)
+ end-procedure 
+
+ procedure proc3(val:integer)         ! Private subroutine
+   writeln(" In proc3: ", val)
+ end-procedure 
+end-package

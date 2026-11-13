@@ -1,0 +1,82 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file recordout6.mos
+   ```````````````````
+   Writing out records to spreadsheets.
+   - Using 'initializations to' with the csv driver -
+   
+   (c) 2012 Fair Isaac Corporation
+       author: S. Heipcke, Dec. 2012, rev. Feb. 2019
+*******************************************************!)
+
+model "Record output (CSV)"
+ uses "mmsheet", "mmsystem"
+
+ parameters
+  CSTR= 'mmsheet.csv:recorddataout.csv'
+  FNAME2='recordout.csv'
+  CSTR2= 'mmsheet.csv:skiph+;'+FNAME2
+ end-parameters
+
+ declarations
+  PRODUCTS: set of string
+  MACH: range
+  ProdRec = record
+   Cost: real
+   Duration: integer
+  end-record 
+  PDATA: dynamic array(PRODUCTS,MACH) of ProdRec
+
+  R = 1..9
+  AllDataRec = record
+   Product: string
+   Mach: integer
+   Cost: real
+   Duration: integer
+  end-record 
+  ALLDATA: array(R) of AllDataRec
+ end-declarations
+
+! **** Reading data from a text file
+ initializations from "recorddata.dat"
+  PDATA as "ProdData"
+  ALLDATA as "AllData"
+ end-initializations
+
+! **** Writing out into an existing file ****
+
+! Write out complete records
+! (This assumes that the output tables have been created previously.)
+! Driver options: noindex - dense data
+ initializations to CSTR
+  PDATA as "[B4:E12]"
+  ALLDATA as "noindex;[G4:J12]"
+ end-initializations
+
+! Write out selected record fields
+ initializations to CSTR
+  PDATA(Cost) as "[B17:D25]"
+  ALLDATA(Product,Mach,Duration) as "noindex;[G17:I25]"
+ end-initializations
+
+
+! **** Writing out into a new file ****
+
+! Remove any copy of the output file created by previous runs
+ fdelete(FNAME2)
+
+! Driver option skiph+ enables addition of specified column titles in output
+! Column ranges can be specified in various ways
+ initializations to CSTR2
+ ! Output complete records 
+  PDATA as "grow;[A:D](Product,Mach,Cost,Duration)"
+  ALLDATA as "noindex;grow;[F:I](Product,Mach,Cost,Duration)"
+
+ ! Output selected record fields
+  PDATA(Cost) as "grow;[R1C11:R1C13](Product,Mach,Cost)"
+  ALLDATA(Product,Mach,Duration) as "noindex;grow;[R1C15:R1C17](Product,Mach,Duration)"
+ end-initializations
+ 
+end-model

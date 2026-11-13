@@ -1,0 +1,42 @@
+(!*******************************************************
+   file returnobject.mos
+   `````````````````
+   a model that demonstrates handling a Java object within Mosel
+
+   This example requires an installation of Java, see
+   the manual 'mosjvm Module for Mosel' for
+   compatible versions and setup instructions.
+   
+   (c) 2017 Fair Isaac Corporation
+       author: J. Farmer, 2017
+  *******************************************************!)
+
+
+model myModel
+  uses 'mosjvm','mmsystem'
+  
+  declarations
+    fileobj: jvmobject
+    tempfile: text
+  end-declarations
+ 
+  ! Abort model if we encounter a Java exception
+  setparam('jvmabortonexception',true)
+
+  ! Create a temporary file from Java, using a public static method in the standard java.io.File class
+  fileobj := jvmcallobj("java.io.File.createTempFile","xpress-example-",".dat")
+
+  ! fileobj now contains reference to a java.io.File object representing our temporary file
+  writeln("Java created temporary file ",fileobj)
+  
+  ! Store path in Mosel (as java.io.File.toString() returns path)
+  tempfile := text(fileobj)
+  
+  ! Delete file from Mosel
+  fdelete(tempfile)
+  if getsysstat<>0 then
+    writeln("FAILED to dete temporary file ",tempfile)
+  else
+    writeln("Mosel deleted temporary file ",tempfile)
+  end-if
+end-model

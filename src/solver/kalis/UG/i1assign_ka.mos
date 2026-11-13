@@ -1,0 +1,132 @@
+(!******************************************************
+   CP Example Problems
+   ===================
+
+   file i1assign_ka.mos
+   ````````````````````
+   Assigning workers to machines
+   (See "Applications of optimization with Xpress-MP",
+        Section 14.1 Assigning personnel to machines)
+   - Exact and heuristic solutions -
+   
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+       
+*******************************************************!)
+
+model "I-1 Personnel assignment (CP)"
+ uses "kalis"
+
+ forward procedure parallel_heur
+ forward procedure print_sol(text1,text2:string, objval:integer)
+
+ declarations
+  PERS = 1..6                        ! Personnel
+  MACH = 1..6                        ! Machines
+  OUTP: array(PERS,MACH) of integer  ! Productivity
+ end-declarations
+
+ initializations from 'Data/i1assign.dat'
+  OUTP
+ end-initializations
+ 
+! **** Exact solution for parallel machines ****
+
+ declarations
+  assign: array(PERS) of cpvar       ! Machine assigned to a person 
+  output: array(PERS) of cpvar       ! Productivity of every person
+  totalProd: cpvar                   ! Total productivity
+  O: array(MACH) of integer          ! Auxiliary array for constraint def.
+  Strategy: cpbranching              ! Branching strategy
+ end-declarations
+
+ forall(p in PERS) setdomain(assign(p), MACH)
+
+! Calculate productivity per worker
+ forall(p in PERS) do
+  forall(m in MACH) O(m):= OUTP(p,m)
+  element(O, assign(p)) = output(p)
+ end-do
+ 
+! Calculate total productivity
+ totalProd = sum(p in PERS) output(p)
+
+! One person per machine
+ all_different(assign)
+
+! Branching strategy
+ Strategy:= assign_var(KALIS_LARGEST_MAX, KALIS_MAX_TO_MIN, output)
+ cp_set_branching(Strategy)
+
+! Solve the problem
+ if cp_maximize(totalProd) then
+  print_sol("Exact solution (parallel assignment)", "Total", getsol(totalProd))
+ end-if
+
+! **** Exact solution for serial machines ****
+
+ declarations
+  pmin: cpvar                        ! Minimum productivity
+ end-declarations
+
+! Calculate minimum productivity
+ pmin = minimum(output)
+
+! Branching strategy
+ Strategy:= assign_var(KALIS_SMALLEST_MIN, KALIS_MAX_TO_MIN, output)
+ cp_set_branching(Strategy)
+
+! Solve the problem
+ if cp_maximize(pmin) then
+  print_sol("Exact solution (serial machines)", "Minimum", getsol(pmin))
+ end-if
+
+! **** Heuristic solution for parallel machines ****
+ parallel_heur
+
+!-----------------------------------------------------------------
+
+! Heuristic solution for parallel assignment
+ procedure parallel_heur
+  declarations
+   ALLP, ALLM: set of integer        ! Copies of sets PERS and MACH
+   pmax,omax,mmax: integer
+  end-declarations
+
+ ! Copy the sets of workers and machines
+  forall(p in PERS) ALLP+={p}
+  forall(m in MACH) ALLM+={m}
+
+ ! Assign workers to machines as long as there are unassigned persons
+  while (ALLP<>{}) do
+   pmax:=0; mmax:=0; omax:=0
+
+ ! Find the highest productivity among the remaining workers and machines
+   forall(p in ALLP, m in ALLM)
+    if OUTP(p,m) > omax then
+     omax:=OUTP(p,m)
+     pmax:=p; mmax:=m
+    end-if
+
+   assign(pmax) = mmax               ! Assign chosen machine to person pmax
+   ALLP-={pmax}; ALLM-={mmax}        ! Remove person and machine from sets
+  end-do
+
+  writeln("Heuristic solution (parallel assignment):")
+  forall(p in PERS)
+   writeln("  ",p, " operates machine ", getval(assign(p)),
+           " (",getval(output(p)), ")")
+  writeln("  Total productivity: ", getval(totalProd))
+ end-procedure
+
+!-----------------------------------------------------------------
+
+! Solution printing
+ procedure print_sol(text1,text2:string, objval:integer)
+  writeln(text1,":")
+  forall(p in PERS)
+   writeln("  ",p, " operates machine ", getsol(assign(p)),
+           " (",getsol(output(p)), ")")
+  writeln("  ", text2, " productivity: ", objval)
+ end-procedure
+ 
+end-model

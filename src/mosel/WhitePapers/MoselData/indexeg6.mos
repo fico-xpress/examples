@@ -1,0 +1,66 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file indexeg6.mos
+   `````````````````
+   Using ODBC with dense and sparse format data tables.
+   - Using 'initializations from' with the csv driver -
+       
+   (c) 2012 Fair Isaac Corporation
+       author: S. Heipcke, Dec. 2012, rev. Apr. 2014
+*******************************************************!)
+
+model "ODBCImpEx3 (CSV)"
+ uses "mmsheet"
+
+ parameters
+  CSTR = 'mmsheet.csv:indexeg.csv'
+ end-parameters
+
+ declarations
+  A: array(1..3, 1..2) of real
+  B: array(1..2, 1..3) of real
+  C: array(1..2, 1..3) of real
+  D: array(R:range, 1..3) of real
+ end-declarations
+
+ ! Dense data ('noindex')
+ initializations from CSTR
+  A as 'noindex;[B3:C5]'
+ end-initializations
+
+ writeln("\n ===A=== ")
+ forall(i in 1..3)
+  writeln("Row(",i,"): ", A(i,1), " ", A(i,2))
+ 
+ ! Dense data
+ initializations from CSTR
+  B as 'noindex;[B9:D10]'
+ end-initializations
+ 
+ writeln("\n ===B=== ")
+ forall(i in 1..2)
+  writeln("Row(",i,"): ", B(i,1), " ", B(i,2), " ", B(i,3)) 
+ 
+ ! Indexed (=sparse format) data
+ initializations from CSTR
+  C as '[B14:D19]'
+ end-initializations
+
+ writeln("\n ===C=== ")
+ forall(i in 1..2)
+  writeln("Row(",i,"): ", C(i,1), " ", C(i,2), " ", C(i,3))
+
+ ! Partially indexed ("rectangular format") data
+ initializations from CSTR
+  D as 'partndx;[B22:E23]'
+ end-initializations
+
+ writeln("\n ===D=== ")
+ forall(i in R)
+  writeln("Row(",i,"): ", D(i,1), " ", D(i,2), " ", D(i,3))
+
+end-model
+
+

@@ -1,0 +1,55 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file runprimeio.mos 
+   ```````````````````
+   Data exchange via shared memory.
+ 
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2005, rev. Mar. 2020
+*******************************************************!)
+
+model "Run model primeio"
+ uses "mmjobs"
+
+ declarations
+  modPrime: Model
+  NumP: integer                ! Number of prime numbers found
+  SetP: set of integer         ! Set of prime numbers
+  STOPMOD = 2                  ! "Stop submodel" user event
+  MODREADY = 3                 ! "Submodel ready" user event
+ end-declarations
+
+                               ! Compile 'prime.mos'
+ if compile("primeio.mos")<>0 then exit(1); end-if
+
+ load(modPrime, "primeio.bim") ! Load bim file
+
+                               ! Disable submodel output
+ setdefstream(modPrime,"","null:","null:")
+ run(modPrime, "LIMIT=35000")  ! Start execution and
+ wait                          ! ... wait for an event
+ if getclass(getnextevent) <> MODREADY then
+  writeln("Problem with submodel run")
+  exit(1)
+ end-if 
+
+ wait(2)                       ! Let the submodel run for 2 seconds
+
+ if isqueueempty then          ! No event has been sent...
+  writeln("Model too slow: stopping it!")
+  send(modPrime, STOPMOD, 0)   ! ... stop the model, then wait
+  wait
+ end-if
+ dropnextevent                 ! Discard end event
+
+ initializations from "bin:shmem:resdata"
+  NumP  SetP as "SPrime"
+ end-initializations
+ 
+ writeln(SetP)                 ! Output the result
+ writeln(" (", NumP, " prime numbers.)")
+
+ unload(modPrime)
+end-model 

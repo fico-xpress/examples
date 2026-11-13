@@ -1,0 +1,196 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file dates.mos
+   ``````````````
+   Working with dates and times.
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Nov. 2007, rev. Apr. 2020
+*******************************************************!)
+
+model "Dates and time"
+ uses "mmsystem", "mmjobs"
+
+! **** Print current date and time with default format
+ writeln("Today: ", date(SYS_NOW), ", current time: ", time(SYS_NOW))
+
+ declarations
+  t: time
+  d,d2: date
+  now1,now2: datetime
+  DNAMES: array(1..7) of string
+  Dates: set of date
+  YEAR: array(NDates: set of integer) of integer
+  TList: list of time
+  DList: list of date
+  DTList: list of datetime
+ end-declarations
+
+! **** Change the date and time formats for reading and writing 
+
+ setparam("timefmt", "%h%p")             ! h: hours in 1-12, p: am/pm
+ setparam("datefmt", "%m-%d-%y")         ! m: month, d: day, y: year
+
+ initializations from "datetime.dat"
+  t as "Time1" 
+  d as "Date1"
+ end-initializations
+
+ writeln(d, ", ", t)
+
+ setparam("timefmt", "%Hh%0M")           ! H: hours in 0-23, M: minutes
+ setparam("datefmt", "%0d/%0m/%0Y")      ! Y: year in 0-99
+                                         ! 0: fill spaces with '0'
+
+ initializations from "datetime.dat"
+  t as "Time2" 
+  d as "Date2"
+ end-initializations
+
+ writeln(d, ", ", t)
+
+ setparam("timefmt", "%H:%0M:%0S")       ! S: seconds
+ setparam("datefmt", "%d-%N-%y")         ! N: use month names
+
+ initializations from "datetime.dat"
+  t as "Time3" 
+  d as "Date3"
+ end-initializations
+
+ writeln(d, ", ", t)
+
+(! ****
+  The predefined month names may be changed (e.g., translated) by
+  specifying the names to be used.
+!)  
+
+ setparam("datefmt", "%d %N %y")
+
+ setparam("monthnames", "janvier fevrier mars avril mai juin juillet " + 
+          "aout septembre octobre novembre decembre")
+
+ initializations from "datetime.dat"
+  d as "Date4"
+ end-initializations
+ 
+ writeln(d)
+
+
+(! ****
+  Transformations between dates and numbers: 
+  Using the Julian Day number (obtained with 'getasnumber').
+!)
+
+ setparam("datefmt", "")                 ! Back to default format
+
+ initializations from "datetime.dat"
+  Dates
+ end-initializations
+
+ writeln("Dates: ", Dates)
+ forall(dd in Dates) YEAR(getasnumber(dd)):= getyear(dd)
+ writeln("YEAR: ", YEAR)
+ forall(n in NDates) writeln(date(n))    ! Mapping back to original dates
+
+
+! **** Validity check
+
+ d:= date(2000,0,0)
+ writeln(d, " is a valid date: ", if(isvalid(d), "true", "false"))
+ d2:= date(getasnumber(d))
+ writeln(d2, " is a valid date: ", if(isvalid(d2), "true", "false"))
+
+ t:= time(25,0)
+ writeln(t, " is a valid time: ", if(isvalid(t), "true", "false"))
+ t:= time(1,61)
+ writeln(t, " is a valid time: ", if(isvalid(t), "true", "false"))
+
+(! **** 
+   Definition of constant dates:
+   using dates as index set
+!)
+
+ declarations
+  someday=date(2020,3,24)           ! A constant date
+  SD: set of date                   ! Set of date references
+  SDC: set of constant date         ! Set of constant date references 
+  AD: dynamic array(SDC) of real    ! Array indexed by 'date'
+ end-declarations
+
+! Operations on a set of dates
+ SD:= {date(2020,3,24), date(2020,3,24)+1}
+ writeln("SD=", SD)
+ writeln("Is someday in SD? ", someday in SD)             ! Output: false
+ writeln("Next day in SD? ", someday+1 in SD)             ! Output: false
+ SD+= {date(2020,3,24), date(2020,3,24)+1}
+ writeln("SD after addition: ", SD, " size=", SD.size)    ! Output: size=4
+
+! Operations on a set of constant dates
+ SDC:= {date(2020,3,24),date(2020,3,24)+1}
+ writeln("SDC=", SDC)
+ writeln("Is someday in SDC? ", someday in SDC)           ! Output: true
+ writeln("Next day in SDC? ", someday+1 in SDC)           ! Output: true
+ SDC+= {date(2020,3,24), date(2020,3,24)+1}
+ writeln("SDC after addition: ", SDC, " size=", SDC.size) ! Output: size=2
+
+! Using a dates as index set
+ AD(date(2020,3,24)):=10; AD(date(2020,3,25)):=20.5
+ writeln("AD=",AD)                     ! AD=[(2020-03-24,10),(2020-03-25,20.5)]
+
+ AD(someday):=30.2; AD(someday+1):=40
+ writeln("AD after changes:",AD)       ! AD=[(2020-01-01,30.2),(2020-03-25,40)] 
+
+
+! **** Sorting lists of dates and times
+
+ DList:= [date(2021,1,1),date(1900,1,2),date(2020,3,24)]
+ DTList:= sum(i in DList) [datetime(i,time(0))]
+ writeln("DL=", DList)          ! DL=[2021-1-1,1900-01-02,2020-03-24]
+ qsort(SYS_UP, DList)
+ writeln("DL=", DList)          ! DL=[1900-01-02,2020-03-24,2021-1-1]
+
+ writeln("DTL=", DTList)
+ qsort(SYS_UP, DTList)
+ writeln("DTL=", DTList)
+
+ TList:= [time(12,0),time(10,30),time(16,15),time(8,45)]
+ writeln("TL=", TList)          ! TL=[12:00:00,10:30:00,16:15:00,8:45:00]
+ qsort(SYS_UP, TList)
+ writeln("TL=", TList)          ! TL=[8:45:00,10:30:00,12:00:00,16:15:00]
+
+
+! **** Operations on dates and times
+
+! Difference between dates
+ writeln("February 2004 had ", date(2004,3,1)-date(2004,2,1), " days.")
+
+! Retrieve the weekday 
+ DNAMES:: (1..7)["Monday", "Tuesday", "Wednesday", "Thursday", "Friday",
+                 "Saturday", "Sunday"]
+ writeln("1st January 2000 was a ", DNAMES(getweekday(date(2000,1,1))))
+
+! Difference between times 
+ now1:= datetime(SYS_NOW)
+ wait(1)                                 ! Delay model execution for 1 second
+ now2:= datetime(SYS_NOW)
+ writeln("Time elapsed between ", now1, " and ", now2, ": ", now2-now1, "ms")
+
+! Enumeration / addition to 'time' 
+ setparam("timefmt", "%.h.%0M%p")
+ t:= time(11,0)
+ forall(i in 1..10) do
+  writeln(t)
+  t+=15*60*1000                          ! Add 15 minutes
+ end-do
+
+! Enumeration / addition to 'date'
+ setparam("datefmt", "%.d/%0m/%0Y")      ! '.': fill spaces with blanks
+ d:= date(2005,12,20)
+ forall(i in 1..5) do
+  writeln(d)
+  d+=14                                  ! Add 14 days
+ end-do
+
+end-model

@@ -1,0 +1,33 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file runrtparseq.mos
+   ````````````````````
+   Running several instances of a model from another
+   Mosel model.
+   - Sequential submodels -
+       
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, May 2006, rev. May 2010
+*******************************************************!)
+
+model "Run model rtparams in sequence"
+ uses "mmjobs"
+
+ declarations
+  A = 1..10
+  modPar: Model
+ end-declarations
+                                   ! Compile the model file
+ if compile("rtparams.mos")<>0 then exit(1); end-if
+ load(modPar, "rtparams.bim")      ! Load the bim file
+
+ forall(i in A) do                 ! Start model execution
+  run(modPar, "PARAM1=" + i + ",PARAM2=" + 0.1*i +
+              ",PARAM3='string " + i + "'" + ",PARAM4=" + isodd(i))
+  wait                             ! Wait for model termination
+  dropnextevent                    ! Ignore termination event message
+ end-do
+
+end-model 

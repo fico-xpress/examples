@@ -1,0 +1,123 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file multitab2.mos
+   ``````````````````
+   Reading an array from several data tables.
+   Output parts of an array into several tables.
+   - Using SQL commands -
+       
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2002, rev. Aug. 2023
+*******************************************************!)
+
+model "Multiple data sources (2)"
+ uses "mmodbc", "mmsystem"
+ options keepassert
+
+ declarations
+  CUST: set of integer
+  PERIOD: range
+  INCOME,INCOME1,INCOME2,INCOME3: dynamic array(CUST,PERIOD) of real
+ end-declarations
+
+ initializations from "multitab.dat"
+  INCOME as "COLDAT1"
+  INCOME as "COLDAT2"
+  INCOME as "COLDAT3"
+ end-initializations
+
+ writeln(INCOME)
+
+ setparam("SQLverbose", true)
+
+! Different ways of reading the data from a spreadsheet or database
+! SQLconnect('DSN=Excel Files;DBQ=C:/xpress/examples/mosel/WhitePapers/MoselData/multitab.xls')
+! SQLconnect('multitab.xls')
+
+! SQLconnect('DSN=MS Access Database;DBQ=C:/xpress/examples/mosel/WhitePapers/MoselData/multitab.mdb')
+ SQLconnect('multitab.mdb')
+
+! SQLconnect('DSN=sqlite;DATABASE=multitab.sqlite')
+! SQLconnect('multitab.sqlite')
+
+ if not getparam("SQLsuccess"): setioerr("Database connection failed")
+
+! Method 1: Data in columns, with CUST index value included
+
+ SQLexecute("select CUST,PERIOD,INCOME from COLDAT1", INCOME1)
+ SQLexecute("select CUST,PERIOD,INCOME from COLDAT2", INCOME1)
+ SQLexecute("select CUST,PERIOD,INCOME from COLDAT3", INCOME1)
+ writeln("1: ", INCOME1)
+ 
+! Method 2: Data in columns, without CUST index value
+
+ procedure readcol(cust:integer, table:string)
+  declarations
+   TEMP: array(PERIOD) of real
+  end-declarations
+  
+  SQLexecute("select PERIOD,INCOME from "+table, TEMP)
+  forall(p in PERIOD) INCOME2(cust,p):=TEMP(p)
+ end-procedure
+ 
+ forall(c in CUST) readcol(c, "COLDAT"+c+"A") 
+ writeln("2: ", INCOME2)
+ 
+! Method 3: Data in rows, without CUST index value
+ procedure readrow(cust:integer, table:string)
+  declarations
+   TEMP: array(1..2,PERIOD) of real
+  end-declarations
+
+  SQLexecute("select * from "+table, TEMP)
+  forall(p in PERIOD) INCOME3(cust,p):=TEMP(2,p)
+ end-procedure
+
+ finalize(PERIOD)                 ! The index sets must be known+fixed
+ setparam("sqlndxcol",false)      ! Data specified in dense format (no indices)
+ forall(c in CUST) readrow(c, "ROWDAT"+c) 
+ setparam("sqlndxcol",true)
+
+ writeln("3: ", INCOME3)
+
+
+! ******** Output an array into several tables ********
+
+ forall(c in CUST)
+  initializations to "multitabout.dat"
+   evaluation of array(c1=c,p in PERIOD) INCOME1(c1,p) as "COLDAT"+c
+  end-initializations
+
+ fcopy('multitab.mdb','multitabout.mdb')
+ SQLconnect('multitabout.mdb')
+! SQLconnect('multitabout.sqlite')
+ assert(getparam("SQLsuccess"))
+
+! Method 1: Data in columns, with CUST index value included
+ forall(c in CUST) do
+  SQLexecute("drop table COLDAT"+c)
+  SQLexecute("create table COLDAT"+c+" (CUST integer,PERIOD integer,INCOME float)")
+  assert(getparam("SQLsuccess"))
+  SQLexecute("insert into COLDAT"+c+"(CUST,PERIOD,INCOME) values (?,?,?)", 
+   array(c1=c,p in PERIOD) INCOME1(c1,p))
+  assert(getparam("SQLsuccess"))
+ (!or:
+  SQLexecute("insert into COLDAT"+c+"(CUST,PERIOD,INCOME) values ("+c+",?,?)", array(p in PERIOD) INCOME1(c,p))
+ !)
+ end-do
+
+! Method 2: Data in columns, without CUST index value
+ forall(c in CUST) do
+  SQLexecute("drop table COLDAT"+c+"A")
+  SQLexecute("create table COLDAT"+c+"A (PERIOD integer,INCOME float)")
+  assert(getparam("SQLsuccess"))
+  SQLexecute("insert into COLDAT"+c+"A(PERIOD,INCOME) values (?,?)", 
+   array(p in PERIOD) INCOME1(c,p))
+  assert(getparam("SQLsuccess"))
+ end-do
+
+ SQLdisconnect
+
+end-model

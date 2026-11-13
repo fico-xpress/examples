@@ -1,0 +1,60 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file gac2001.mos
+   ````````````````
+   Generic n-ary constraints.
+   - Specifying the user constraint routine by name -
+
+   (c) 2009 Artelys S.A. and Fair Isaac Corporation
+       Creation: Nov. 2009, rev. Sep. 2018
+*****************************************************************!)
+model "generic_n_ary_constraint example"
+ uses "kalis"
+ 
+ parameters
+  N = 6
+ end-parameters
+
+ forward public function greater_than_previous(tuple: cptuple, flag:integer): boolean
+  
+ declarations
+  R = 1..N 
+  vars : array(R) of cpvar 
+ end-declarations
+ 
+ forall(i in R) setdomain(vars(i),0,N)
+
+! Define and post the user constraint
+ generic_nary_constraint(vars, "greater_than_previous", 1)
+
+ cp_show_prob
+
+! Search for all solutions and print them out
+ while (cp_find_next_sol)
+  cp_show_sol
+
+!**** Implementation of the user constraint: the value of each
+!**** tuple element must be strictly larger than its predecessor
+ public function greater_than_previous(tuple: cptuple, flag:integer): boolean 
+  returned := true
+  first := true
+  lastv := 0
+  forall(indexv in 1..getsize(tuple)) do
+   v := getelt(tuple,indexv)
+   if first then
+    lastv := v
+    first := false
+   else
+    if v < lastv + 1 then         
+     returned:= false
+     break
+    end-if
+    lastv := v
+   end-if
+  end-do   
+ end-function
+
+end-model
+

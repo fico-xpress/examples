@@ -1,0 +1,148 @@
+(!*********************************************************************
+   Mosel NL examples
+   =================
+   file polygon8_delta.mos
+   ```````````````````````
+   Maximize the area of polygon of N vertices and diameter of 1. 
+   
+   The position of vertices is indicated as (rho,theta) coordinates
+   where rho denotes the distance to the base point (vertex with number N) 
+   and theta the angle from the x-axis.
+   
+   -- Formulation using a Mosel user function returning its own partial 
+      derivatives that is redirected to Java --
+ 
+   !!! Before running this model, compile Polygon.java into Polygon.class 
+ 
+   (c) 2018 Fair Isaac Corporation
+       author: Z.Csizmadia, Sep. 2018
+*********************************************************************!)
+
+model "Polygon 8 JavaDelta"
+ uses "mmxnlp"
+ uses 'mosjvm'
+
+ parameters
+  N=5                               ! Number of vertices
+ end-parameters
+
+ declarations
+  Vertices = 1..N
+  Polar = {"rho","theta"}
+  Area: nlctr
+  rho: array(Vertices) of mpvar     ! Distance of vertex from the base point
+  theta: array(Vertices) of mpvar   ! Angle from x-axis
+  D: array(Vertices,Vertices) of nlctr         ! Limit on side length
+  FunctionArg: array(Vertices,Polar) of nlctr  ! User function arguments
+  AreaFunction: userfunc                       ! User function definition
+ end-declarations
+
+! Objective - sum of areas. Definition of a user function
+ AreaFunction := userfuncMosel("AreaInJavaDelta",XNLP_DELTAS)
+
+! Create function arguments
+ forall(i in Vertices) do
+  FunctionArg(i, "rho")   := rho(i)
+  FunctionArg(i, "theta") := theta(i)
+ end-do
+
+! Use the Mosel user function in a formula for the objective
+ Area := F(AreaFunction,FunctionArg)
+
+! Bounds and start values for decision variables
+ forall(i in 1..N-1) do
+  rho(i) >= 0.1
+  rho(i) <= 1
+  setinitval(rho(i),4*i*(N + 1 - i)/((N+1)^2))
+  setinitval(theta(i),M_PI*i/N)
+ end-do
+
+ ! Third side of all triangles <= 1
+ forall (i in 1..N-2, j in i+1..N-1)
+  D(i,j) := rho(i)^2 + rho(j)^2 - rho(i)*rho(j)*2*cos(theta(j)-theta(i)) <= 1
+
+! Vertices in increasing order
+ forall(i in 2..N-1) theta(i) >= theta(i-1) +.01
+
+! Boundary conditions (last vertex above x-axis)
+ theta(N-1) <= M_PI
+
+! Abort model if we encounter a Java exception
+ setparam('jvmabortonexception', true)
+
+! Tell Java to look for classes in working directory
+ setparam('jvmclasspath',getparam('workdir'))
+
+! Solver parameter settings
+ setparam("xslp_cascade", 0)
+ setparam("xnlp_solver", 0)             ! Select SLP as the solver
+
+! Optional parameter settings
+ setparam("xnlp_verbose", true)         ! Enable XNLP output log
+
+! Uncomment to display user function info
+ userfuncinfo(AreaFunction)
+
+! Solve the problem
+ maximise(Area)
+
+! Solution output
+ writeln("Area = ", getobjval)
+ forall(i in 1..N-1)
+  writeln("V", i, ": r=", getsol(rho(i)), " theta=", getsol(theta(i)))
+
+! **** Definition of the Mosel user function ****
+ public function AreaInJavaDelta(I: array(Indices: set of integer, Types: set of string) of real,    ! Input array
+     D: array(DIndices: set of integer, DTypes: set of string) of real,         ! Return partial derivatives array
+     Delta: array(YIndices: set of integer, YTypes: set of string) of real): real        ! Suggested perturbations
+  declarations
+   ctk: integer
+  ! Structures for communicating the input values to Java
+   IndicesToJava=0..N-1
+   rhoToJava: array(IndicesToJava) of real
+   thetaToJava: array(IndicesToJava) of real
+  ! Structures for communicating the input deltas to Java
+  ! Important: make all arrays you pass down to the Java invocation local; 
+  ! missing global values would just be substituted by zeroes
+   DeltasJava: range
+   deltaIndexVToJava: array(DeltasJava) of integer
+   deltaIndexPToJava: array(DeltasJava) of integer
+   deltaToJava: array(DeltasJava) of real
+  ! Return array from Java
+   javaReturn: jvmobject
+  end-declarations
+
+  ! Project "rho" and "theta" values to structures formatted for Java
+  forall(i in Vertices) rhoToJava(i-1) := I(i,"rho")
+  forall(i in Vertices) thetaToJava(i-1) := I(i,"theta")
+
+ ! Project delta values to Java data structures:
+ ! For the partial derivative information, we need to pass to Java the index 
+ ! pairs for which the solver is requesting partial derivate information,
+ ! i.e. where Delta(k,l) is nonzero. Since we can only pass flat arrays to Java,
+ ! we store these as 3 separate arrays, the first two storing the index pair of 
+ ! the delta we are interested in and the third for the value of the delta. 
+ ! The value in "Delta" is the perturbation size suggested by the solver. 
+  ctk := -1       ! Start with index value 0
+  forall(ctk as counter, k in DIndices, l in DTypes | Delta(k,l) <> 0.0) do
+   deltaIndexVToJava(ctk) := k-1
+   deltaIndexPToJava(ctk) := if(l="rho", 1, 2)
+   deltaToJava(ctk) := Delta(k,l)
+  end-do
+
+  ! Call a complex Java function implementing both the function and its 
+  ! partial derivatives
+  javaReturn:= jvmcallobj("Polygon.AreaWithDeltas", rhoToJava, thetaToJava, 
+    deltaIndexVToJava, deltaIndexPToJava, deltaToJava)
+
+  ! Pick up the objective value, placed on the first index
+  returned:= jvmcallreal("java.lang.reflect.Array.getDouble", javaReturn, 0)
+
+  ! Retrieve the delta values stored in the array returned from Java
+  ctk := 0       ! Start with index value 1 (index zero is the area itself)
+  forall(ctk as counter, k in DIndices, l in DTypes | Delta(k,l) <> 0.0)   
+   D(k,l):= jvmcallreal("java.lang.reflect.Array.getDouble", javaReturn, ctk)
+
+ end-function
+
+end-model

@@ -1,0 +1,99 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file spanningtree.mos
+   `````````````````````
+   TYPE:         Minimum weight spanning tree problem
+   DIFFICULTY:   3
+   FEATURES:     MIP problem, formulation of constraints to exclude subcycles,
+                 graphical representation of results
+   DESCRIPTION:  Six terminals located in different buildings need to be 
+                 connected. The cost of connecting two terminals is 
+                 proportional to the distance between them. Determine the 
+                 connections to install to minimize the total cost.     
+   FURTHER INFO: `Applications of optimization with Xpress-MP', 
+                 Section 12.4 `Construction of a cabled network'
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2002, rev. Sep. 2017
+*******************************************************!)
+
+model "Cabled network"
+ uses "mmxprs", "mmsvg","mmsystem"
+
+ declarations
+  NTERM = 6
+  TERMINALS = 1..NTERM                  ! Set of terminals to cnct
+
+  DIST: array(TERMINALS,TERMINALS) of integer  ! Distance between terminals
+
+  cnct: array(TERMINALS,TERMINALS) of mpvar ! 1 if direct connection
+                                        ! between terminals, 0 otherwise
+  level: array(TERMINALS) of mpvar      ! level value of nodes
+ end-declarations
+
+ initializations from 'spanningtree.dat'
+  DIST
+ end-initializations
+
+! Objective: length of cable used
+ Length:= sum(s,t in TERMINALS | s<>t) DIST(s,t)*cnct(s,t)
+
+! Number of cnctions
+ NumConnect:= sum(s,t in TERMINALS | s<>t) cnct(s,t) = NTERM - 1 
+
+! Avoid subcycle
+ forall(s,t in TERMINALS | s<>t) 
+  Cycle(s,t):= level(t) >= level(s) + 1 - NTERM + NTERM*cnct(s,t)
+
+! Direct all cnctions towards the root (node 1)
+ forall(s in 2..NTERM) Direct(s):= sum(t in TERMINALS | s<>t) cnct(s,t) = 1
+
+ forall(s,t in TERMINALS | s<>t) cnct(s,t) is_binary
+
+! Solve the problem
+ minimize(Length)
+ 
+! Solution printing
+ writeln("Cable length: ", getobjval)
+
+ write("Connections:")
+ forall(s,t in TERMINALS | s<>t)
+  write(if(getsol(cnct(s,t))>0, " " + s + "-" + t, "")) 
+ writeln
+
+! Solution drawing
+ declarations
+  X,Y: array(TERMINALS) of integer       ! x-y-coordinates of terminals
+ end-declarations
+ 
+ initializations from 'spanningtree.dat'
+  [X,Y] as 'POS'
+ end-initializations
+
+ minx:=min(t in TERMINALS)X(t)-5; miny:=min(t in TERMINALS)Y(t)-5
+ svgsetgraphviewbox(minx, miny,
+         max(t in TERMINALS)X(t)+5-minx,max(t in TERMINALS)Y(t)+5-miny)
+ 
+ svgaddgroup("T", "Terminals", SVG_BLACK)
+ forall(t in TERMINALS) do
+  svgaddpoint(X(t), Y(t))
+  svgaddtext(X(t), Y(t)+1, "T"+t)
+ end-do
+ 
+ svgaddgroup("C", "Connections", SVG_GREEN)
+ forall(s,t in TERMINALS | s<>t)
+  if(getsol(cnct(s,t))>0) then
+   svgaddtext(round((X(s)+X(t))/2), round((Y(s)+Y(t))/2), 
+                string(DIST(s,t)))
+   svgaddline(X(t), Y(t), X(s), Y(s))
+  end-if
+
+ svgsetgraphscale(5)
+ svgsetgraphpointsize(3)
+
+ svgsave("spantree.svg")
+ svgrefresh
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+end-model

@@ -1,0 +1,115 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file recordout4.mos
+   ```````````````````
+   Writing out records to an Oracle database.
+   - Using 'initializations to' and OCI statements -
+   
+   (c) 2012 Fair Isaac Corporation
+       author: S. Heipcke, Dec. 2012, rev. Aug. 2023
+*******************************************************!)
+
+model "Record output (OCI)"
+ uses "mmoci"
+ options keepassert
+
+ parameters
+  DB="myname/mypassword@dbname"     ! Login to Oracle database (not provided)
+  CNCT="mmoci.oci:debug;"+DB
+ end-parameters
+
+ declarations
+  PRODUCTS: set of string
+  MACH: range
+  ProdRec = record
+   Cost: real
+   Duration: integer
+  end-record 
+  PDATA: dynamic array(PRODUCTS,MACH) of ProdRec
+
+  R = 1..9
+  AllDataRec = record
+   Product: string
+   Mach: integer
+   Cost: real
+   Duration: integer
+  end-record 
+  ALLDATA: array(R) of AllDataRec
+ end-declarations
+
+! **** Reading data from a text file
+ initializations from "recorddata.dat"
+  PDATA as "ProdData"
+  ALLDATA as "AllData"
+ end-initializations
+
+
+! **** Using SQL statements ****
+
+ setparam("OCIdebug",true)
+ OCIlogon(DB)
+ assert(getparam("OCIsuccess"))
+
+ OCIexecute("delete from ProdDataOutH") ! Cleaning up previous results 
+ OCIexecute("insert into ProdDataOutH(IndexP,IndexM,Cost,Duration) values (:1, :2, :3, :4)",
+  PDATA)
+ assert(getparam("OCIsuccess"))
+ OCIexecute("delete from AllDataOutH")  ! Cleaning up previous results
+ setparam("ocindxcol",false)            ! Dense data format (no indices)
+ OCIexecute("insert into AllDataOutH(IndexP,IndexM,Cost,Duration) values (:1, :2, :3, :4)",
+  ALLDATA)
+ assert(getparam("OCIsuccess"))
+
+ OCIlogoff
+
+
+! **** Using 'initializations to' ****
+
+! Write out complete records
+ initializations to CNCT
+  PDATA as "ProdDataOutH"
+  ALLDATA as "noindex;AllDataOutH"
+ end-initializations
+
+! Write out record fields
+ initializations to CNCT
+  PDATA(Cost) as "CostOutH"
+  ALLDATA(Product,Mach,Duration) as "noindex;DurationOutH"
+ end-initializations
+
+end-model
+
+**************************************************
+
+
+! Creation of data tables in an Oracle database:
+
+ declarations
+  tsucc: array ({false,true}) of string
+ end-declarations
+
+ tsucc(false):="failed"; tsucc(true):="succeeded"
+
+ setparam("OCIdebug",true)
+ OCIlogon(DB)
+ writeln("Connection number: ",getparam("OCIconnection"))
+
+ OCIexecute("drop table ProdDataOutH")
+ OCIexecute("create table ProdDataOutH (IndexP varchar(10), IndexM integer, Cost float, Duration integer)")
+ writeln(" - Create ProdDataOutH (",tsucc(getparam("OCIsuccess")),")")
+
+ OCIexecute("drop table AllDataOutH")
+ OCIexecute("create table AllDataOutH (IndexP varchar(10), IndexM integer, Cost float, Duration integer)")
+ writeln(" - Create AllDataOutH (",tsucc(getparam("OCIsuccess")),")")
+
+ OCIexecute("drop table CostOutH")
+ OCIexecute("create table CostOutH (IndexP varchar(10), IndexM integer, Cost float)")
+ writeln(" - Create CostOutH (",tsucc(getparam("OCIsuccess")),")")
+
+ OCIexecute("drop table DurationOutH")
+ OCIexecute("create table DurationOutH (IndexP varchar(10), IndexM integer, Duration integer)")
+ writeln(" - Create DurationOutH (",tsucc(getparam("OCIsuccess")),")")
+
+ OCIlogoff

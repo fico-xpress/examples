@@ -1,0 +1,107 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file d3tanks.mos
+   ````````````````
+   Loading of liquid chemicals into tanks
+
+   Five tanker ships filled with liquids must be unloaded
+   into storage tanks. The 5 liquids must not be mixed.
+   (1) How should the ships be unloaded to maximize the capacity
+   of unused tanks? (2) How should they be unloaded to maximize
+   the number of unused tanks?
+
+   The storage tanks are defined as a range of consecutive  
+   integers whereas the liquids are identified by their names. 
+   Entries of the decision variable array 'load' are created
+   dynamically depending on the initial configuration data. 
+   This problem calls the custom 'printsol' procedure after 
+   minimizing each objective.   
+
+   (c) 2008-2022 Fair Isaac Corporation
+       author: S. Heipcke, Mar. 2002, rev. Mar. 2022
+*******************************************************!)
+
+model "D-3 Tank loading"
+ uses "mmxprs"
+
+ forward procedure printsol
+
+ declarations   
+  TANKS: range                       ! Set of tanks
+  LIQ: set of string                 ! Set of liquids
+
+  CAP: array(TANKS) of integer       ! Tank capacities
+  TINIT: array(TANKS) of string      ! Initial tank contents type
+  QINIT: array(TANKS) of integer     ! Quantity of initial contents
+  ARR: array(LIQ) of integer         ! Arriving quantities of chemicals
+  REST: array(LIQ) of integer        ! Rest after filling part. filled tanks
+ 
+  ifload: dynamic array(LIQ,TANKS) of mpvar  ! 1 if liquid loaded into tank, 
+                                     ! 0 otherwise
+ end-declarations
+
+ initializations from 'd3tanks.dat'
+  CAP ARR
+  [TINIT, QINIT] as 'FILLED'
+ end-initializations
+
+ finalize(LIQ)
+
+ forall(t in TANKS | QINIT(t)=0, l in LIQ) do
+  create(ifload(l,t))
+  ifload(l,t) is_binary
+ end-do 
+
+! Complete the initially partially filled tanks and calculate the remaining
+! quantities of liquids
+ forall(l in LIQ) 
+  REST(l):= ARR(l) - sum(t in TANKS | TINIT(t)=l) (CAP(t)-QINIT(t))
+ 
+! Objective 1: total tank capacity used
+ TankUse:= sum(l in LIQ, t in TANKS) CAP(t)*ifload(l,t)
+
+! Objective 2: number of tanks used
+ TankNum:= sum(l in LIQ, t in TANKS) ifload(l,t)
+
+! Do not mix different liquids
+ forall(t in TANKS) sum(l in LIQ) ifload(l,t) <= 1
+
+! Load the empty tanks within their capacity limits
+ forall(l in LIQ) sum(t in TANKS) CAP(t)*ifload(l,t) >= REST(l)
+
+! Solve the problem with objective 1
+ minimize(TankUse)
+ 
+! Solution printing
+ printsol
+
+! Solve the problem with objective 2
+ minimize(TankNum)
+ 
+! Solution printing
+ printsol
+  
+!-----------------------------------------------------------------
+
+! Solution printing
+ procedure printsol
+  writeln("Used capacity: ", getsol(TankUse) + 
+                             sum(t in TANKS | QINIT(t)>0) CAP(t),
+         " Capacity of empty tanks: ", sum(t in TANKS) CAP(t) - 
+                                       getsol(TankUse) - 
+                                       sum(t in TANKS | QINIT(t)>0) CAP(t))
+  writeln("Number of tanks used: ", getsol(TankNum) + 
+                                    sum(t in TANKS | QINIT(t)>0) 1) 
+  forall(t in TANKS)
+   if(QINIT(t)=0) then
+    write(t, ": ")
+    forall(l in LIQ) write( if(getsol(ifload(l,t))>0 , l, ""))
+    writeln
+   else
+    writeln(t, ": ", TINIT(t))
+   end-if
+ end-procedure
+    
+end-model

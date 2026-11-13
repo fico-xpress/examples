@@ -1,0 +1,47 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file soleg5.mos
+   ```````````````
+   Writing out solution values to a spreadsheet.
+   - Using 'initializations to' with the xls driver -
+  
+   (c) 2012 Fair Isaac Corporation
+       author: S. Heipcke, Dec. 2012, rev. Oct. 2017
+*******************************************************!)
+
+model "Solution values output(generic spreadsheet)"
+ uses "mmxprs", "mmsheet"
+
+ parameters
+  CNCT= 'mmsheet.xls:soleg.xls'
+!  CNCT= 'mmsheet.xlsx:soleg.xlsx'
+ end-parameters
+ 
+ declarations
+  R = 1..3
+  S = 1..2
+  SOL: array(R,S) of real        ! Array for solution values
+  x: array(R,S) of mpvar         ! Decision variables
+ end-declarations
+
+! Define and solve the problem
+ forall(i in R) sum(j in S) x(i,j) <= 4
+ forall(j in S) sum(i in R) x(i,j) <= 6
+ maximise( sum(i in R, j in S) (i*j)*x(i,j) )
+
+! Get solution values from LP into the array SOL
+ forall(i in R, j in S) SOL(i,j) := getsol(x(i,j)) 
+
+! Data output using an initializations block with the excel driver
+ initializations to CNCT
+  SOL as "grow;MyOut3"
+ end-initializations
+
+(! Alternative form:
+ initializations to CNCT
+  evaluation of array(i in R, j in S) x(i,j).sol as "grow;MyOut3"
+ end-initializations
+!)
+end-model

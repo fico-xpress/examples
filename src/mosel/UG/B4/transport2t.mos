@@ -1,0 +1,115 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file transport2t.mos 
+   ```````````````````` 
+   Formatted output printing.
+   - Using text handling functionality -
+ 
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2001, rev. Mar. 2022
+*******************************************************!)
+
+model "Transport 2t"
+ uses "mmxprs", "mmsystem"
+
+ declarations
+  REGION: set of string                 ! Set of customer regions
+  PLANT: set of string                  ! Set of plants
+
+  DEMAND: array(REGION) of real         ! Demand at regions
+  PLANTCAP: array(PLANT) of real        ! Production capacity at plants
+  PLANTCOST: array(PLANT) of real       ! Unit production cost at plants
+  TRANSCAP: dynamic array(PLANT,REGION) of real
+                                        ! Capacity on each route plant->region
+  DISTANCE: dynamic array(PLANT,REGION) of real
+                                        ! Distance of each route plant->region
+  FUELCOST: real                        ! Fuel cost per unit distance
+
+  flow: dynamic array(PLANT,REGION) of mpvar    ! Flow on each route
+ end-declarations
+
+!***********************************************************************
+ procedure printtable
+  declarations
+   rsum: array(REGION) of integer    ! Auxiliary data table for printing
+   psum,ct,iflow: integer            ! Counters
+  end-declarations
+
+          ! Print heading and the first line of the table
+  writeln("\nProduct Distribution\n", "="*20)
+  writeln(textfmt("Sales Region",48))
+  write(textfmt("",15), "| ")
+  forall(r in REGION) write(textfmt(r,9))
+  writeln(formattext(" |%6s Capacity", "TOTAL")) 
+  writeln("-"*80)
+
+         ! Print the solution values of the flow variables and
+         ! calculate totals per region and per plant
+  ct:=0
+  forall(p in PLANT, ct as counter) do
+    if ct=2 then 
+      write(formattext(" Plant %-8s|", p))
+    else
+      write(formattext("       %-8s|", p))
+    end-if
+    psum:=0
+    forall(r in REGION) do
+      iflow:=round(getsol(flow(p,r)))
+      psum += iflow
+      rsum(r) += iflow
+      if iflow<>0 then 
+        write(textfmt(iflow,9))
+      else
+        write("      -- ")
+      end-if
+    end-do
+    writeln(formattext("  |%6g%8g", psum, round(PLANTCAP(p))))
+  end-do
+
+         ! Print the column totals
+  writeln("-"*80)
+  write(formattext("%-15s|"," TOTAL")) 
+  forall(r in REGION) write(textfmt(rsum(r),9))
+  writeln(formattext("  |%6g%8g", sum(r in REGION) rsum(r), sum(p in PLANT) PLANTCAP(p))) 
+
+         ! Print demand of every region
+  write(formattext("%-15s|", " Demand"))
+  forall(r in REGION) write(textfmt(round(DEMAND(r)),9))
+
+         ! Print objective function value
+  writeln(formattext("\n\nTotal cost of distribution = %.3g million.", getobjval/1e6))
+
+ end-procedure
+!***********************************************************************
+ 
+ initializations from 'transprt.dat'
+  DEMAND
+  [PLANTCAP,PLANTCOST] as 'PLANTDATA'
+  [DISTANCE,TRANSCAP] as 'ROUTES'
+  FUELCOST
+ end-initializations
+ 
+! Create the flow variables that exist
+ forall(p in PLANT, r in REGION | exists(TRANSCAP(p,r)) ) create(flow(p,r))
+ 
+! Objective: minimize total cost
+ MinCost:= sum(p in PLANT, r in REGION | exists(flow(p,r))) 
+            (FUELCOST * DISTANCE(p,r) + PLANTCOST(p)) * flow(p,r)
+ 
+! Limits on plant capacity
+ forall(p in PLANT) sum(r in REGION) flow(p,r) <= PLANTCAP(p)
+
+! Satisfy all demands
+ forall(r in REGION) sum(p in PLANT) flow(p,r) = DEMAND(r)
+ 
+! Bounds on flows
+ forall(p in PLANT, r in REGION | exists(flow(p,r))) 
+  flow(p,r) <= TRANSCAP(p,r)
+ 
+ minimize(MinCost)                       ! Solve the problem
+
+ printtable                              ! Solution printout
+ 
+end-model

@@ -1,0 +1,139 @@
+(!*********************************************************************
+   Mosel NL examples
+   =================
+   file trafequil_graph.mos
+   ````````````````````````
+   Convex NLP problem determining a trafic equilibrium 
+   for a given network and travel volumes. 
+
+   Based on AMPL model trafequil.mod
+   Source: http://www.orfe.princeton.edu/~rvdb/ampl/nlmodels/braess/ 
+
+   - Graphical representation of results -   
+
+   *** This model cannot be run with a Community Licence 
+       for the provided data instance ***
+
+   (c) 2008 Fair Issac Corporation
+       author: S. Heipcke, Sep. 2008, rev. Jun. 2023
+*********************************************************************!)
+
+model "trafequil"
+ uses "mmxnlp", "mmsvg"
+
+ parameters
+  DATAFILE = "trafequil.dat"
+ end-parameters
+
+ declarations
+  W: set of integer                     ! Set of OD-pairs
+  PP: range                             ! Set of all paths
+  A: range                              ! Set of arcs
+
+  P: array(W) of set of integer         ! Set of paths connecting OD-pair w in W
+  D: array(W) of real                   ! Number of OD-travelers ('demand')
+  T0: array(A) of real                  ! Free-flow travel time
+  K: array(A) of real                   ! Practical capacity
+  AP: array(PP) of set of integer       ! Arcs defining each path
+  G: array(A) of set of integer         ! Set of paths that use each arc
+ end-declarations
+
+ initialisations from DATAFILE
+  P D
+  [K,T0] as "K_T0"
+  AP G
+ end-initialisations
+
+ finalise(W)
+ finalise(A)
+ finalise(PP)
+
+ declarations
+  h: array(PP) of mpvar                 ! Flow on path
+ end-declarations
+
+ forall(r in PP) h(r)>=0
+ 
+! Arcflows
+ forall(a in A) f(a):= sum(r in G(a)) h(r)
+
+ forall(a in A) B(a):= T0(a)*f(a) + (0.15/5*(T0(a)/K(a)^4)*(f(a)^5))
+
+! Objective to be minimized 
+ BeckmannObj:= sum(a in A) B(a)
+
+ forall(w in W) 
+  TripTable(w):= sum(r in P(w)) h(r) = D(w)    
+  
+! Since this is a convex problem, it is sufficient to call a local solver
+ setparam("xprs_nlpsolver", 1)
+
+! Solving
+ setparam("XNLP_verbose", true)
+ minimise(BeckmannObj)
+ 
+ writeln("Solution: ", BeckmannObj.sol)
+ forall(a in A) writeln(a, ": ", f(a).sol, ", ", B(a).sol)
+
+!**************** Graphical representation of results ****************
+ declarations
+  ORIG,DEST: array(A) of integer
+ end-declarations
+ 
+! Origin and destination nodes of arcs
+ N:=ceil(sqrt(W.size))
+ forall(r in PP | AP(r).size=1) do
+   indw:=0
+   forall(w in W)
+    if r in P(w) then
+     indw:=w
+     break
+    end-if
+   forall(a in AP(r)) inda:=a
+   DEST(inda):= if(indw MOD N=0, N, indw MOD N)
+   ORIG(inda):= (indw-1) DIV N + 1  
+ end-do
+
+! Generate random X/Y coordinates for nodes
+ declarations
+  RN=1..N
+  X,Y: array(RN) of integer
+ end-declarations
+ 
+ setrandseed(3)
+ X(1):=1; Y(1):=1
+ forall(n in 2..N) do
+   X(n):=round((minlist(N,X(n-1))+10)*random)
+   Y(n):=round(minlist(n,Y(n-1))+5*random)
+ end-do
+ 
+ 
+! Draw arc flows
+ svgaddgroup("AGr", "Arc flows", svgcolor(255,163,23)) 
+ svgsetstyle(SVG_OPACITY, 0.6)
+ forall(a in A) do 
+  svgaddline(X(ORIG(a)), Y(ORIG(a)), X(DEST(a)), Y(DEST(a))) 
+  svgsetstyle(svggetlastobj, SVG_STROKEWIDTH, f(a).sol/2) 
+ end-do
+
+! Represent value of "B" per arc
+ svgaddgroup("BGr", "Beckmann values", svgcolor(163,18,14)) 
+ svgsetstyle(SVG_OPACITY, 0.6)
+ forall(a in A) do
+  svgaddline(X(ORIG(a)), Y(ORIG(a)), X(DEST(a)), Y(DEST(a))) 
+  svgsetstyle(svggetlastobj, SVG_STROKEWIDTH, 10*B(a).sol/2) 
+ end-do
+
+! Draw nodes
+ svgaddgroup("NGr", "Nodes", svgcolor(135,135,135))
+ svgsetstyle(SVG_STROKEWIDTH, 3)
+ forall(n in RN) svgaddpoint(X(n), Y(n)) 
+
+! Scale the size of the displayed graph
+ svgsetgraphscale(20)
+ svgsetgraphpointsize(4)
+
+ svgsave("trafequil.svg")
+ svgrefresh
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+end-model

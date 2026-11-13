@@ -1,0 +1,77 @@
+! XNLP example demonstrating the cost of numerical derivatives
+!
+! This example solves the same simple problem several times using different 
+! differentiation techniques and solvers
+!
+! This example demonstrates a particular non-linear optimization concept as related 
+! to Xpress NonLinear.
+! The version of the example is for Xpress 7.5.
+!
+!  (c) 2013-2026 Fair Isaac Corporation
+!       author: Zsolt Csizmadia
+model mmxnlp_nlp_duals
+uses "mmxnlp", "mmsystem"; 
+
+! Scaling parameter for problem size.
+parameters
+	 N = 200
+end-parameters
+
+declarations	
+ R   = 1..N
+ x   : array(R) of mpvar
+ start, finish : real;
+end-declarations
+
+!setparam("xnlp_verbose",true)
+
+forall(i in R) do
+ x(i) >= 1 - 1/i
+ x(i) <= 1 + 1/i
+end-do
+
+Objective := sum(i in R) ( x(i)^3 )
+
+! Solve with a local solver to use derivatives
+setparam("XPRS_NLPSOLVER",1)
+
+! Default solve usign analytical derivatives, expected to take no time
+write("Solve problem using analytical derivatives: ") 
+start := gettime
+minimize(Objective)
+finish := gettime
+writeln(finish-start,"s")
+
+! Use the first order solver SLP to solve the problem
+setparam("xnlp_solver",XNLP_SOLVER_XSLP)
+setparam("xslp_derivatives", 0)
+write("Solve problem using finite differences, 1st order solver: ") 
+start := gettime
+minimize(Objective)
+finish := gettime
+writeln(finish-start,"s")
+
+! Now resolve using second order numerical derivatives
+setparam("xnlp_solver",XNLP_SOLVER_KNITRO)
+! Numerical derivatives here are enforced by the means of setting a control. 
+! However, the need for numerical derivatives can arise naturally from 
+! black-bock user functions
+setparam("xslp_derivatives", 0)
+write("Solve problem using finite differences, 2nd order solver: ") 
+start := gettime
+minimize(Objective)
+finish := gettime
+writeln(finish-start,"s")
+
+! Revert back to the second order Knitro solver, but approximate the Hessian 
+! matrix instead
+setparam("xnlp_solver",XNLP_SOLVER_KNITRO)
+setparam("xktr_param_hessopt", 2) ! BFGS approximation
+write("Solve problem using finite differences, 2nd order solver, BFGS: ") 
+start := gettime
+minimize(Objective)
+finish := gettime
+writeln(finish-start,"s")
+
+end-model
+

@@ -1,0 +1,203 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file fiveleap.mos 
+   `````````````````
+   Fiveleaper problem.
+
+   Closed TSP form of 5leaper for a rectangular chessboard
+
+   Run with parameters NROW and NCOL (numbers of squares on the edges)
+   e.g.   mosel exe fiveleap NROW=9 NCOL=6
+   NROW=NCOL=8 are the smallest possible values for square boards.
+ 
+   This is a variant of the problem in "f5tour.mos" from the book
+   "Applications of optimization with Xpress-MP" 
+
+   You will find a description of this problem at the following address:
+   https://doi.org/10.1287/ited.4.1.78
+
+   A square (i,j) on the rectangle is labeled
+     sq := j + NCOL*(i-1)
+   Given a square label
+     i := ceil(sq/NCOL)
+     j := sq - NCOL*(i-1)
+     
+   (c) 2008 Fair Isaac Corporation
+       authors: Bob Daniel, S. Heipcke, March 2003
+*******************************************************!)
+
+model 'FIVELEAP'
+  uses 'mmxprs', 'mmsystem'
+
+  parameters
+    NCOL = 8                            ! Number of colums
+    NROW = 8                            ! Number of rows
+  end-parameters
+
+  forward function break_subtour: integer
+  forward procedure print_sol
+  forward procedure find_subtour(start: integer, TOUR: set of integer)
+
+  declarations
+    NSQ = NCOL*NROW                     ! Number of squares
+    RSQ = 1..NSQ                        ! Range of squares
+    
+    nmoves, ntours, niterations, ntourstotal: integer
+    nmovesfrom: array(RSQ) of integer   ! Counts possible moves leaving
+
+    x: dynamic array(RSQ,RSQ) of mpvar  ! 1 if we leap from sq1 to sq2
+    NEXTX: array(RSQ) of integer        ! Next square after sq in the solution
+
+    square1, square2, ii, jj: integer
+  end-declarations
+
+! For each pair of squares with a valid move...
+  nmoves := 0
+  forall(i1,i2 in 1..NCOL, j1,j2 in 1..NROW | (i1-i2)^2+(j1-j2)^2 = 25) do
+    square1 := j1+NCOL*(i1-1)
+    square2 := j2+NCOL*(i2-1)
+    create(x(square1,square2))          ! Create the 'x' binary decision variable
+    x(square1,square2) is_binary
+    nmovesfrom(square1) += 1            ! Note a possible move from square
+    nmoves += 1
+  end-do
+  writeln("There are ", nmoves, " possible moves")
+
+! Check that each square is reachable
+  forall(sq in RSQ | nmovesfrom(sq)=0) do
+    ii := ceil(sq/NCOL)
+    jj := sq-NCOL*(ii-1) 
+    writeln("**** Cannot go anywhere from square (", ii, ",", jj, ")")
+    exit(0)
+  end-do
+
+! Objective (arbitrary)
+  AnyObj := sum(sq1,sq2 in RSQ | exists(x(sq1,sq2)) ) x(sq1,sq2)
+
+! Each square precedes one other
+  forall(sq1 in RSQ) sum(sq2 in RSQ | exists(x(sq1,sq2)) ) x(sq1,sq2) = 1
+
+! Each cell is preceded by one other
+  forall(sq2 in RSQ) sum(sq1 in RSQ | exists(x(sq1,sq2)) ) x(sq1,sq2) = 1
+
+! Optimizer settings to speed up the iterations
+  setparam("XPRS_CUTSTRATEGY", 0) 
+  setparam("XPRS_PRESOLVE", 0) 
+
+! Solve the problem
+
+  starttime := gettime
+  niterations := 0
+
+  while (TRUE) do
+    minimize(AnyObj)
+  
+    if (getprobstat <> XPRS_OPT) then
+      writeln("Problem is infeasible.")
+      exit(0)
+    end-if
+
+    forall(sq in RSQ) 
+      NEXTX(sq):= integer(round(getsol(sum(sq2 in RSQ) sq2*x(sq,sq2) )))
+
+    ntours := break_subtour
+
+    if (ntours=1) then break; end-if
+
+    ! Print a log every 10 iterations    
+    niterations += 1
+    ntourstotal += ntours
+    if (niterations mod 10 = 0) then
+      writeln(niterations, " (", gettime-starttime, " sec) tours eliminated: ",
+              ntourstotal)
+    end-if
+
+  end-do
+  
+  print_sol
+
+  writeln("Total time: ", gettime-starttime, " sec")
+ 
+ 
+!-----------------------------------------------------------------
+! Eliminate all subtours, and return number of (sub)tours
+! - Find news subtours starting at each node in turn
+! - If found complete tour, return 1
+! - Otherwise add subtour elimination cut and continue
+!
+! Global variables required
+!   RSQ: range of squares
+!   NSQ: number of squares
+!   NEXTX(i): square following i in current solution
+
+  function break_subtour: integer
+    declarations
+      TOUR, ALLTOURS: set of integer
+      ntours: integer
+    end-declarations
+ 
+    ALLTOURS := {}
+    ntours := 0
+
+    forall(startsquare in RSQ | startsquare not in ALLTOURS) do
+      ! Find (sub)tour containing {startsquare}
+      find_subtour(startsquare, TOUR)
+      ALLTOURS += TOUR
+      ntours += 1
+      ! If found complete tour, return
+      if (getsize(TOUR)>=NSQ) then break; end-if
+      ! Add a subtour breaking constraint
+      sum(sq in TOUR) x(sq,NEXTX(sq)) <= getsize(TOUR) - 1
+    end-do
+    
+    returned := ntours
+  end-function
+
+!-----------------------------------------------------------------
+! Find a subtour starting at square 'start'; result returned in TOUR
+
+  procedure find_subtour(start: integer, TOUR: set of integer)
+    declarations
+      square: integer
+    end-declarations
+
+    TOUR := {}
+    square := start
+    repeat
+      TOUR += {square}
+      square := NEXTX(square)
+    until (square=start)
+  end-procedure
+
+
+!-----------------------------------------------------------------
+! Print the current solution
+!
+! Global variables required
+!   RSQ: range of squares
+!   NEXTX(i): square following i in current solution
+
+  procedure print_sol
+    declarations
+      SEENSOFAR: set of integer
+      square: integer
+    end-declarations
+   
+    SEENSOFAR:={}
+    forall(startsquare in RSQ | startsquare not in SEENSOFAR) do
+      write(startsquare)
+      square := startsquare
+      repeat
+        SEENSOFAR += {square}
+        square := NEXTX(square)
+        write(" - ", square)
+      until (square=startsquare)
+      writeln(' ')
+    end-do        
+  end-procedure
+
+end-model
+
+

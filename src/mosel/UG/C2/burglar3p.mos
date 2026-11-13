@@ -1,0 +1,47 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   =================================
+
+   file burglar3p.mos
+   ``````````````````
+   Same as burglar3.mos but with solution values
+   stored in a real array for retrieval from Python.
+
+   (c) 2026 Fair Isaac Corporation
+       author: S. Heipcke, 2001, rev. B. Vieira 2026
+*******************************************************!)
+
+model Burglar3p
+ uses "mmxprs"
+
+ public declarations
+  WTMAX = 102                    ! Maximum weight allowed
+  ITEMS = {"camera", "necklace", "vase", "picture", "tv", "video",
+           "chest", "brick"}     ! Index set for items
+
+  VALUE: array(ITEMS) of real    ! Value of items
+  WEIGHT: array(ITEMS) of real   ! Weight of items
+
+  take: array(ITEMS) of mpvar    ! 1 if we take item i; 0 otherwise
+  soltake: array(ITEMS) of real  ! Solution values
+ end-declarations
+
+ initializations from 'burglar.dat'
+  VALUE  WEIGHT
+ end-initializations
+
+! Objective: maximize total value
+ MaxVal:= sum(i in ITEMS) VALUE(i)*take(i)
+
+! Weight restriction
+ sum(i in ITEMS) WEIGHT(i)*take(i) <= WTMAX
+
+! All variables are 0/1
+ forall(i in ITEMS) take(i) is_binary
+
+ maximize(MaxVal)                  ! Solve the MIP-problem
+
+! Store solution values for retrieval
+ forall(i in ITEMS) soltake(i):= getsol(take(i))
+
+end-model

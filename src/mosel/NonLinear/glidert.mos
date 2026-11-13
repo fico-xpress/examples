@@ -1,0 +1,210 @@
+(!*********************************************************************
+   Mosel NL examples
+   =================
+   file glidert.mos
+   ````````````````
+
+   Maximize the total horizontal distance a hang glider flies.
+ 
+   Configure the wind conditions by setting the parameter WIND:
+   WIND = 0 : no wind
+   WIND = 1 : thermal uplift 250m ahead (positive in a neighborhood
+          of 250m but drops to zero exponentially away from this point)
+   WIND = 2 : wind shear (a rapidly diminishing head wind that may cause
+          the glider to stall)
+
+   Trapezoidal discretization.
+
+   Based on AMPL models hang_midpt.mod, shear_midpt.mod, stableair_midpt.mod
+   Source: http://www.orfe.princeton.edu/~rvdb/ampl/nlmodels/hang/ 
+   Reference: 
+   R. Bulirsch, E. Nerz, H.J. Pesch, and O. von Stryk, "Combining Direct and 
+   Indirect Methods in Optimal Control: Range Maximization of a Hang Glider",
+   in "Optimal Control: Calculus of Variations, Optimal Control Theory and 
+   Numerical Methods", ed. by R. Bulirsch, A. Miele, J. Stoer, and K.H. Well 
+   (1993) Birkhauser
+
+   *** This model cannot be run with a Community Licence 
+       for the provided data instance ***
+
+   (c) 2013 Fair Issac Corporation
+       author: S. Heipcke, Mar. 2013, rev. Jun. 2023
+*********************************************************************!)
+
+    
+model "glider"
+  uses "mmxnlp"
+
+  parameters
+    WIND = 1              ! Wind conditions; possible values: 0, 1, 2
+    N = 150               ! Number of discretization points
+  end-parameters
+    
+  declarations
+    POS_NODES = 0..N      ! Positions
+    VEL_NODES = 1..N      ! Velocity measure points
+
+    X_0,Y_0 : real        ! Initial position (x,y) of glider
+    VX_0,VY_0: real       ! Initial velocity (x',y') of glider
+    Y_N : real            ! n_th step position (x,y) of glider
+    VX_N,VY_N: real       ! n_th step velocity (x',y') of glider
+
+    CL_MIN,CL_MAX: real   ! Minimum/maximum value of lift coefficient
+    UM  : real            ! Upward wind-velocity coefficient (m/sec)
+    R   : real            ! Upward wind-velocity ratio (m)
+    C0,K  : real          ! Drag coefficient constants
+    MASS: real            ! Mass of glider & pilot
+    SPAN: real            ! Wing area
+    RHO : real            ! Air density
+    GRAV: real            ! Acceleration due to gravity
+    WEIGHT: real          ! Weight of glider & pilot (= m*g)
+
+    dur: mpvar                          ! Total time for the flight
+
+  ! State variables:
+    x,y: array(POS_NODES) of mpvar      ! Position at time t
+    vx,vy: array(POS_NODES) of mpvar    ! Velocity at time t
+    vx_dot,vy_dot: array(POS_NODES) of mpvar   ! Derivatives of vx,vy
+
+    cLift: array(POS_NODES) of mpvar    ! Lift coefficient (control variable)
+
+  ! Auxiliary expressions
+    CDrag: array(POS_NODES) of nlctr    ! Drag coefficient
+    X: array(POS_NODES) of nlctr
+    UpAcc: array(POS_NODES) of nlctr    ! Upward wind velocity
+    HorAcc: array(POS_NODES) of nlctr   ! Horizontal air motion
+    Vx,Vy: array(POS_NODES) of nlctr
+    Vr: array(POS_NODES) of nlctr       ! Velocity relative to the air
+    Drag: array(POS_NODES) of nlctr     ! Drag force (opposite to Vr)
+    Lift: array(POS_NODES) of nlctr     ! Lift force (perpendicular to Vr)
+    sin_eta: array(POS_NODES) of nlctr
+    cos_eta: array(POS_NODES) of nlctr
+  end-declarations
+
+  initializations from "glider.dat"
+    X_0 Y_0 VX_0 VY_0 Y_N VX_N VY_N
+    UM R C0 K MASS SPAN RHO GRAV CL_MIN CL_MAX
+  end-initializations
+  if WIND=2 then
+    Y_0 := 100; Y_N := 0; VY_N := 0;
+  end-if
+  
+  WEIGHT := MASS*GRAV
+
+! Start values
+  forall(j in POS_NODES) do
+    setinitval(vx(j), VX_0)
+    setinitval(vy(j), VY_0)
+  end-do
+
+  forall(j in POS_NODES) do
+    setinitval(x(j), 5000*j/N)   ! 1000*(j-1)/N)
+    setinitval(y(j), -100*j/N+1000)
+  end-do
+
+  forall(j in POS_NODES)  setinitval(cLift(j), (CL_MAX+CL_MIN)/2) 
+
+  ! Trapezoidal discretization
+  forall(j in VEL_NODES)  do
+    x(j) = x(j-1) + 0.5*(dur/N)*(vx(j) + vx(j-1))
+    y(j) = y(j-1) + 0.5*(dur/N)*(vy(j) + vy(j-1))
+    vx(j) = vx(j-1) + 0.5*(dur/N)*(vx_dot(j) + vx_dot(j-1))
+    vy(j) = vy(j-1) + 0.5*(dur/N)*(vy_dot(j) + vy_dot(j-1))
+    -100 <= vx(j); vx(j) <= 100
+    -100 <= vy(j); vy(j) <= 100
+  end-do
+
+  ! Wind formulae
+  forall(j in POS_NODES)
+    if WIND=1 then              ! Upward wind velocity formula
+      X(j) := (x(j)/R - 2.5)^2  
+      UpAcc(j) := UM*(1-X(j))*exp(-X(j)) 
+    elif WIND = 2 then          ! Horizontal wind formula
+      HorAcc(j) := -5*(1+arctan((y(j)-30)/10))
+    end-if
+
+! Definition of bounds and auxiliary expressions
+  forall(j in POS_NODES) do
+    cLift(j) >= CL_MIN
+    cLift(j) <= CL_MAX
+    CDrag(j) := C0 + K*cLift(j)^2    ! The drag coeff. depends on the lift coeff.
+
+    if WIND=1 then
+      Vy(j) := vy(j) - UpAcc(j)
+    else
+      Vy(j) := vy(j) 
+    end-if  
+    if WIND=2 then
+      Vx(j) := vx(j) - HorAcc(j)
+    else
+      Vx(j) := vx(j) 
+    end-if
+
+    Vr(j) := sqrt(Vx(j)^2 + Vy(j)^2)
+    Drag(j) := 0.5*CDrag(j)*RHO*SPAN*Vr(j)^2
+    Lift(j) := 0.5*cLift(j)*RHO*SPAN*Vr(j)^2
+    sin_eta(j) := Vy(j)/Vr(j)
+    cos_eta(j) := Vx(j)/Vr(j)
+
+    vx_dot(j) is_free
+    vy_dot(j) is_free
+  end-do
+
+  dur >= 10; dur <= 200
+
+! Initial and final states
+  x(0) = X_0
+  y(0) = Y_0
+  vx(0) = VX_0 - if(WIND=2, 2.5*(1+arctan((Y_0-30)/10)), 0)
+  vy(0) = VY_0
+  y(N) = Y_N   !or: >=
+  vx(N) = VX_N   !or: >=
+  vy(N) = VY_N   !or: >=
+
+! Equations of motion: F = m*a
+! (eta denotes the angle between Vr and the horizontal plane)
+  forall(j in VEL_NODES) do
+    newt_x(j) := vx_dot(j) = (-Lift(j)*sin_eta(j) - Drag(j)*cos_eta(j))/MASS
+    newt_y(j) := vy_dot(j) = (Lift(j)*cos_eta(j) - Drag(j)*sin_eta(j) - WEIGHT)/MASS
+  end-do
+
+! Monotonicity condition
+  forall(j in VEL_NODES)  x(j) >= x(j-1)
+
+! Limit velocity to levels that are supportable for the pilot
+  forall(j in POS_NODES) do
+    -3 <= vx_dot(j); vx_dot(j) <= 3     
+    -3 <= vy_dot(j); vy_dot(j) <= 3
+  end-do 
+    
+! Setting up and solving the problem
+  setparam("xnlp_verbose", true)
+  
+! In this example we will use a local solver, since it can be time consuming to solve it to global optimality 
+  setparam("xprs_nlpsolver", 1)
+ 
+ ! Check the presence of Knitro; this example needs the interior point solver
+  if hasfeature("XPKNTLib") then
+    setparam("xnlp_solver", 1)    ! Preselect Knitro as solver
+  else
+    writeln("This example requires Knitro")
+    exit(1)    	
+  end-if
+ 
+  maximize(x(N))
+
+! Test whether a solution is available
+  nlstat:=getparam("XNLP_STATUS")
+  if nlstat<>XNLP_STATUS_LOCALLY_OPTIMAL and nlstat<>XNLP_STATUS_OPTIMAL then
+    writeln("No solution found.")
+    exit(0)
+  end-if   
+
+! Solution display 
+  forall(i in POS_NODES) 
+    writeln("xy(",i,") = (", getsol(x(i)), ",", getsol(y(i)), ")")
+  writeln("Max distance flown: ", getsol(x(N)))
+  writeln("Total flight time : ", getsol(dur))
+  
+
+end-model

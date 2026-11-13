@@ -1,0 +1,28 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================   
+
+   Example model for the 
+   Robust Optimization with Xpress white paper
+
+   (c) 2014 Fair Isaac Corporation
+       
+*******************************************************!)
+model Careful
+ uses "mmrobust"                    ! Load the robust library
+
+ declarations
+  x, y, z : mpvar
+  e : uncertain
+ end-declarations
+
+ e <= 1
+ e >= 0
+
+ x + y + e*z = 10
+ 
+ maximize(z)
+
+ writeln("x = ", getsol(x), "  y = ", getsol(y), "  z = ", getsol(z))
+
+end-model

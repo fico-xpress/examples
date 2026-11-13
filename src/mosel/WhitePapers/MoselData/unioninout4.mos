@@ -1,0 +1,120 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file unioninout4.mos
+   ````````````````````
+   Reading/writing unions from/to an Oracle database.
+   - Using 'initializations' and OCI statements -
+   
+   (c) 2021 Fair Isaac Corporation
+       author: S. Heipcke, Apr. 2021, rev. Aug. 2023
+*******************************************************!)
+model "Union handling (OCI)"
+ uses "mmoci", "mmsystem"
+
+ parameters
+  DB="myname/mypassword@dbname"     ! Login to Oracle database (not provided)
+ end-parameters
+
+ procedure gendb
+   declarations
+     tsucc: array ({false,true}) of string
+   end-declarations
+   tsucc(false):="failed"; tsucc(true):="succeeded"
+
+   setparam("OCIverbose",true)
+   if not getparam("OCIsuccess"): setioerr("Database connection failed")
+
+  ! Oracle date and time formats:
+   setparam("timefmt", "%0d-%N-%0Y %0h.%0M.%0S.%0s %P")
+   setparam("datefmt", "%0d-%N-%0Y")
+   setparam("datetimefmt", "%0d-%N-%0Y %0h.%0M.%0S.%0s %P")
+
+   OCIlogon(DB)
+   if not getparam("OCIsuccess"): setioerr("Database connection failed")
+(!
+   OCIexecute("drop table UnionTab")
+   OCIexecute("drop table UnionLst")
+   OCIexecute("drop table UnionOut")
+   OCIexecute("drop table Union2Out")
+!)
+   OCIexecute("create table UnionTab (IVal integer, RVal float, BVal number(1,0), SVal varchar(20), DVal date, TVal timestamp(3))")
+   writeln(" - Create UnionTab (",tsucc(getparam("OCIsuccess")),")")
+   OCIexecute("insert into UnionTab (IVal,RVal,SVal,BVal,TVal,DVal) values(:1,:2,:3,:4,:5,:6)", [ 5, 1.75, "some text", true, '1-Jan-1 11:25:30am', '20-Mar-2021' ])
+   writeln(" - Insert values into UnionTab (",tsucc(getparam("OCIsuccess")),",",
+        getparam("OCIrowcnt"),'/',getparam("OCIrowxfr")," rows)")
+ 
+   OCIexecute("create table UnionLst (UValues varchar(20))")
+   writeln(" - Create UnionLst (",tsucc(getparam("OCIsuccess")),")")
+   OCIexecute("insert into UnionLst (UValues) values (:1)", [string(5), string(1.75), string(true), "some text", '20-Mar-2021', '1-Jan-0 11:25:30am'])
+   writeln(" - Insert values into UnionLst (",tsucc(getparam("OCIsuccess")),",",
+        getparam("OCIrowcnt"),'/',getparam("OCIrowxfr")," rows)")
+
+   OCIexecute("create table UnionOut (IVal integer, RVal float, BVal number(1,0), SVal varchar(20), DVal date, TVal timestamp(3))")
+   writeln(" - CreateUnionOut (",tsucc(getparam("OCIsuccess")),")")
+   OCIexecute("create table Union2Out (UnionValues varchar(25))")
+   writeln(" - Create Union2Out (",tsucc(getparam("OCIsuccess")),")")
+
+   OCIlogoff
+ end-procedure
+
+ gendb
+
+ declarations
+   L,L2: list of any
+   L3: list of text or real
+   LS: list of text
+ end-declarations
+ 
+ setparam("OCIverbose",true)
+ setparam("OCIdebug",true)
+
+ OCIlogon(DB)
+ if not getparam("OCIsuccess"): setioerr("Database connection failed")
+
+ ! Reading data of different types from a database
+ OCIexecute("select * from UnionTab", L)
+ write("L orig: ")
+ forall(i in L) write (i,": ", i.typeid, "; ")
+ writeln
+ ! Date and time types are read in textual form 
+ L(5).date:=date(text(L(5)))
+ L(6).datetime:=datetime(text(L(6)))
+ write("L new:  ")
+ forall(i in L) write (i,": ", i.typeid, "; ")
+ writeln
+
+ ! Reading into a list defined with a restricted set of types
+ OCIexecute("select * from UnionTab", L3)
+ write("L3:     ")
+ forall(i in L3) write (i,": ", i.typeid, "; ")
+ writeln
+
+ ! Textual database types are always read as string 
+ OCIexecute("select * from UnionLst", L2)
+ write("L2:     ")
+ forall(i in L2) write (i,": ", i.typeid, "; ")
+ writeln
+
+ ! Writing data of type 'any' to a database
+ OCIexecute("delete from UnionOut")
+ OCIexecute("insert into UnionOut (IVal,RVal,BVal,SVal,DVal,TVal) values(:1,:2,:3,:4,:5,:6)", L)
+ writeln(" - writing L into UnionOut succeeded (",getparam("OCIsuccess"),")")
+
+ ! Writing data of type 'any' into textual fields of a database
+ OCIexecute("delete from Union2Out")
+ OCIexecute("insert into Union2Out (UnionValues) values(:1)", L)
+ writeln(" - writing L into Union2Out succeeded (",getparam("OCIsuccess"),")")
+
+ ! Writing data of a union type to a database
+ OCIexecute("insert into UnionOut (IVal,RVal,BVal,SVal,DVal,TVal) values(:1,:2,:3,:4,:5,:6)", L3)
+ writeln(" - writing L3 into UnionOut succeeded (",getparam("OCIsuccess"),")")
+
+ ! Writing text-format data to a database table with various different types
+ LS:=sum(i in L) [text(i)]
+ OCIexecute("insert into UnionOut (IVal,RVal,BVal,SVal,DVal,TVal) values(:1,:2,:3,:4,:5,:6)", LS)
+ writeln(" - writing LS into UnionOut succeeded (",getparam("OCIsuccess"),")")
+
+ OCIlogoff
+end-model

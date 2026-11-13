@@ -1,0 +1,88 @@
+<personnelList>
+  <region id="EMEA"> 
+    <employee id="J123"> 
+      <startDate>2001</startDate>
+      <name>Jean</name>
+      <address>Paris</address> 
+      <language>French</language>
+      <language>English</language>
+      <language>Spanish</language>
+    </employee>
+    <employee id="L234"> 
+      <startDate>2010</startDate>
+      <name>Lisa</name>
+      <address>London</address> 
+      <language>English</language>
+      <language>French</language>
+    </employee>
+    <employee id="T345"> 
+      <startDate>2005</startDate>
+      <name>Tom</name>
+      <address>Berlin</address> 
+      <language>German</language>
+      <language>English</language>
+      <language>Russian</language>
+    </employee>
+    <employee id="P456"> 
+      <startDate>2005</startDate>
+      <name>Pedro</name>
+      <address>Madrid</address> 
+      <language>French</language>
+      <language>Spanish</language>
+      <language>English</language>
+    </employee>
+    <employee id="P890" parttime="true"> 
+      <startDate>2004</startDate>
+      <name>Paolo</name>
+      <address>Milano</address> 
+      <language>English</language>
+      <language>Italian</language>
+    </employee>
+  </region>
+  <region id="APAC"> 
+    <employee id="K789"> 
+      <startDate>2003</startDate>
+      <name>Keiko</name>
+      <address>Tokyo</address> 
+      <language>English</language>
+      <language>Japanese</language>
+    </employee>
+    <employee id="L321"> 
+      <startDate>2009</startDate>
+      <name>Yiping</name>
+      <address>Shanghai</address> 
+      <language>Chinese</language>
+      <language>English</language>
+    </employee>
+    <employee id="J876"> 
+      <startDate>2006</startDate>
+      <name>James</name>
+      <address>Singapore</address> 
+      <language>Chinese</language>
+      <language>English</language>
+    </employee>
+  </region>
+  <region id="AM"> 
+    <employee id="B567"> 
+      <startDate>2011</startDate>
+      <name>Bill</name>
+      <address>New York</address> 
+      <language>English</language>
+    </employee>
+    <employee id="S678" parttime="true"> 
+      <startDate>2011</startDate>
+      <name>Sarah</name>
+      <address>San Francisco</address> 
+      <language>English</language>
+      <language>Spanish</language>
+    </employee>
+    <employee id="J987"> 
+      <startDate>2008</startDate>
+      <name>Joao</name>
+      <address>Rio de Janeiro</address> 
+      <language>Portuguese</language>
+      <language>Spanish</language>
+      <language>English</language>
+    </employee>
+  </region>
+</personnelList>

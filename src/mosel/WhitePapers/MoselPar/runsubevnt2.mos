@@ -1,0 +1,45 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file runsubevnt2.mos
+   ````````````````````
+   Running a model from another Mosel model,
+   getting the submodel termination status.
+   - User event sent by the submodel -
+       
+   (c) 2011 Fair Isaac Corporation
+       author: S. Heipcke, Apr. 2011
+*******************************************************!)
+
+model "Run model testsub"
+ uses "mmjobs"
+
+ declarations
+  modSub: Model
+  ev: Event
+  SUBMODREADY = 2                  ! User event code
+ end-declarations
+                                   ! Compile the model file
+ if compile("testsubev.mos")<>0 then exit(1); end-if
+ load(modSub, "testsubev.bim")     ! Load the bim file  
+ run(modSub)                       ! Start model execution
+ wait                              ! Wait for an event
+ if getclass(getnextevent) <> SUBMODREADY then
+  writeln("Problem with submodel run")
+  exit(1)
+ end-if 
+
+ wait(1)                           ! Let the submodel run for 1 second
+
+ if isqueueempty then              ! No event has been sent: model still runs
+  stop(modSub)                     ! Stop the model
+  wait                             ! Wait for model termination
+ end-if
+                                   
+ ev:=getnextevent                  ! An event is available: model finished
+ writeln("Event class: ", getclass(ev))
+ writeln("Event value: ", getvalue(ev))
+ writeln("Exit code  : ", getexitcode(modSub))
+
+end-model 

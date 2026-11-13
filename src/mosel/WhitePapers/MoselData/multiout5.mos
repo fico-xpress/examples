@@ -1,0 +1,50 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file multiout5.mos
+   ``````````````````
+   Output several data arrays into a single table.
+   - Using 'initializations to' with the xls IO driver -
+       
+   (c) 2012 Fair Isaac Corporation
+       author: S. Heipcke, Dec. 2012
+*******************************************************!)
+
+model "Output multiple data columns (generic spreadsheet)"
+ uses "mmsheet"
+
+ parameters
+  CSTR= 'mmsheet.xls:'
+  DFILE= 'multicol.xls'
+!  CSTR= 'mmsheet.xlsx:'
+!  DFILE= 'multicol.xlsx'
+ end-parameters
+
+ declarations
+  PRODUCTS: set of string
+  MACH: range
+  COST: dynamic array(PRODUCTS,MACH) of real
+  DUR: dynamic array(PRODUCTS,MACH) of integer
+ end-declarations
+
+! Read data
+ initializations from "multiout.dat"
+  COST DUR
+ end-initializations
+
+! **** Writing data to the spreadsheet multicol.xls ****
+
+! Options:
+! skiph - the range 'CombData' includes a header line
+! grow  - only the starting line of the range is specified
+ initializations to CSTR + "skiph;grow;" + DFILE
+  [COST,DUR] as 'CombData'
+ end-initializations
+
+! Alternative: specify the range/worksheet
+ initializations to CSTR + DFILE
+  [COST,DUR] as 'grow;[Sheet1$L4:O4]'
+ end-initializations
+
+end-model

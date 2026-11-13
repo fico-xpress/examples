@@ -1,0 +1,45 @@
+(!*******************************************************
+  * Mosel Example Problems                              *
+  * ======================                              *
+  *                                                     *
+  * file chess.mos                                      *
+  * ``````````````                                      *
+  * Example for the use of the Mosel language           *
+  * (Small LP-problem)                                  *
+  *                                                     *
+  * (c) 2008 Fair Isaac Corporation                     *
+  *     author: Bob Daniel, 2001                        *
+  *******************************************************!)
+
+model Chess
+uses  "mmxprs"                   ! we need the optimizer
+
+declarations
+ small, large: mpvar             ! the decision variables
+end-declarations
+
+ ! Now we have the constraints
+
+ mc_time:=  3*small + 2*large <= 400 ! limit on available machine time
+ wood:=       small + 3*large <= 200 ! limit on available wood
+
+ maximize( 5*small + 20*large )      ! solve, defining the objective function
+
+ writeln
+ writeln("Here are the LP results")
+ writeln("Objective value is ", getobjval)
+ writeln("Make ", small.sol, " small sets, and ",
+         large.sol, " large sets")
+
+ small is_integer
+ large is_integer
+
+ maximize( 5*small + 20*large )      ! solve, defining the objective function
+
+ writeln
+ writeln("Here are the IP results")
+ writeln("Objective value  is ", getobjval)
+ writeln("Make ", small.sol, " small sets, and ",
+         large.sol, " large sets")
+
+end-model

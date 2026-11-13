@@ -1,0 +1,61 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file runburglardistr.mos
+   `````````````````````
+   Running a remote model from another Mosel model.
+   Data exchange using binary format.
+   Information saved in memory on the remote host.
+       
+   (c) 2013 Fair Isaac Corporation
+       author: S. Heipcke, Apr. 2013
+*******************************************************!)
+
+model "Run model burglar remotely IO"
+ uses "mmjobs", "mmsystem"
+
+ declarations
+  modBurg: Model                    ! Submodel
+  moselInst: Mosel                  ! Mosel instance
+  ISet,SSet: set of string          ! Index set for data arrays
+  V,W: array(ISet) of real ! Data arrays
+  SolTake: array(SSet) of real      ! Solution values
+ end-declarations
+
+ V:: (["camera","necklace","vase","picture","tv","video","chest","brick"])
+      [15, 100, 90, 60, 40, 15, 10,  1]
+ W:: (["camera","necklace","vase","picture","tv","video","chest","brick"])
+      [ 2,  20, 20, 30, 40, 30, 60, 10]
+
+!!! Select the (remote) machines to be used:
+!!! Use names, IP addresses, or empty string for the node running this model
+ MOSINST:= ""
+                                    ! Connect to a remote instance
+ if connect(moselInst, MOSINST)<>0 then exit(1); end-if
+ instnum:= getid(moselInst)
+                                    ! Compile the model remotely
+ if compile(moselInst, "", "rmt:[-1]burglar2m.mos", "shmem:burglar.bim")<>0 then 
+  exit(2); end-if
+ load(moselInst, modBurg, "shmem:burglar.bim") ! Load the bim file
+ fdelete("rmt:["+getnode(moselInst)+"]shmem:burglar.bim")   ! bim file is no longer needed
+ 
+! setdefstream(modBurg, F_OUTPUT, "null:")     ! Disable output from submodel
+
+! Save data in shared memory
+ initializations to "bin:rmt:["+instnum+"]shmem:burgdata"
+  [V, W] as "BurgData"
+ end-initializations 
+                                    ! Start model execution, setting parameters 
+ run(modBurg, "DATA='bin:shmem:burgdata',SOL='bin:shmem:burgsol'")   
+ wait                               ! Wait for model termination
+ dropnextevent                      ! Ignore termination event message
+
+! Retrieve solution from shared memory
+ initializations from "bin:rmt:["+instnum+"]shmem:burgsol"
+  SolTake
+ end-initializations
+
+ forall(i in SSet)  writeln(" take(", i, "): ", SolTake(i))
+
+end-model 

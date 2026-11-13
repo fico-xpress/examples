@@ -1,0 +1,45 @@
+<vdl version="5">
+    <!-- Implementation of a table row filter  -->
+    <script>
+        function filterRow(rowData, idx, current, Select) {
+            // Plant === CURRENTPLANT && SELCUST for selecting the customers
+            return (rowData[0] === current.value) && Select(rowData[1]).value;
+        }
+    </script>
+    <vdl-page>
+        <!-- 'vdl' and 'vdl-page' tags must always be present -->
+
+        <!-- Structural element 'section': print header text for a section -->
+        <vdl-section heading="Customer selection">
+            <vdl-row>
+                <vdl-column size="12">
+                    <vdl-row>
+                        <vdl-column><span vdl-text="Example of interaction between VDL elements: selecting customers and plant locations for display of input and result data in a filtered table."></span></vdl-column>
+                    </vdl-row>
+                    <vdl-row>
+                        <!-- Display the input values as a table for indices 
+                             selected upfront. -->
+                        <!-- Several columns within a 'row' for display 
+                             side-by-side, dividing up the total row width 
+                             of 12 via 'size' setting on each column. -->
+                        <vdl-column size="4" heading="Customer selection">
+                            <vdl-table>
+                                <vdl-table-column entity="SELCUST" editable="true"></vdl-table-column>
+                            </vdl-table>
+                        </vdl-column>
+                        <vdl-column size="8" heading="Data and results for selected customers">
+                            <vdl-form>
+                                <vdl-field label="Plants" entity="CURRENTPLANT" options-set="PLANT"></vdl-field>
+                            </vdl-form>
+                            <vdl-table row-filter="=function(rowData, idx) {return filterRow(rowData, idx, scenario.entities.CURRENTPLANT, scenario.entities.SELCUST)}">
+                                <vdl-table-column entity="TRANSCAP"></vdl-table-column>
+                                <vdl-table-column entity="DISTANCE"></vdl-table-column>
+                                <vdl-table-column entity="flow"></vdl-table-column>
+                            </vdl-table>
+                        </vdl-column>
+                    </vdl-row>
+                </vdl-column>
+            </vdl-row>
+        </vdl-section>
+    </vdl-page>
+</vdl>

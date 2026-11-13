@@ -1,0 +1,45 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file prime4.mos 
+   ```````````````
+   Same as prime.mos but writes solution to a file.
+ 
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2002
+*******************************************************!)
+
+model Prime 
+
+ parameters
+  LIMIT=100                     ! Search for prime numbers in 2..LIMIT
+  OUTFILE="prime_out.txt"
+ end-parameters
+
+ declarations
+  SNumbers: set of integer      ! Set of numbers to be checked
+  SPrime: set of integer        ! Set of prime numbers
+ end-declarations
+
+ SNumbers:={2..LIMIT} 
+ 
+ fopen(OUTFILE,F_OUTPUT) 
+ writeln("Prime numbers between 2 and ", LIMIT, ":")
+
+ n:=2
+ repeat
+   while (not(n in SNumbers)) n+=1
+   SPrime += {n}                ! n is a prime number
+   i:=n
+   while (i<=LIMIT) do          ! Remove n and all its multiples
+     SNumbers-= {i}
+     i+=n
+   end-do
+ until SNumbers={}    
+ 
+ writeln(SPrime)
+ writeln(" (", getsize(SPrime), " prime numbers.)")
+ fclose(F_OUTPUT)
+ 
+end-model

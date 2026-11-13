@@ -1,0 +1,96 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file annotdoc.mos 
+   `````````````````
+   Defining documentation annotations.
+ 
+   (c) 2015 Fair Isaac Corporation
+       author: S. Heipcke, Mar. 2015, rev. Feb. 2022
+*******************************************************!)
+model "Using annotations"
+
+(!@doc.
+ @title An example of model documentation
+ @date March 2015
+ @chapter Introduction
+ @p 
+ This model needs to be compiled with the <tt>-D</tt> compiler option
+ to include the documentation annotations into the BIM.
+ The <tt>moseldoc</tt> program takes the resulting BIM file as input.
+!)
+
+!@doc.chapter The example
+!@doc.section Parameters
+
+parameters
+ !@doc.descr Short parameter description
+ !@doc.value v1 possible value
+ !@doc.value v2 another possible value
+ !@doc.info Some more explanation (longer text)
+ MYPAR="some text"
+end-parameters
+
+!@doc.section Constants and variables
+public declarations
+ (!@doc.
+   @descr Short description of the constant set
+   @info Some additional information
+ !)
+ S=1..10
+
+ !@doc.descr An error code constant
+ MYERR=11
+
+ (!@doc.
+   @descr A record type
+   @recflddescr fld1 field description
+   @recflddescr fld2 another field description
+   @info Several @doc.info tags can be used for a given entity
+   @info Entities can be referenced: <entRef>rectype</entRef>
+ !)
+ rectype=public record
+  fld1:integer
+  fld2:string
+ end-record
+
+ !@doc.descr Ignored by the documentation
+ !@doc.ignore
+ R: range
+end-declarations
+
+ !@doc.section Subroutines
+
+(!@doc.
+  @descr A short description
+  @param i first parameter
+  @paramval i value1 description of value1
+  @paramval i value2 description of value2
+  @param r second parameter
+  @err MYERR reference to an error code constant
+  @return The return value
+  @example Some descriptive text for the example
+  @example [SRC]
+  the example code is here
+  @info Some useful information for <tt>myfunct</tt>
+  @related <fctRef>myotherfunct</fctRef>
+!)
+public function myfunct(i:integer,r:real):boolean
+ returned:=i>r
+end-function
+
+!@doc.group myfunct
+!@doc.info <tt>myotherfunc</tt> is an alternative to <fctRef>myfunct</fctRef>
+public function myotherfunc(i:integer):boolean
+ returned:=true
+end-function
+
+! The following procedure will not be included into the documentation
+!@doc.descr Ignored by the documentation
+!@doc.ignore
+public procedure hiddenproc
+ a:=1
+end-procedure
+
+end-model

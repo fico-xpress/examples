@@ -1,0 +1,26 @@
+(!******************************************
+  Mosel Examples
+  ==============
+
+  File myconstants.mos
+  ````````````````````
+  Example package defining 
+    constants
+  of different types.
+
+  (c) 2008 Fair Isaac Corporation
+      author: S. Heipcke, 2005
+*******************************************!)
+
+package myconstants
+
+ public declarations
+  MYCST_BIGM = 10000          ! A large integer value
+  MYCST_TOL = 0.00001         ! A tolerance value
+  MYCST_LINE =                ! String constant
+     "----------------------------------------------------------------"
+  MYCST_FLAG = true           ! Constant with value true
+  MYCST_NOFLAG = false        ! Constant with value false
+ end-declarations
+
+end-package

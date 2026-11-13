@@ -1,0 +1,37 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file numformat.mos 
+   `````````````````` 
+   Formatted output printing.
+ 
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2005, rev. Mar 2022
+*******************************************************!)
+
+model "Formatting numbers"
+ parameters
+  a = 123456789000.0
+  b = 123456789008.9
+  c = 12.0000000045
+  d = 12.0
+ end-parameters
+
+ setparam("TXTZTOL", false)      ! Disable use of 'zerotol' for display
+
+ writeln("Default:", a, "  ", b, "  ", c, "  ", d)
+ 
+ setparam("REALFMT", "%1.2f")
+ writeln("%1.2f:  ", a, "  ", b, "  ", c, "  ", d)
+
+! Exact (conservative) representation of floating point numbers 
+ setparam("REALFMT", "%.17g")
+ writeln("%.17g:  ", a, "  ", b, "  ", c, "  ", d)
+
+ setparam("REALFMT", "%y")
+ writeln("%y:     ", a, "  ", b, "  ", c, "  ", d)
+
+ setparam("REALFMT", "%j")
+ writeln("%j:     ", a, "  ", b, "  ", c, "  ", d)
+end-model

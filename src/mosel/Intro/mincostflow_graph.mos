@@ -1,0 +1,111 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file mincostflow.mos
+   ````````````````````
+   TYPE:         Minimum cost flow problem
+   DIFFICULTY:   2
+   FEATURES:     LP problem, formulation with extra nodes for modes of
+                 transport; encoding of arcs, `finalize', union of sets, 
+                 nodes labeled with strings, graphical solution representation
+   DESCRIPTION:  A company needs to transport 180 tonnes of chemical products 
+                 stored in four depots to three recycling centers. The depots 
+                 contain 190 tonnes in total. Each depot only delivers to 
+                 certain centers, by road and/or by rail, at a given cost 
+                 per tonne. Transports by rail need to have at least 10 tonnes 
+                 and at most 50 tonnes for any single delivery. 
+                 How should the company transport the 180 tonnes of chemicals 
+                 to minimize the total cost of transport?     
+   FURTHER INFO: `Applications of optimization with Xpress-MP', 
+                 Section 10.2 `Choosing the mode of transport'.
+                 Similar problems:
+                 Section 6.4 `Cane sugar production',
+                 Section 6.5 `Opencast mining'
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2002, rev. Sep. 2017
+*******************************************************!)
+
+model "Minimum cost flow"
+ uses "mmxprs", "mmsvg"
+
+ declarations
+  NODES: set of string                  ! Set of nodes
+  MINQ : integer                        ! Total quantity to transport
+  A: array(ARCS:range,1..2) of string   ! Arcs
+  COST: array(ARCS) of integer          ! Transport cost on arcs
+  MINCAP,MAXCAP: array(ARCS) of integer ! Minimum and maximum arc capacities
+ end-declarations
+
+ initializations from 'mincostflow.dat'
+  A MINQ MINCAP MAXCAP COST
+ end-initializations
+
+ finalize(ARCS)
+
+! Calculate the set of nodes
+ NODES:=union(a in ARCS) {A(a,1),A(a,2)}
+
+ declarations
+  flow: array(ARCS) of mpvar            ! Flow on arcs
+ end-declarations
+
+! Objective: total transport cost
+ Cost:= sum(a in ARCS) COST(a)*flow(a)
+
+! Flow balance: inflow equals outflow
+ forall(n in NODES | n<>"SOURCE" and n<>"SINK")
+  Balance(n):=
+   sum(a in ARCS | A(a,2)=n) flow(a) = sum(a in ARCS | A(a,1)=n) flow(a)
+   
+! Min and max flow capacities
+ forall(a in ARCS | MAXCAP(a) > 0) do
+  flow(a) >= MINCAP(a)
+  flow(a) <= MAXCAP(a)
+ end-do
+  
+! Minimum total quantity to transport
+ MinQuant:= sum(a in ARCS | A(a,1)="SOURCE" ) flow(a) >= MINQ
+
+! Solve the problem
+ minimize(Cost)
+ 
+! Solution printing
+ writeln("Total cost: ", getobjval)
+ forall(a in ARCS)
+  write( if(getsol(flow(a))>0, 
+         A(a,1) + " -> "+ A(a,2) + ": "+ getsol(flow(a))+"\n", ""))
+
+! Solution drawing
+ declarations
+  X,Y: array(NODES) of integer        ! x-y-coordinates of nodes
+ end-declarations
+ 
+ initializations from 'mincostflow.dat'
+  [X,Y] as 'POS'
+ end-initializations
+
+ svgsetgraphviewbox(0,10,max(n in NODES)X(n)+15, max(n in NODES)Y(n)+15)
+ svgsetgraphscale(2)
+
+ svgaddgroup("Arcs", "Network")
+ forall(n in NODES) do
+  svgaddpoint(X(n), Y(n))
+  svgaddtext(X(n), if(Y(n)>60, Y(n)+2, Y(n)-5), n)
+ end-do
+
+ svgaddgroup("Flow", "Used routes")
+ forall(a in ARCS)
+  if(getsol(flow(a))>0) then
+   svgaddarrow(X(A(a,1)), Y(A(a,1)), X(A(a,2)), Y(A(a,2)))
+   svgaddtext((X(A(a,1))+X(A(a,2)))/2, (Y(A(a,1))+Y(A(a,2)))/2-3, 
+                text(getsol(flow(a))))
+  else
+   svgaddline("Arcs", X(A(a,1)), Y(A(a,1)), X(A(a,2)), Y(A(a,2)))
+  end-if
+
+ svgsave("mincostflow.svg")
+ svgrefresh
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+end-model

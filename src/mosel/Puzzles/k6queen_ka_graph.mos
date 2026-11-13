@@ -1,0 +1,105 @@
+(!****************************************************************
+   Mosel Example Problems
+   ======================
+   
+   file k6queens_ka.mos
+   ````````````````````
+   Placing N queens on an NxN chess board such that
+   they do not attack each other.
+
+   *** This model cannot be run with a Community Licence 
+       for the default data instance ***
+
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, March 2005, Sep. 2017
+*****************************************************************!)
+model nqueen
+ uses "kalis","mmsvg"
+
+ parameters
+  N = 10                                     ! Number of queens
+  SOL = 10                                   ! Number of solutions
+ end-parameters
+
+ forward procedure print_solution(numsol: integer)
+ forward procedure draw_solution(numsol: integer) 
+ 
+ declarations
+  ROWS = 1..N                                ! Rows and columns
+  queen: array(ROWS) of cpvar                ! Position of queen per row
+ end-declarations
+
+! Defining the decision variables
+ forall(i in ROWS) do
+  1 <= queen(i); queen(i) <= N
+ end-do
+
+! One queen per column
+ all_different(queen,KALIS_GEN_ARC_CONSISTENCY)
+
+! No two queens on the same diagonal
+ forall(i in ROWS, j in i+1..N) do
+  queen(i) <> queen(j)
+  queen(i) <> queen(j) + j - i
+  queen(j) <> queen(i) + j - i  
+ end-do
+ 
+
+! Setting enumeration parameters
+ cp_set_branching(assign_var(KALIS_SMALLEST_DOMAIN, KALIS_RANDOM_VALUE, queen))
+ 
+! Solve the problem (generate up to SOL solutions)
+ solct:= 0; svgrefresh
+ while (cp_find_next_sol and solct<SOL and not svgclosing) do
+  solct+=1
+  print_solution(solct)
+  draw_solution(solct)
+  cp_show_stats
+ end-do
+ 
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+
+!****************************************************************
+! **** Solution printing ****
+ procedure print_solution(numsol: integer)  		
+  writeln("Solution ", numsol)
+  ct:=4
+  write("    1  ")
+  while(ct<=N) do
+   write(strfmt(ct,-4))
+   ct+=4
+  end-do
+  writeln
+  
+  forall(r in ROWS) do
+   write(strfmt(r,3), " ")
+   forall(c in ROWS) write(if(c=getsol(queen(r)), "Q", "."))
+   writeln
+  end-do
+  writeln("Positions: ", queen)
+
+ end-procedure
+ 
+! **** Solution drawing in SVG format ****
+ procedure draw_solution(numsol: integer)
+  svgerase                          ! Delete previous graph
+
+  svgaddgroup("S", "Solution "+numsol)  
+  
+  forall(r in ROWS) do 
+   sol:= getsol(queen(r))
+   forall(c in ROWS | c=sol) svgaddtext(r,c,"Q")
+  end-do
+
+ ! Draw the board
+  svgaddgroup("B", "", SVG_BLACK)
+  forall(i in 1..N+1) svgaddline(i-0.5, 0.5, i-0.5, N+0.5)
+  forall(j in 1..N+1) svgaddline(0.5, j-0.5, N+0.5, j-0.5)
+
+  svgsetgraphscale(20)
+  svgrefresh
+ ! Uncomment next line to pause at every iteration:
+  svgpause
+ end-procedure
+ 
+end-model

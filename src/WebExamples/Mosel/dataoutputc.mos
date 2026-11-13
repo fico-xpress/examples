@@ -1,0 +1,31 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file dataoutputc.mos
+   ````````````````````
+   Data output to calling application.
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Mar. 2006
+*******************************************************!)
+
+model "Data output (C)" 
+ parameters
+  DOUT = ''                         ! Location for data output
+ end-parameters
+
+ declarations
+  A: array(-1..1,5..7) of real
+ end-declarations
+
+ A :: [ 2,  4,  6,
+       12, 14, 16,
+       22, 24, 26]
+
+! Output to calling application
+ initializations to 'raw:'
+  A as DOUT
+ end-initializations
+
+end-model

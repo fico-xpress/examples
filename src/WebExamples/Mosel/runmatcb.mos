@@ -1,0 +1,43 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file runmatcb.mos
+   `````````````````
+   Use Optimizer 'command' to read+solve a matrix file
+   -- Using CB definition in Mosel with Optimizer command line --
+   
+  (c) 2020-2022 Fair Isaac Corporation
+      author: S.Heipcke, 19 Aug 2020, rev. Oct. 2022
+*******************************************************!)
+model "running Optimizer command line"
+ uses "mmsystem", "mmxprs"
+
+! Load+run on MPS format matrix
+ scriptmps:=`
+readprob folio10
+chgobjsense max
+mipoptimize
+`
+ declarations
+   starttime: real
+   procedure printsol
+ end-declarations
+
+! Set a MIP solution callback
+ setcallback(XPRS_CB_INTSOL, ->printsol)
+
+ setparam("XPRS_verbose", false)
+ starttime:=gettime
+
+! Load and run the matrix
+ command(scriptmps)
+
+
+!**** Define INTSOL callback: retrieve info via Optimizer parameters
+ procedure printsol
+   writeln("(",gettime-starttime, "sec)  Solution ", getparam("XPRS_MIPSOLS"),
+           "  Value: ", getparam("XPRS_MIPOBJVAL"))
+ end-procedure
+
+end-model 

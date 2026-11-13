@@ -1,0 +1,66 @@
+(!****************************************************************
+   CP example problems
+   ===================
+
+   file rcpsp.mos
+   ``````````````
+   Resource-constrained project scheduling problem (RCPSP).
+
+   *** This model cannot be run with a Community Licence 
+       for the provided data instances ***
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+
+*****************************************************************!)
+
+model "RCPSP"
+ uses "kalis", "mmsystem"
+
+ parameters
+  DATAFILE = "j301_1.dat"
+ end-parameters
+
+ declarations
+  HORIZON: integer                            ! Time horizon
+  TASKS: set of integer                       ! Set of tasks
+  RESOURCES: set of integer                   ! Set of resources
+  SUCC: array(TASKS) of set of integer        ! Successors of each task
+  CAPA: array(RESOURCES) of integer           ! Resource capacities
+  DUR: array(TASKS) of integer                ! Task durations
+  CONSO: array(TASKS,RESOURCES) of integer    ! Resource consumption
+
+  tasks: array(TASKS) of cptask               ! Tasks
+  resources: array(RESOURCES) of cpresource   ! Resources   
+ end-declarations
+
+ initializations from "Data/"+DATAFILE
+  TASKS RESOURCES HORIZON SUCC CAPA DUR CONSO
+ end-initializations
+
+! Setting up the resources with discrete capacities
+ forall(j in RESOURCES) 
+  set_resource_attributes(resources(j), KALIS_DISCRETE_RESOURCE, CAPA(j))
+
+! Setting up the variables representing task properties
+ forall(i in TASKS) do
+  setdomain(getstart(tasks(i)), 0, HORIZON)
+  setdomain(getend(tasks(i)), 0, HORIZON)
+  set_task_attributes(tasks(i),DUR(i))
+  setsuccessors(tasks(i),union(j in SUCC(i)) {tasks(j)})
+ end-do
+
+! Resource constraints
+ forall(i in TASKS, j in RESOURCES | CONSO(i,j) > 0)
+  requires(tasks(i), CONSO(i,j), resources(j))
+
+! Solve the problem
+ starttime:= gettime
+ if cp_schedule(getmakespan) = 0 then
+  writeln("(", gettime-starttime, "sec) No solution found")
+ else
+  writeln("(", gettime-starttime, "sec) Best solution: Makespan = ",
+          getsol(getmakespan))
+ end-if
+ cp_show_stats
+
+end-model

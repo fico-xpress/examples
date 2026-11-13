@@ -1,0 +1,71 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file duosheet.mos
+   `````````````````
+   Using the generic spreadsheet drivers for reading 
+   sparse data tables from a spreadsheet.
+   
+   (c) 2012 Fair Isaac Corporation
+       author: S. Heipcke, Dec. 2012
+*******************************************************!)
+
+model "Duo input (generic spreadsheet)"
+ uses "mmsheet"
+
+ parameters
+  CNCTIO1 = "data.xls"           ! Use Excel spreadsheet `data.xls'
+  CNCTIO2 = "data.xlsx"          ! Use Excel spreadsheet `data.xlsx'
+  CNCTIO3 = "data.csv"           ! Use spreadsheet `data.csv'
+ end-parameters
+
+ declarations
+  A4,A5,A6: dynamic array(range,range) of real
+ end-declarations
+
+! Use the xls driver for reading the data
+! (the spreadsheet ranges include a header line -> use option 'skiph')
+ initializations from "mmsheet.xls:"+CNCTIO1
+  A4 as 'skiph;MyDataTable'
+ end-initializations
+
+(! Alternatively:
+ initializations from "mmsheet.xls:"+CNCTIO1
+  A4 as 'MyDataTable2'
+ end-initializations
+! Or:
+ initializations from "mmsheet.xls:"+CNCTIO1
+  A4 as '[Sheet1$B3:D6]'
+ end-initializations
+!)
+
+
+! Use the xlsx driver for reading the data
+! (the spreadsheet ranges include a header line -> use option 'skiph')
+ initializations from "mmsheet.xlsx:"+CNCTIO2
+  A5 as 'skiph;MyDataTable'
+ end-initializations
+
+(! Alternatively:
+ initializations from "mmsheet.xlsx:"+CNCTIO2
+  A5 as 'MyDataTable2'
+ end-initializations
+! Or:
+ initializations from "mmsheet.xlsx:"+CNCTIO2
+  A5 as '[Sheet1$B3:D6]'
+ end-initializations
+!)
+
+
+! Use the csv driver for reading the data
+ initializations from "mmsheet.csv:"+CNCTIO3
+  A6 as '[B3:D6]'
+ end-initializations
+
+! Now let us see what we have
+ writeln('A4 is: ', A4)
+ writeln('A5 is: ', A5)
+ writeln('A6 is: ', A6)
+
+end-model

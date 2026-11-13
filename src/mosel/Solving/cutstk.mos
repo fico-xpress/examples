@@ -1,0 +1,234 @@
+(!*******************************************************
+  * Mosel Example Problems                              *
+  * ======================                              *
+  *                                                     *
+  * file cutstk.mos                                     *
+  * ```````````````                                     *
+  * Example for the use of the Mosel language           *
+  * (Cutting stock problem, solved by column (= cutting *
+  *  pattern) generation heuristic looping over the     *
+  *  root node)                                         *
+  *                                                     *
+  * (c) 2008 Fair Isaac Corporation                     *
+  *     author: S. Heipcke, 2001                        *
+  *******************************************************!)
+
+model CutStock                         ! Start a new model
+
+uses "mmxprs","mmsystem"               ! Load the optimizer library
+
+                                       ! Declare functions and procedures
+                                       ! that are defined later
+forward function colgen:real
+forward function knapsack(c:array(range) of real, a:array(range) of real, 
+                  b:real, N:integer, xbest:array(range) of integer):real
+
+declarations
+ NWIDTHS = 4                           ! Number of different widths
+ RW = 1..NWIDTHS                       ! Range of widths
+ MAXWIDTH = 91                         ! Max. roll width
+ EPS = 1e-6                            ! Zero tolerance
+
+ WIDTH: array(RW) of real              ! Possible widths
+ DEMAND: array(RW) of integer          ! Demand per width
+ PATTERNS: array(RW, RW) of integer    ! (Basic) cutting patterns
+
+ pat: array(range) of mpvar            ! Rolls per pattern
+ dem: array(RW) of linctr              ! Demand constraints
+ minRolls: linctr                      ! Objective function
+ solpat: array(RP:range) of real       ! Solution values for variables pat 
+end-declarations
+
+ WIDTH:: [25.5, 22.5, 20.0, 15.0]
+ DEMAND:: [78, 40, 30, 30]
+ PATTERNS:: [3,0,0,0,
+             0,4,0,0,
+             0,0,4,0,
+             0,0,0,6]
+
+ forall(j in RW) create(pat(j))        ! Create NWIDTHS variables pat
+
+ minRolls:= sum(j in RW) pat(j)        ! Objective: minimize no. of rolls 
+
+                                       ! Satisfy all demands
+ forall(i in RW) dem(i):= sum(j in RW) PATTERNS(i,j) * pat(j) >= DEMAND(i)  
+
+ forall(j in RW) do
+  pat(j) is_integer                    ! Variables are integer and bounded
+  pat(j) <= integer(ceil(DEMAND(j)/PATTERNS(j,j)))
+ end-do 
+
+ setparam("zerotol", EPS)              ! Set Mosel comparison tolerance
+
+ starttime:= gettime
+ objval:=colgen                        ! Solve the problem by using
+                                       ! column generation
+
+                                       ! Solution printing
+ writeln("(", gettime-starttime, " sec) Optimal solution: ", 
+       objval, " rolls, ", RP.size, " patterns")
+ write("   Rolls per pattern: ")
+ forall(i in RP) write(solpat(i),", ")
+ writeln   
+
+!************************************************************************
+!  Column generation loop at the top node:                               
+!    solve the LP and save the basis                                     
+!    get the solution values                                             
+!    generate new column(s) (=cutting pattern)                           
+!    load the modified problem and load the saved basis                  
+!************************************************************************
+function colgen:real
+
+ declarations
+  MAXCOL = 10                          ! Max. no. of patterns to be generated
+
+  dualdem: array(RW) of real           ! Dual values of demand constraints 
+  c,a: array(RW) of real
+  indx,xbest: array(RW) of integer
+  dw,zbest: real
+  bas: basis
+ end-declarations
+
+  setparam("XPRS_CUTSTRATEGY", 0)      ! Disable automatic cuts 
+  setparam("XPRS_PRESOLVE", 0)         ! Switch presolve off 
+  npatt:=NWIDTHS
+  npass:=1
+
+  while(npass<=MAXCOL) do
+    minimize(XPRS_LIN, minRolls)       ! Solve the LP 
+    savebasis(bas)                     ! Save the current basis 
+    returned:= getobjval               ! Get the objective value      
+
+                                       ! Get the solution values 
+    forall(j in 1..npatt)  solpat(j):=pat(j).sol
+    forall(i in RW)  dualdem(i):=dem(i).dual
+  
+      ! Sort (basic) patterns into descending order shadow_price/width: 
+    forall(j in RW) do
+      dw:=0
+      forall(i in RW) 
+        if (dualdem(i)/WIDTH(i) > dw) then
+         dw:= dualdem(i)/WIDTH(i)
+         k:= i
+        end-if
+      c(j):= dualdem(k)
+      a(j):= WIDTH(k)
+      indx(j):= k
+      dualdem(k):= 0
+    end-do
+
+    zbest:=knapsack(c,a,MAXWIDTH,NWIDTHS,xbest)
+
+    write("(", gettime-starttime, " sec) Pass ", npass, ": ")   
+    if zbest < 1 then
+      writeln("no profitable column found.\n")
+      break
+    else                                ! Print the new pattern 
+      writeln("new pattern found with marginal cost ", zbest-1)
+      write("   Widths distribution: ")
+      dw:=0
+      forall(i in 1..NWIDTHS) do 
+        write(WIDTH(indx(i)), ":", xbest(i), "  ")
+        dw += WIDTH(indx(i))*xbest(i)
+      end-do 
+      writeln("Total width: ", dw)
+ 
+      npatt+=1
+      create(pat(npatt))                ! Create a new var. for this pattern
+      pat(npatt) is_integer
+
+      minRolls+= pat(npatt)             ! Add new var. to the objective
+      dw:=0
+      forall(i in RW)                 
+        if xbest(i) > 0 then
+         dem(indx(i))+= xbest(i)*pat(npatt)  ! Add new var. to demand constr.s
+         if (ceil(DEMAND(indx(i))/xbest(i)) > dw) then
+         dw:= integer(ceil(DEMAND(indx(i))/xbest(i)))
+         end-if 
+        end-if
+      pat(npatt) <= dw                  ! Set upper bound on the new var.
+
+      loadprob(minRolls)                ! Reload the problem 
+      loadbasis(bas)                    ! Load the saved basis 
+    end-if
+    npass+=1
+  end-do
+
+end-function
+
+!************************************************************************
+!  Solve (heuristically) the integer knapsack problem
+!    z = max{cx : ax<=b, x in Z^N}                                     
+!  with b=MAXWIDTH, N=NWIDTHS                                             
+!************************************************************************
+
+function knapsack(c:array(range) of real, a:array(range) of real, 
+                  b:real, N:integer, xbest:array(range) of integer):real
+ declarations
+  x: array(1..N) of integer
+  z,ax,zbest: real
+ end-declarations
+
+(!
+  write ("Solving z = max{cx : ax <= b; x in Z^n}\n   c   = ")
+  forall(j in 1..N) write (c(j),", ")
+  write("\n   a   = ")
+  forall(j in 1..N) write(a(j),", ")
+  write("\n   c/a = ")
+  forall(j in 1..N) write(c(j)/a(j),", ")
+  writeln("\n   b   = ", b)
+!)
+
+  z:=0                                  ! Value of working solution   
+  ax:=0                                 ! Resource use of current solution 
+  zbest:=0                              ! Value of best solution so far 
+  k:=0
+  repeat 
+      ! Construct a greedy solution using remaining items (k+1..N): 
+    forall(j in k+1..N) do
+      x(j):= integer(floor((b-ax)/a(j)))
+      z  += c(j)*x(j)
+      ax += a(j)*x(j)
+    end-do
+
+      ! Compare new solution to best so far and update best if necessary: 
+    if z > zbest then
+      zbest:= z
+      forall(j in 1..N)  xbest(j):= x(j)
+    end-if
+
+      ! Backtrack:
+      ! For each item type k used in solution, starting from least profitable,
+      ! try deleting one item and replacing it by items of type k+1.
+      ! If this gives a better linear solution, construct new integer solution.
+      ! Otherwise, remove all items k and consider next item up (k--).
+    k:=N-1
+    while(k>0)
+      if (x(k) <> 0) then
+        z  -= c(k)
+        ax -= a(k)
+        x(k)-=1
+        if (z + c(k+1) * (b-ax)/a(k+1) >= zbest + EPS) then
+          break
+        else
+          z  -= x(k) * c(k)
+          ax -= x(k) * a(k) 
+          x(k):= 0
+          k -=1
+        end-if
+      else    
+        k -=1  
+      end-if  
+  until (k<1)
+
+(! 
+  write("   z = ", zbest, "\n   x = ")
+  forall(j in 1..N) write(xbest(j), ", ")
+  writeln
+!)
+  returned:=zbest
+end-function
+
+end-model
+

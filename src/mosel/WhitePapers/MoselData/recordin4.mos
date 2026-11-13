@@ -1,0 +1,109 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file recordin4.mos
+   ``````````````````
+   Reading records from an Oracle database.
+   - Using 'initializations' and OCI statements -
+   
+   (c) 2012 Fair Isaac Corporation
+       author: S. Heipcke, Dec. 2012, rev. Aug. 2023
+*******************************************************!)
+
+model "Record input (OCI)"
+ uses "mmoci"
+
+ parameters
+  DB="myname/mypassword@dbname"     ! Login to Oracle database (not provided)
+  CNCT="mmoci.oci:debug;"+DB
+ end-parameters
+
+ public declarations
+  PRODUCTS: set of string
+  MACH: range
+  ProdRec = public record
+   Cost: real
+   Duration: integer
+  end-record 
+  PDATA,PDATA1,PDATA2: dynamic array(PRODUCTS,MACH) of ProdRec
+
+  R = 1..9
+  AllDataRec = public record
+   Product: string
+   Mach: integer
+   Cost: real
+   Duration: integer
+  end-record 
+  ALLDATA,ALLDATA1,ALLDATA2: array(R) of AllDataRec
+ end-declarations
+
+ 
+! **** Using SQL statements ****
+
+! Reading complete records
+ setparam("OCIdebug",true)
+ OCIlogon(DB)
+ if not getparam("OCIsuccess"): setioerr("Database connection failed")
+ 
+ OCIexecute("select * from ProdData", PDATA)
+ setparam("ocindxcol",false)      ! Dense data format (no indices)
+ OCIexecute("select * from ProdData", ALLDATA)
+
+ OCIlogoff
+
+
+! **** Using 'initializations from' ****
+
+! Reading complete records
+ initializations from CNCT
+  PDATA1 as "ProdData"
+  ALLDATA1 as "noindex;ProdData"
+ end-initializations
+
+! Reading record fields
+ initializations from CNCT
+  PDATA2(Cost) as "ProdData(IndexP,IndexM,Cost)"
+  ALLDATA2(Product,Mach,Duration) as "noindex;ProdData(IndexP,IndexM,Duration)"
+ end-initializations
+
+
+! Now let us see what we have
+ writeln('PDATA is: ', PDATA)
+ writeln('ALLDATA is: ', ALLDATA)
+ writeln('PDATA1 is: ', PDATA1)
+ writeln('ALLDATA1 is: ', ALLDATA1)
+ writeln('PDATA2 is: ', PDATA2)
+ writeln('ALLDATA2 is: ', ALLDATA2)
+
+end-model
+
+**************************************************
+
+
+! Creation of data tables in an Oracle database:
+
+ declarations
+  tsucc: array ({false,true}) of string
+  PDATA3: dynamic array(PRODUCTS,MACH) of ProdRec
+ end-declarations
+
+ tsucc(false):="failed"; tsucc(true):="succeeded"
+
+ initializations from "recorddata.dat"
+  PDATA3 as "ProdData"
+ end-initializations
+
+ setparam("OCIdebug",true)
+ OCIlogon(DB)
+ writeln("Connection number: ",getparam("OCIconnection"))
+
+ OCIexecute("drop table ProdData")
+
+ OCIexecute("create table ProdData (IndexP varchar(10), IndexM integer, Cost float, Duration integer)")
+ writeln(" - Create ProdData (",tsucc(getparam("OCIsuccess")),")")
+ OCIexecute("insert into ProdData (IndexP,IndexM,Cost,Duration) values (:1, :2, :3, :4)", PDATA3)
+ writeln(" - Insert values into ProdData (",tsucc(getparam("OCIsuccess")),",",
+        getparam("OCIrowcnt"),'/',getparam("OCIrowxfr")," rows)")
+
+ OCIlogoff

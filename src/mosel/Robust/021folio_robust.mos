@@ -1,0 +1,235 @@
+  (!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file 021folio_robust.mos
+   ````````````````````````
+   Single period portfolio allocation problem.
+   The present model produces a selection of
+   assets that is robust against realization of
+   worst case with a high probability.
+
+   Features:
+     - Using the 'ellipsoid' uncertainty set
+     - Retrieving the worst value of an uncertain variable
+
+   What to look at:
+     - Selection of highest worst case value asset,
+       but low expected value for the problem
+       with highest protection level
+     - Selection of highest exepected value asset, 
+       but low worst case value for the problem
+       with high protection level
+     - Selection of a diversied set of assets for
+       various value of the protection level.
+     - Using worst value of an uncertain variable as
+       an indicator for reoptimizing the portfolio
+    
+   Model is inspired by work from the following book:
+     A. Ben-Tal, L. El Ghaoui, and A. Nemirovski. Robust Optimization. 
+     Princeton Series in Applied Mathematics, 2009.
+
+   (c) 2014 Fair Isaac Corporation
+       author: S. Lannez, Mar. 2014, rev. Dec. 2014
+*******************************************************!)
+
+model "Robust portfolio optimization"
+  uses "mmrobust", "random"                       
+  uses "mmsystem"
+
+  parameters
+    ZEROTOL=1e-6
+    SEED=12345
+    NMC=500000
+    N=1.5                              ! Worst case metric
+  end-parameters
+
+  declarations
+    Problems: set of mpproblem
+    ProtectLevel: set of real
+
+    mp_problemA: mpproblem             ! Worst case optimization
+    mp_problemB: array(ProtectLevel) of mpproblem  ! Robust optimization
+    NSHARES = 25                       ! Max number of shares
+    Shares = 1..NSHARES                ! Set of shares
+
+    PRICE: array(Shares) of real       ! Expected return on investment
+    VAR: array(Shares) of real         ! Uncertainty measure (deviation) per SHARE
+
+    expReturn: mpvar                   ! Expected portfolio value
+    wstReturn: mpvar                   ! Worst case portfolio value
+    frac: array(Shares) of mpvar       ! Fraction of capital used per share
+    frac_sol: array(Shares,Problems) of real      
+    obj: mpvar
+
+    e: array(Shares) of uncertain      ! Deviation of share values
+    PRICEthr: array(Problems,Shares) of real    ! The price threshold
+   
+  end-declarations
+ 
+!***************************Configuration*************************
+ setparam("XPRS_LOADNAMES",true)
+
+!***************************Subroutines***************************
+ !**** Create the nominal model ****
+  procedure create_nominalmodel
+    ! Nominal model
+    expReturn = (sum(s in Shares) PRICE(s)*frac(s)) 
+    wstReturn = sum(s in Shares) ( PRICE(s) - N*VAR(s) )*frac(s)
+
+    ! Spend all the budget
+    sum(s in Shares) frac(s) = 1
+  end-procedure
+ 
+ !**** Optimize for the worst case realization ****
+  procedure solve_det
+    obj = wstReturn
+    maximize(obj)
+  end-procedure
+
+ !**** Optimize for a given protection level ****
+  procedure solve_rob(k: real)
+    ! The value variation domain
+
+    assert(k>=0  and k<=1)
+    sum(s in Shares) (e(s) / (N*VAR(s)))^2 <= (k)^2
+
+    ! The robust constraint
+    obj <= sum(s in Shares) (PRICE(s) + e(s)) * frac(s)
+
+    maximize(obj)
+  end-procedure
+
+!***************************Main model***************************
+  !**** Input data generation ****
+  setmtrandseed(12345)
+  cnt := 0
+  forall(s in Shares, cnt as counter) do
+    PRICE(s) := round((100*(NSHARES-cnt+1)/NSHARES))
+    c := (1+sqrt((NSHARES-s)/NSHARES))/3
+    VAR(s) := round(PRICE(s)*c*100)/100
+  end-do
+
+  writeln("\n *** Input Data *** ")
+  writeln
+  writeln("Shares | Mean | S.Dev. | Worst value")
+  forall(s in Shares)
+    writeln(strfmt(s,6), " |", strfmt(PRICE(s),5), " |", strfmt(VAR(s),7,2), 
+      " |", strfmt(PRICE(s)-N*VAR(s),6,3))
+  writeln
+  
+  !**** Optimize the worst case ****
+  with mp_problemA do
+    create_nominalmodel
+    solve_det
+    forall(s in Shares) frac_sol(s,mp_problemA) := frac(s).sol*100
+    ! Price set by opponent is worst case price
+    forall(s in Shares) PRICEthr(mp_problemA,s) := PRICE(s) - N*VAR(s)
+  end-do
+
+  !**** Optimize the 'budgeted' worst case ****
+  Ks := [0.0,     ! No variation on average 
+         0.01,    ! +/-  1% variation on the list
+         0.10,    ! +/- 10% variation on the list
+         0.25,    ! +/- 25%
+         1.0]     ! +/-100% variation on the list
+  forall(k in Ks) do 
+    create(mp_problemB(k))
+    with mp_problemB(k) do
+      create_nominalmodel
+      solve_rob(k)
+      forall(s in Shares) frac_sol(s,mp_problemB(k)) := frac(s).sol*100
+      forall(s in Shares) PRICEthr(mp_problemB(k),s) := (PRICE(s) + getsol(e(s)))
+    end-do
+  end-do
+
+  !**** Print results ****
+  writeln("\n *** Portfolio allocation results *** ")
+  write("\n                                  |  protection level")
+  write("\nShares | Wst price | Price |  A   |")
+  forall(k in Ks) write(" ", strfmt(k*100,3), "% |" ) ; writeln
+  forall(s in Shares) do
+    write(strfmt(s,6), " |", strfmt(PRICE(s)-N*VAR(s),10,0), " |",
+      strfmt(PRICE(s),6), " | ")
+    forall(mp in Problems) do
+      if (frac_sol(s,mp)>1) then
+        write(strfmt(frac_sol(s,mp),3,0), "% | ")
+      else
+        write("     | ")
+      end-if
+    end-do
+    writeln
+  end-do
+
+  writeln("\n *** Worst case price *** ")
+  write("\n                                  |  protection level")
+  write("\nShares | Wst price | Price |  A   |")
+  forall(k in Ks) write(" ", strfmt(k*100,3), "% |" ) ; writeln
+  forall(s in Shares) do
+    write(strfmt(s,6), " |", strfmt(PRICE(s)-N*VAR(s),10,0), " |",
+      strfmt(PRICE(s),6), " | ")
+    forall(mp in Problems) do
+      if (frac_sol(s,mp)>1) then
+        write(strfmt(PRICEthr(mp,s),3,0), "* | ")
+      else
+        write(strfmt(PRICEthr(mp,s),4,0), " | ")
+        ! write("     | ")
+      end-if
+    end-do
+    writeln
+  end-do
+  
+  !**** Simulate results (Monte-Carlo simulation) ****
+  writeln("\nRunning Monte-Carlo simulation...")
+  Values := {0,20,40,60,80,100}
+  declarations
+    cntV: dynamic array(Problems,Values) of real
+    s1: real
+    s2: real
+  end-declarations
+  forall(mp in Problems) do
+    expRev(mp) := 0.0 ; wstRev(mp) := 0.0 ; expDev(mp) := 0.0
+    forall(v in Values) cntV(mp,v) := 0
+    c := 0.0 ! Number of draws
+    s1 := 0 ; s2 := 0;
+    forall(i in 1..NMC, c as counter) do
+      totalVal := 0.0 ; totalRisk := 0.0
+      forall(s in Shares | frac_sol(s,mp)>0) do
+       	! draw a price
+        p := normal(PRICE(s),VAR(s))
+        ! calculate share revenue
+        r := frac_sol(s,mp)*p/100
+        ! calculate total revenue
+        totalVal += r ! summing up revenue
+      end-do
+      forall(v in Values) do
+        if (totalVal>v) then 
+          cntV(mp,v) += 1
+        end-if
+      end-do
+      expRev(mp) += totalVal
+      s1 += totalVal
+      s2 += totalVal^2
+    end-do
+    expRev(mp) := expRev(mp) / c
+    expDev(mp) := sqrt(NMC*s2 - s1^2)/(NMC)
+    forall(v in Values) cntV(mp,v) := cntV(mp,v) / c
+  end-do
+
+  !**** Print simulation results ****
+  write("\n                                   |  protection level")
+  write("\n                            |  A   |")
+
+  forall(k in Ks) write(" ", strfmt(k*100,3), "% |" )
+  write("\n            Expected value  |")
+  forall(mp in Problems) write(strfmt(round(expRev(mp)),5), " |")
+  write("\n        Standard deviation  |")
+  forall(mp in Problems) write(strfmt(round(expDev(mp)),5), " |")
+
+  writeln
+  forall(v in Values) do 
+    write("\n             P (value>"+textfmt(v,3)+"   |")
+    forall(mp in Problems) write(strfmt(cntV(mp,v),5,2) , "  |")
+  end-do
+
+end-model 

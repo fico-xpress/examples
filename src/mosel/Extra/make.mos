@@ -1,0 +1,51 @@
+!**********************************
+! Mosel examples makefile         *
+!                                 *
+! (c) 2025-2026 Fair Isaac Corporation*
+!     author: Y. Colombani        *
+!**********************************
+! to build everything:
+!  mosel make
+! only C examples:
+!  mosel make TODO=c
+! only Java examples:
+!  mosel make TODO=java
+! to cleanup
+!  mosel make TODO=clean
+
+model make
+ uses 'makeutil'
+
+ declarations
+  allc_xprd=['fmgr.c','piap.c']
+  allc_bdrv=['bdrv.c']
+  allj=['bdrv.java','fmgr.java','piap.java']
+ end-declarations
+
+ addenvpath("CLASSPATH",SYS_DOWN,".",MOSELDIR+"/lib/xprd.jar",MOSELDIR+"/lib/bindrv.jar")
+
+ if TODO='c' or TODO='all' or runmode='clean' then
+  LIBS('posix'):=['pthread']
+  LIBS('all'):=['xprd','xprnls']
+  forall(s in allc_xprd)
+   c2exe(s,'.')
+
+  reset(LIBS('posix'))
+  reset(LIBS('all'))
+  LIBS('posix'):=['bindrv']
+  LIBS('winnt'):=['bindrvMD']
+  forall(s in allc_bdrv)
+   c2exe(s,'.')
+ end-if
+
+ if TODO='java' or TODO='all' or runmode='clean' then
+  if runmode='clean' then
+   cleanfiles("*.class")
+  else
+   forall(s in allj)
+    runcmd("javac",s)
+  end-if
+ end-if
+
+ cleanfiles('err.txt','bindata','*.bim')
+end-model

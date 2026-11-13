@@ -1,0 +1,134 @@
+(!*********************************************************************
+   Mosel Example Problems
+   ======================
+
+   file manufact.mos
+   `````````````````
+   Production scheduling problem 
+   -- Formulation alternative using SOS-1 --
+   
+     Example solution for exercise 6.9 in section 6.11 of
+     J. Kallrath: Business Optimization Using Mathematical Programming -
+     An Introduction with Case Studies and Solutions in Various Algebraic 
+     Modeling Languages. 2nd edition, Springer Nature, Cham, 2021 
+
+   author: S. Heipcke, Oct 2020
+
+   (c) Copyright 2020 Fair Isaac Corporation
+  
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+*********************************************************************!)
+
+model 'manufact'
+  uses "mmxprs", "mmsystem", "mmsvg"
+
+  parameters
+    USESOS = true       ! true: SOS-1 | false: binary variables formulation
+  end-parameters
+
+  public declarations
+    PRODUCTS=1..3                    ! Set of products
+    NJ=5                             ! Number of processing steps (jobs)
+    JOBS=1..NJ                       ! Processing a product on a machine
+    MACHINES: set of string          ! Set of machines
+    PERIODS: range                   ! Time periods
+    CAP: array(MACHINES) of integer  ! Machine capacities
+!    TASK: array(PRODUCTS,JOBS)
+    RESUSE: array(PRODUCTS,JOBS) of string  ! Machine required by job
+    DUR: array(PRODUCTS,JOBS) of integer    ! Duration of jobs
+    start: array(PRODUCTS,JOBS) of mpvar    ! Job starts
+    ifstart: array(PRODUCTS,JOBS,PERIODS) of mpvar  ! Job start indicators
+    makespan: mpvar                         ! Makespan of schedule
+  end-declarations
+
+  CAP :: (['Finish', 'Smooth', 'Spray', 'Drill', 'Bevel'])[2,3,3,3,1]
+  RESUSE::(1,1..5)['Smooth', 'Spray', 'Drill', 'Finish', 'Spray']
+  DUR   ::(1,1..5)[      25,      18,      27,       19,       5]
+  RESUSE::(2,1..5)['Drill', 'Bevel', 'Smooth', 'Finish', 'Spray']
+  DUR   ::(2,1..5)[      8,      17,       19,        6,      12]
+  RESUSE::(3,1..5)['Bevel', 'Smooth', 'Finish', 'Spray', 'Drill']
+  DUR   ::(3,1..5)[     16,        8,       19,      12,       2]
+  HORIZON:= sum(p in PRODUCTS, j in JOBS) DUR(p,j)      ! Safe upper bound
+  writeln("Time horizon: ", HORIZON)
+  PERIODS:= 1..HORIZON; finalize(PERIODS)
+
+ ! Sequence of jobs per product
+  forall(p in PRODUCTS, j in JOBS | j<NJ) start(p,j)+DUR(p,j)<=start(p,j+1)
+
+ ! Start times
+  forall(p in PRODUCTS, j in JOBS)
+    JobStart(p,j):= start(p,j) = sum(t in PERIODS) t*ifstart(p,j,t)
+
+  if USESOS then
+! Stating SOS-1 via a linear expression:
+!    forall(p in PRODUCTS, j in JOBS) sum(t in PERIODS) t*ifstart(p,j,t) is_sos1
+! Stating SOS-1 with coefficients provided by a reference row:
+    forall(p in PRODUCTS, j in JOBS)
+      makesos1(union(t in PERIODS) {ifstart(p,j,t)}, JobStart(p,j))
+  else
+    forall(p in PRODUCTS, j in JOBS, t in PERIODS) ifstart(p,j,t) is_binary
+  end-if
+
+ ! Each job starts once and only once
+  forall(p in PRODUCTS, j in JOBS) sum(t in PERIODS) ifstart(p,j,t) = 1
+
+ ! Resource limits
+  forall(t in PERIODS, m in MACHINES)
+    ResLim(t,m):= sum(p in PRODUCTS, j in JOBS | RESUSE(p,j)=m, s in maxlist(1,t-DUR(p,j)+1)..t) ifstart(p,j,s) <= CAP(m)
+
+ ! Latest completion time (makespan)
+  forall(p in PRODUCTS) start(p,NJ)+DUR(p,NJ)<=makespan
+
+ ! Solving: Minimize overall time (makespan)
+  minimise(makespan)
+  if getprobstat<>XPRS_OPT then
+    writeln("No solution")
+    exit(1)
+  end-if
+  writeln("Makespan: ", getobjval)
+  forall(p in PRODUCTS) do 
+    write("Prod", p, ":")
+    forall(j in JOBS) 
+      write(formattext(" %7s:%2d-%2d", RESUSE(p,j), round(start(p,j).sol), round(start(p,j).sol)+DUR(p,j)))
+    writeln
+  end-do
+  
+! Solution drawing
+ declarations
+  JobGraph: array(PRODUCTS) of string
+  MPOS: array(MACHINES) of integer
+ end-declarations
+
+ svgsetgraphviewbox(-10,1, makespan.sol+15, MACHINES.size*10+5)
+ svgsetgraphscale(5)
+ forall(m in MACHINES, mct as counter) MPOS(m):=mct
+
+ forall(p in PRODUCTS) do
+  JobGraph(p):="Prod"+p
+  svgaddgroup(JobGraph(p), "Product "+p)
+  svgsetstyle(SVG_FILL, SVG_CURRENT)
+ end-do
+ forall(p in PRODUCTS,j in JOBS) 
+  svgaddrectangle(JobGraph(p), getsol(start(p,j)), MPOS(RESUSE(p,j))*10+2*(p-1),
+   DUR(p,j), 2)
+
+ svgaddgroup("M", "Machines", SVG_BLACK)
+ forall(m in MACHINES) svgaddtext(-10,MPOS(m)*10+1, m)
+ forall(m in MACHINES) svgaddline(0,MPOS(m)*10,makespan.sol,MPOS(m)*10)
+
+ svgsave("manufact.svg")
+ svgrefresh
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+
+end-model  

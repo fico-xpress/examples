@@ -1,0 +1,124 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file resource_profile_graph.mos
+   `````````````````````````````
+   Scheduling tasks with non-constant resource usage profiles.
+   - Graphical representation of results -
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+       rev. Sep. 2017
+*****************************************************************!)
+model "Non constant resource usage"
+ uses "kalis", "mmsystem", "mmsvg"
+
+ forward procedure draw_solution(tasks: set of cptask, 
+                                 resources: set of cpresource) 
+
+ declarations  
+  res1,res2: cpresource
+  taska,taskb,taskc: cptask      
+ end-declarations
+  
+ taska.start    <= 15
+ taska.duration = 4
+ taskb.start    <= 15
+ taskb.duration = 3
+ taskc.start    <= 15
+ taskc.duration = 5
+
+! Define a discrete resource with periods of unavailability 
+ set_resource_attributes(res1, KALIS_DISCRETE_RESOURCE, 6)
+ setcapacity(res1, 0, 15, 0)
+ setcapacity(res1, 1, 5, 6)
+ setcapacity(res1, 7, 11, 6)
+ 
+ requires(taska, {resusage(res1,[1,3,5,6])})
+ requires(taskb, {resusage(res1,[5,3,1])}) 
+ requires(taskc, {resusage(res1,1,1)})
+
+! Define a resource with initial capacity at 0  
+ set_resource_attributes(res2, KALIS_DISCRETE_RESOURCE, 0)
+
+ provides(taska, resusage(res2,[1,3,1,2]))
+ consumes(taskb, resusage(res2,[3,1,2]))
+ produces(taskc, resusage(res2,[3,1,2,0,2]))
+ 
+ if not cp_propagate then
+  writeln("Problem is infeasible"); exit(1)
+ end-if 
+
+ while (cp_find_next_sol) do
+  cp_show_sol
+  draw_solution({taska,taskb,taskc},{res1,res2})
+  if svgclosing then break; end-if
+ end-do
+ 
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+
+!------------------------------------------------------------- 
+!**** Graphical representation of results with IVE ****
+ procedure draw_solution(tasks: set of cptask, resources: set of cpresource)
+  svgerase 
+  
+  ires := 0    
+  RESHEIGHT := 0   
+  forall(res in resources, ires as counter) do            
+   forall(timeindex in 0..getub(getmakespan)) do
+    ub1 := getcapacity(res,timeindex)       
+    forall(t in tasks)
+     ub1 += getproduction(t,res,timeindex) + getprovision(t,res,timeindex)
+    if RESHEIGHT < ub1 then
+     RESHEIGHT := ub1
+    end-if      
+   end-do
+  end-do
+
+  ires := 0
+  forall(res in resources, ires as counter) do
+   svgaddgroup(getname(res),getname(res),
+     if(ires mod 2 = 0, svgcolor(235,235,235), svgcolor(215,215,215)))      
+   svgsetstyle(SVG_FILL,SVG_CURRENT)
+   svgaddrectangle(-1, ires * RESHEIGHT, 
+                   getub(getmakespan)+2, 1 * RESHEIGHT)
+   svgaddtext(-1, ires * RESHEIGHT, getname(res))
+  end-do
+
+  forall(t in tasks) do    
+   svgaddgroup(getname(t), getname(t))    
+   svgsetstyle(SVG_FILL,SVG_CURRENT)
+  end-do
+
+  svgaddgroup("back", "BACK",SVG_RED)    
+  ires := 0
+  forall(res in resources, ires as counter) do    
+   forall(timeindex in 0..getub(getmakespan)) cumul(timeindex) := 0      
+   forall(timeindex in 0..getub(getmakespan), t in tasks) do
+    rnd := getrequirement(t,res,timeindex) + getconsumption(t,res,timeindex)
+    svgaddrectangle(getname(t), timeindex, ires * RESHEIGHT + 
+      cumul(timeindex), 1, rnd)
+    cumul(timeindex) += rnd            
+   end-do
+
+   forall(timeindex in 0..getub(getmakespan)) do
+    ub1 := ires * RESHEIGHT + getcapacity(res,timeindex) 
+    ub2 := ires * RESHEIGHT + getcapacity(res,timeindex+1) 
+    forall(t in tasks) do
+     ub1 += getproduction(t,res,timeindex) + getprovision(t,res,timeindex)
+     ub2 += getproduction(t,res,timeindex+1) + getprovision(t,res,timeindex+1)
+    end-do
+    svgaddline("back", timeindex,ub1,timeindex+1,ub1)
+    svgaddline("back", timeindex+1,ub1,timeindex+1,ub2)
+   end-do
+  end-do
+    
+  svgsetgraphscale(20)
+  svgsetgraphlabels("Time","Resource usage")
+
+  svgrefresh
+ ! Uncomment to pause at every iteration: 
+ ! svgpause
+ end-procedure
+  
+end-model

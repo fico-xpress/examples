@@ -1,0 +1,42 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file ac2001_2.mos
+   `````````````````
+   Generic binary constraints.
+   - Specifying the user constraint routine by name -
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+       Creation: 2005, rev. Sep. 2018
+*****************************************************************!)
+model "generic_binary_constraint example"
+ uses "kalis"
+
+ forward public function truth_value(v1:integer, v2:integer): boolean
+
+ declarations 
+  x1 : cpvar 
+  x2 : cpvar          
+  C  : integer
+ end-declarations
+
+ C := 4
+ 0 <= x1 ; x1 <= 10
+ 0 <= x2 ; x2 <= 5
+
+! Define and post the user constraint
+ generic_binary_constraint(x1, x2, "truth_value")
+
+! Search for all solutions and print them out
+ while (cp_find_next_sol)
+  writeln("A solution has been found with x1 = ",
+          getsol(x1), " and x2 = ", getsol(x2) )
+
+! Implementation of the user constraint
+ public function truth_value(v1:integer, v2:integer): boolean 
+  returned := (v1 = v2 mod C)
+ end-function
+
+end-model
+

@@ -1,0 +1,43 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   File flow.mos
+   `````````````
+   Use of dynamic arrays to reduce size of tables
+
+   (c) 2008 Fair Isaac Corporation 
+       author: S. Heipcke, 2005, rev. Feb. 2014
+*******************************************************!)
+
+model "Dynamic arrays"
+ declarations
+  Suppliers = 1..150
+  Customers = 1..10000
+  COST: dynamic array(Suppliers,Customers) of real
+  flow: dynamic array(Suppliers,Customers) of mpvar
+ end-declarations
+ 
+ initializations from "flow.dat"
+  COST
+ end-initializations
+  
+ forall(s in Suppliers, c in Customers | COST(s,c)>0 ) create(flow(s,c))
+
+end-model
+
+(!
+
+Check memory usage
+==================
+Use the following command sequence at the command line:
+
+mosel debug -g flow.mos
+lsmods
+info COST
+quit
+
+Remove the keyword 'dynamic' from the array declarations and perform 
+once more the same command sequence.
+ 
+!)

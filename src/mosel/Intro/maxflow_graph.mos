@@ -1,0 +1,107 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file maxflow.mos
+   ````````````````
+   TYPE:         Maximum flow with unitary capacities
+   DIFFICULTY:   3
+   FEATURES:     MIP problem, encoding of arcs, `range', `exists', `create',
+                 algorithm for printing paths, `forall-do', `while-do', 
+                 `round', graphical representation of results
+   DESCRIPTION:  We wish to test the reliability of a telecommunications 
+                 network that consists of eleven sites connected by 
+                 bidirectional lines for data transmission. The specifications 
+                 require that the two sites (nodes) 10 and 11 of the network 
+                 remain able to communicate even if any three other sites of 
+                 the network are destroyed.    
+   FURTHER INFO: `Applications of optimization with Xpress-MP', 
+                 Section 12.1 `Network reliability'
+                 Similar problem: 
+                 Section 15.1 `Water conveyance/water supply management'
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2002, rev. Sep. 2107
+*******************************************************!)
+
+model "Network reliability"
+ uses "mmxprs", "mmsvg"
+
+ declarations
+  NODES: range                        ! Set of nodes
+  SOURCE = 10; SINK = 11              ! Source and sink nodes 
+
+  ARC: dynamic array(NODES,NODES) of integer  ! 1 if arc defined, 0 otherwise
+  flow: dynamic array(NODES,NODES) of mpvar   ! 1 if flow on arc, 0 otherwise
+ end-declarations
+
+ initializations from 'maxflow.dat'
+  ARC
+ end-initializations
+
+ forall(n,m in NODES | exists(ARC(n,m)) and n<m ) ARC(m,n):= ARC(n,m)
+ forall(n,m in NODES | exists(ARC(n,m)) )  create(flow(n,m))
+
+! Objective: number of disjunctive paths
+ Paths:= sum(n in NODES) flow(SOURCE,n)
+
+! Flow conservation and capacities
+ forall(n in NODES | n<>SOURCE and n<>SINK) do
+  Balance(n):= sum(m in NODES) flow(m,n) = sum(m in NODES) flow(n,m)
+  Capacity(n):= sum(m in NODES) flow(n,m) <= 1
+ end-do 
+
+! No return to SOURCE node
+ NoReturn:= sum(n in NODES) flow(n,SOURCE) = 0
+
+ forall(n,m in NODES | exists(ARC(n,m)) )  flow(n,m) is_binary
+
+! Solve the problem
+ maximize(Paths)
+ 
+! Solution printing
+ writeln("Total number of paths: ", getobjval)
+
+ forall(n in NODES | n<>SOURCE and n<>SINK) 
+  if(getsol(flow(SOURCE,n))>0) then
+   write(SOURCE, " - ",n)
+   nnext:=n
+   while (nnext<>SINK) do
+    nnext:=round(getsol(sum(m in NODES) m*flow(nnext,m)))
+    write(" - ", nnext)
+   end-do
+   writeln
+  end-if
+
+! Solution drawing
+ declarations
+  X,Y: array(NODES) of integer        ! x-y-coordinates of nodes
+ end-declarations
+ 
+ initializations from 'maxflow.dat'
+  [X,Y] as 'POS'
+ end-initializations
+
+ svgsetgraphviewbox(0,0,max(n in NODES)X(n)+10, max(n in NODES)Y(n)+10)
+ svgsetgraphscale(2)
+
+ svgaddgroup("Arcs", "Network", SVG_GREY)
+ forall(n in NODES| n<>SOURCE and n<>SINK) do
+  svgaddpoint(X(n), Y(n))
+  svgaddtext(X(n), Y(n)+1, text(n))
+ end-do
+ forall(n,m in NODES | exists(ARC(n,m)) and n<m )
+  svgaddline(X(n), Y(n), X(m), Y(m))
+
+ svgaddgroup("Flow", "Disjunctive Paths", SVG_RED)
+ forall(n in {SOURCE,SINK}) do
+  svgaddpoint(X(n), Y(n))
+  svgaddtext(X(n), Y(n)+1, string(n))
+ end-do
+ forall(n,m in NODES | exists(ARC(n,m)) and getsol(flow(n,m))>0) 
+   svgaddline(X(n), Y(n), X(m), Y(m))
+
+ svgsave("maxflow.svg")
+ svgrefresh
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+end-model

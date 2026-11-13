@@ -1,0 +1,89 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file odbcinspectdb.mos
+   ``````````````````````
+   Retrieving information about database table structure.
+   
+   (c) 2014 Fair Isaac Corporation
+       author: S. Heipcke, Feb. 2014, rev. Aug. 2023
+*******************************************************!)
+model "Analyze DB structure"
+  uses "mmodbc", "mmsystem"
+  
+  parameters
+    DB="personnel.sqlite"
+   ! DB="DSN=mysql;DB=test"
+  end-parameters
+  
+  forward procedure create_db
+  
+  declarations
+    tables: list of string
+    pkeylist: list of string
+    pkeyind: list of integer
+    fnames: dynamic array(Fields: range) of string
+    ftypes: dynamic array(Fields) of integer
+    ftypenames: dynamic array(Fields) of string
+  end-declarations
+    
+  setparam("SQLverbose",true)
+  
+  ! Uncomment the following line to generate the database
+  create_db
+  
+  SQLconnect(DB)
+  if not getparam("SQLsuccess"): setioerr("Database connection failed")
+  
+  ! Retrieve list of database tables
+  SQLtables(tables)
+  forall(t in tables) do
+
+   ! Retrieve primary keys
+    SQLprimarykeys(t, pkeylist)
+    writeln(t, " primary key field names: ", pkeylist)
+    SQLprimarykeys(t, pkeyind)
+    writeln(t, " primary key field indices: ", pkeyind)
+
+   ! Retrieve table structure
+    writeln(t, " has ", SQLcolumns(t,fnames,ftypes), " fields")
+    res:=SQLcolumns(t,fnames,ftypenames)    
+    forall(f in Fields | exists(fnames(f)))
+      writeln(f, ": ", fnames(f), " ", ftypes(f), ": ", ftypenames(f))
+
+   ! Delete aux. arrays for next loop iteration 
+    delcell(fnames)  
+    delcell(ftypes)  
+    delcell(ftypenames)  
+  end-do
+  
+  SQLdisconnect
+  
+  
+!**** Database creation **** 
+  procedure create_db
+  
+    declarations
+      tsucc: array ({false,true}) of string
+      Tables: list of string
+    end-declarations
+    tsucc(false):="failed"; tsucc(true):="succeeded"
+
+    SQLconnect(DB)
+    if not getparam("SQLsuccess"): setioerr("Database connection failed")
+    
+    ! Delete the table if it exists already
+    SQLtables(Tables)
+    if findfirst(Tables, "PersList")>0 then
+      SQLexecute("drop table PersList")
+    end-if
+ 
+    ! Create a new table
+    SQLexecute("create table PersList (Surname varchar(50), FirstName varchar(50), Age integer, Address varchar(200), Country char(3), Status boolean, CreationDate date, CreationTime time, AValue double, primary key (FirstName, Surname))")
+    writeln(" - Create PersList (",tsucc(getparam("SQLsuccess")),")")
+    
+    SQLdisconnect
+  end-procedure
+  
+end-model  

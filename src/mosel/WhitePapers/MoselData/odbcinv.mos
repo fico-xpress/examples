@@ -1,0 +1,84 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file odbcinv.mos
+   ````````````````
+   ODBC with selection statements using columns in
+   inverted order.
+       
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2006, rev. Aug. 2023
+*******************************************************!)
+
+model "ODBC selection of columns"
+ uses "mmodbc"
+ options keepassert
+
+ declarations
+  PRODUCTS: set of string
+  MACH: range
+  COST,COST2: dynamic array(MACH,PRODUCTS) of real
+  DUR,DUR2,TEMP: dynamic array(PRODUCTS,MACH) of integer
+ end-declarations
+
+ DB:='multicol.mdb'
+
+! DB:='multicol.sqlite'
+! DB:='DSN=sqlite;DATABASE=multicol.sqlite'
+
+ setparam("SQLdebug",true)
+ SQLconnect(DB)
+ assert(getparam("SQLsuccess"))
+
+! Read data from the table 'ProdData'
+ SQLexecute("select Mach,Products,Cost from ProdData", COST)
+ SQLexecute("select Products,Mach,Duration from ProdData", DUR)
+
+! Print out what we have read
+ writeln(COST); writeln(DUR)
+
+! Write out data to another table (after deleting and re-creating the table)
+ SQLexecute("drop table CombData")
+ SQLexecute("create table CombData (Products varchar(10), Mach integer, Cost double, Duration integer)")
+ assert(getparam("SQLsuccess"))
+
+ SQLexecute("insert into CombData (Mach,Products,Cost) values (?,?,?)", COST)
+! Altenatively:
+! SQLexecute("insert into CombData (Products,Mach,Cost) values (?2,?1,?3)", COST)
+ assert(getparam("SQLsuccess"))
+
+! Fill the 'Duration' field of the output table:
+! 1. update the existing entries, 2. add new entries
+ SQLupdate("select Products,Mach,Duration from CombData", DUR)
+ assert(getparam("SQLsuccess"))
+! Equivalent:
+! SQLexecute("update CombData set Duration=?3 where Products=?1 and Mach=?2", DUR)
+ forall(p in PRODUCTS, m in MACH | exists(DUR(p,m)) and not exists(COST(m,p)))
+  TEMP(p,m) := DUR(p,m)
+ SQLexecute("insert into CombData (Products,Mach,Duration) values (?,?,?)", TEMP)
+ assert(getparam("SQLsuccess"))
+ 
+ SQLdisconnect
+
+ initializations from "mmodbc.odbc:debug;"+DB
+  COST2 as "ProdData(Mach,Products,Cost)"
+  DUR2 as "ProdData(Products,Mach,Duration)"
+ end-initializations
+
+ writeln(COST2); writeln(DUR2)
+
+! Delete and re-create the output table
+ SQLconnect(DB)
+ assert(getparam("SQLsuccess"))
+ SQLexecute("drop table CombData2")
+ SQLexecute("create table CombData2 (Products varchar(10), Mach integer, Cost double, Duration integer)")
+ assert(getparam("SQLsuccess"))
+ SQLdisconnect
+
+ initializations to "mmodbc.odbc:debug;"+DB
+  COST2 as "CombData2(Mach,Products,Cost)"
+  DUR2 as "CombData2(Products,Mach,Duration)"
+ end-initializations
+ 
+end-model

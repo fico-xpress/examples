@@ -1,0 +1,187 @@
+(!*********************************************************************
+   Mosel Example Problems
+   ======================
+
+   file lagrel.mos
+   ```````````````  
+   Lagrangian Relaxation for a Generalized Assignment Problem
+   
+     Example discussed in section 14.1.3.3 of
+     J. Kallrath: Business Optimization Using Mathematical Programming -
+     An Introduction with Case Studies and Solutions in Various Algebraic 
+     Modeling Languages. 2nd edition, Springer Nature, Cham, 2021 
+
+   author: S. Heipcke, October 2020
+
+   based on the GAMS implementation in lagRel.gms
+     by E.Kalvelagen, Amsterdam Optimization
+
+   (c) Copyright 2020 Fair Isaac Corporation
+  
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+*********************************************************************!)
+model "lagrange"
+ uses "mmxprs"
+ parameters
+   IFRELAX=true
+ end-parameters  
+
+ declarations
+   TASKS = 1..3                     ! Tasks
+   SERVERS = 1..2                   ! Resources
+   B: array(SERVERS) of real        ! Available resource amounts
+   C: array(TASKS,SERVERS) of real  ! Cost coefficients
+   A: array(TASKS,SERVERS) of real  ! Resource usage
+ end-declarations
+
+ B::(1..2)[13,11]
+ C::(1..3,1..2)[9,2,
+                1,2,
+                3,8]
+ A::(1..3,1..2)[6,8,
+                7,5,
+                9,6]
+
+!******** Standard MIP formulation ********
+ declarations
+   x: array(TASKS,SERVERS) of mpvar 
+   Cost: linctr  ! Objective function
+   Assign: array(TASKS) of linctr
+ end-declarations
+
+ forall(i in TASKS,j in SERVERS) x(i,j) is_binary
+
+ ! Objective function
+ Cost:= sum(i in TASKS,j in SERVERS) C(i,j)*x(i,j)
+ ! Assignment constraints
+ forall(i in TASKS) Assign(i):= sum(j in SERVERS) x(i,j)=1
+ ! Resource limit constraints
+ forall(j in SERVERS) Resource(j):= sum(i in TASKS) A(i,j)*x(i,j)<= B(j)
+
+ ! Solve the LP-relaxation
+ if IFRELAX then
+   minimize(XPRS_LIN, Cost)
+   writeln("Solution of relaxed problem: ", getobjval)
+   forall(i in TASKS,j in SERVERS | x(i,j).sol<>0)
+     writeln("  x(", i, ",", j, ")=", x(i,j).sol)
+ else  
+   minimize(Cost)
+   writeln("Solution of MIP problem: ", getobjval)
+   forall(i in TASKS,j in SERVERS | x(i,j).sol<>0)
+     writeln("  x(", i, ",", j, ")=", x(i,j).sol)
+   exit(0)
+ end-if
+
+!******** Lagrangian relaxation ********
+!******** (assuming that 'Assign' are the difficult constraints) 
+ declarations
+   U: array(TASKS) of real  
+   xSol: array(TASKS,SERVERS) of real  
+   lagrange: mpproblem
+ end-declarations
+
+ with lagrange do
+   forall(i in TASKS,j in SERVERS) x(i,j) is_binary
+!   LR:= sum(i in TASKS,j in SERVERS) C(i,j)*x(i,j) +
+!        sum(i in TASKS) U(i)*(1-sum(j in SERVERS) x(i,j))
+   forall(j in SERVERS) sum(i in TASKS) A(i,j)*x(i,j)<= B(j)
+ end-do
+
+ function solvelagrange: real
+   with lagrange do
+    ! Lagrangian relaxation with current coefficients U
+     LR:=sum(i in TASKS,j in SERVERS) C(i,j)*x(i,j) +
+                sum(i in TASKS) U(i)*(1-sum(j in SERVERS) x(i,j))
+     minimize(LR)
+     returned:= if( getprobstat=XPRS_OPT, getobjval, -INFINITY)
+     forall(i in TASKS,j in SERVERS) xSol(i,j):=x(i,j).sol
+     writeln("       xSol: ", xSol)
+   end-do
+ end-function
+
+!******** Subgradient iterations ********
+ declarations
+   NUMITER=50                          ! Iteration limit
+   ITER=1..NUMITER
+   ifimprove: boolean                  ! Stopping condition
+   stepsize, theta, norm: real         ! Calculation of step size
+   bestbnd, upperbnd: real             ! Lower and upper bounds
+   Gamma: array(TASKS) of real         ! Aux. data for calculation of step size
+   UPrev: array(TASKS) of real         ! Results from previous iteration
+   deltaU: real                        ! Calculation of convergence
+   RES: dynamic array(ITER) of record  ! Structure for storing results
+     dualobj,theta,norm,stepsize,deltau: real
+     improve:boolean
+   end-record
+   Initx: array(TASKS,SERVERS) of real
+ end-declarations
+ theta:=2; ifimprove:=true; bestbnd:=-INFINITY; 
+
+ ! Initialize U with dual values from the relaxed problem
+ forall(i in TASKS) U(i):=Assign(i).dual
+ writeln("Initial values for U: ", U)
+
+ ! Upper bound on Lagrangian
+ Initx(1,1):=1; Initx(2,2):=1; Initx(3,2):=1;
+ upperbnd:= sum(i in TASKS,j in SERVERS) C(i,j)*Initx(i,j)
+ writeln("Initial upper bound: ", upperbnd)
+
+ forall(k in ITER) do  
+  ! Solve the Lagrangian dual problem
+   RES(k).dualobj:= solvelagrange
+   if RES(k).dualobj>bestbnd then
+     bestbnd:= RES(k).dualobj
+     writeln("Iteration ", k, " improved bound: ", bestbnd)
+     ifimprove:=true
+   else
+     if not ifimprove then
+       theta:=theta/2
+       ifimprove:=true
+     else
+       ifimprove:=false
+     end-if
+   end-if
+   RES(k).improve:= ifimprove
+   RES(k).theta:= theta
+
+  ! Calculate new step size
+   forall(i in TASKS) Gamma(i):= 1-sum(j in SERVERS) xSol(i,j)
+   norm:= sum(i in TASKS) Gamma(i)^2
+   stepsize:= theta*(upperbnd-RES(k).dualobj)/if(norm=0,1,norm)
+   RES(k).norm:= norm
+   RES(k).stepsize:= stepsize
+
+  ! Update dual values U
+   forall(i in TASKS) UPrev(i):= U(i)
+   forall(i in TASKS) U(i):= maxlist(0, U(i)+stepsize*Gamma(i))
+   writeln("Iteration ", k, " values for U:", U)
+
+  ! Check convergence
+   deltaU:= max(i in TASKS) abs(UPrev(i)-U(i))
+   RES(k).deltau := deltaU
+   writeln("Iteration ", k, " results: ", RES(k))
+   if deltaU < 0.01 then
+      writeln("****Converged")
+      itercnt:=k
+      break
+   end-if   
+ end-do
+ 
+ writeln("Results after ",itercnt, " iterations: original obj: ", 
+   sum(i in TASKS,j in SERVERS) C(i,j)*xSol(i,j), 
+   " Lagrangian obj: ", RES(itercnt).dualobj)
+ forall(i in TASKS,j in SERVERS | xSol(i,j)<>0)
+   writeln("  x(", i, ",", j, ")=", xSol(i,j))
+
+end-model

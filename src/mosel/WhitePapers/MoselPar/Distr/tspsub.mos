@@ -1,0 +1,340 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file tspsub.mos
+   ```````````````
+   Subtour elimination algorithm from f5tour2.mos
+   (Applications of optimization with Xpress, 
+    Problem 9.6: Planning a flight tour,
+    second formulation for other data format)
+   - A subset of nodes may be fixed via the input data -
+
+   *** Not intended to be run standalone - run from tspmain.mos ***
+   
+   (c) 2011 Fair Isaac Corporation
+       author: S. Heipcke, Oct. 2011, rev. Aug 2018
+*******************************************************!)
+
+model "TSP"
+  uses "mmxprs", "mmsystem"
+
+  parameters
+    NUM=1               ! Model instance
+    PB=0                ! Optimization problem index  
+    LEVEL=1             ! =1: first round, >1: rounds with partial unfix
+    BIN = ""            ! File format (binary)
+    RMT = ""            ! Whether to use remote files
+    ZIP = ""            ! File format (compression)
+    MAXUF = 8           ! Max. number of nodes to unfix in each subproblem
+    PRINTDETAIL = true  ! Whether to display result detail
+  end-parameters 
+
+  writeln("Sub ", NUM, ": ", PB, ", level: ", LEVEL)
+
+  forward procedure break_subtour
+  forward procedure print_sol
+  forward procedure two_opt
+
+  declarations
+    starttime: real                        ! Time measure
+    NODES: range                           ! Set of nodes
+    Squares: range                         ! Subproblems
+    NODEX,NODEY: array(NODES) of integer   ! X/Y coordinates
+    SNODES: array(NSq:range) of set of integer  ! Nodes per subproblem
+    LEV: array(Squares) of integer ! Iteration round
+    SBORDER: array(Squares) of integer     ! Offset from border
+    BTYPE: array(Squares) of string        ! X:horizontal, Y:vertical neighbors
+    SQSETS: array(Squares,1..2) of set of integer   ! Predecessor subproblems
+    PREC: array(Squares) of set of integer ! Predecessor subproblems
+    NodeSet: set of integer                ! Subproblem node set
+    UnfixedSet: set of integer             ! Unfixed nodes in this subproblem
+    SOL: dynamic array(NODES) of integer   ! Dynamic to write index
+    ATemp1, AIndx1: dynamic array(R:set of integer) of integer   ! Aux. node data
+    ATemp2, AIndx2: dynamic array(R2:set of integer) of integer  ! Aux. node data
+    r1,r2: set of integer                  ! Auxiliary node sets
+  end-declarations
+
+  starttime:=gettime
+
+  initializations from BIN+ZIP+RMT+"tspgendata"
+    Squares  NSq
+    NODEX
+    NODEY 
+    SNODES 
+    LEV 
+    SBORDER 
+    BTYPE 
+    SQSETS 
+    PREC
+  end-initializations
+ 
+  initializations from BIN+ZIP+RMT+"tspsolinit"+NUM 
+    SOL
+  end-initializations
+  fdelete(RMT+"tspsolinit"+NUM)
+
+  if LEV(PB)=1 then
+    NodeSet:=SNODES(PB)
+  else
+    NodeSet:= union(s in SQSETS(PB,1), n in SNODES(s)) {n} +
+              union(s in SQSETS(PB,2), n in SNODES(s)) {n}
+  end-if 
+  finalize(NodeSet)
+
+  if LEV(PB)>1 then
+    if BTYPE(PB)="X" then
+      forall(s in SQSETS(PB,1), n in SNODES(s))
+        ATemp1(n):=abs(NODEX(n)-SBORDER(PB))
+      r1:=union(i in R | exists(ATemp1(i))) {i}
+      qsort(SYS_UP, ATemp1, AIndx1, r1) 
+      ct:=0
+      forall(ct as counter, i in min(j in r1) j .. max(k in r1) k  | 
+             exists(AIndx1(i)) ) do
+        UnfixedSet+= {AIndx1(i)}
+        if ct>=MAXUF then break; end-if
+      end-do
+      forall(s in SQSETS(PB,2), n in SNODES(s))
+        ATemp2(n):=abs(NODEX(n)-SBORDER(PB))
+      r2:=union(i in R2 | exists(ATemp2(i))) {i}
+      qsort(SYS_UP, ATemp2, AIndx2, r2) 
+      ct:=0
+      forall(ct as counter, i in min(j in r2) j .. max(k in r2) k  | 
+             exists(AIndx2(i)) ) do
+        UnfixedSet+= {AIndx2(i)}
+        if ct>=MAXUF then break; end-if
+      end-do
+
+    else
+      forall(s in SQSETS(PB,1), n in SNODES(s))
+        ATemp1(n):=abs(NODEY(n)-SBORDER(PB))
+      r1:=union(i in R | exists(ATemp1(i))) {i}
+      qsort(SYS_UP, ATemp1, AIndx1, r1) 
+      ct:=0
+      forall(ct as counter, i in min(j in r1) j .. max(k in r1) k  | 
+             exists(AIndx1(i))) do
+        UnfixedSet+= {AIndx1(i)}
+        if ct>=MAXUF then break; end-if
+      end-do
+      forall(s in SQSETS(PB,2), n in SNODES(s))
+        ATemp2(n):=abs(NODEY(n)-SBORDER(PB))
+      r2:=union(i in R2 | exists(ATemp2(i))) {i}
+      qsort(SYS_UP, ATemp2, AIndx2, r2) 
+      ct:=0
+      forall(ct as counter, i in min(j in r2) j .. max(k in r2) k  | 
+             exists(AIndx2(i)) ) do
+        UnfixedSet+= {AIndx2(i)}
+        if ct>=MAXUF then break; end-if
+      end-do
+    end-if
+
+  else
+    UnfixedSet:=NodeSet
+  end-if
+
+  MinN:=min(n in UnfixedSet) n
+
+  FixedSet:=NodeSet-UnfixedSet
+! writeln("Unfixed: ", UnfixedSet, "  Fixed: ", FixedSet)
+! forall(n in NodeSet) if SOL(n)=0 then writeln(PB, " =0: ", n); end-if
+
+  declarations
+    NNODES=getsize(NodeSet)                  ! Number of subproblem nodes
+  
+    DIST: array(NodeSet,NodeSet) of real     ! Distance between cities
+    NEXTC: array(NodeSet) of integer         ! Next city after i in the solution
+
+    fly: array(NodeSet,NodeSet) of mpvar     ! 1 if flight from i to j 
+  end-declarations
+
+  forall(i in NodeSet, j in NodeSet)
+    DIST(i,j):=sqrt((NODEX(i)-NODEX(j))^2 + (NODEY(i)-NODEY(j))^2)
+!    DIST(i,j):=round(10*(sqrt((NODEX(i)-NODEX(j))^2 + (NODEY(i)-NODEY(j))^2)))/10
+ 
+ ! Objective: total distance
+  TotalDist:= sum(i,j in NodeSet | i<>j) DIST(i,j)*fly(i,j)
+
+ ! Visit every city once
+  forall(i in NodeSet) sum(j in NodeSet | i<>j) fly(i,j) = 1
+  forall(j in NodeSet) sum(i in NodeSet | i<>j) fly(i,j) = 1
+
+  forall(i,j in NodeSet | i<>j) fly(i,j) is_binary
+
+ ! Fix part of the variables
+  if LEV(PB)>1 then
+    forall(i in FixedSet | SOL(i) not in UnfixedSet) do
+     fly(i,SOL(i)) = 1
+    end-do
+  end-if
+
+  setparam("XPRS_THREADS", 1)
+
+ ! Solve the problem
+  minimize(TotalDist)
+
+ ! Eliminate subtours
+  break_subtour
+
+ ! Perform 2-opt after solving partially fixed problems
+  if LEVEL>1 then two_opt; end-if
+
+ ! Save solution
+  forall(n in NodeSet) SOL(n):=NEXTC(n)
+
+  if getprobstat<>XPRS_OPT then
+   writeln("(", gettime-starttime, "s) ", NUM, "-", PB, ": INFEAS ")
+  else 
+   write("(", gettime-starttime, "s) ", NUM, "-", PB, ": Total distance: ",
+     getobjval)
+     if(PRINTDETAIL) then
+       writeln(" ", NEXTC)
+     else
+       writeln
+     end-if   
+  end-if
+
+  initializations to BIN+ZIP+RMT+"tspsol"+NUM
+    PB
+    evaluation of array(n in NodeSet) SOL(n) as "SOL"
+  end-initializations
+
+!-----------------------------------------------------------------
+
+ procedure break_subtour
+  declarations
+   TOUR,SMALLEST,ALLCITIES: set of integer
+   TOL=10E-10
+  end-declarations
+
+  forall(i in NodeSet) 
+   forall(j in NodeSet)
+    if(getsol(fly(i,j))>=1-TOL) then 
+     NEXTC(i):=j
+     break
+    end-if
+      
+! Get (sub)tour containing city 1
+  TOUR:={}
+  first:=MinN
+  repeat
+   TOUR+={first}
+   first:=NEXTC(first)
+  until first=MinN
+  size:=getsize(TOUR)
+ 
+! Find smallest subtour
+  if size < NNODES then
+   SMALLEST:=TOUR
+   if size>2 then
+    ALLCITIES:=TOUR 
+    forall(i in NodeSet) do
+     if(i not in ALLCITIES) then
+      TOUR:={}
+      first:=i
+      repeat
+       TOUR+={first}
+       first:=NEXTC(first)
+      until first=i
+      ALLCITIES+=TOUR
+      if getsize(TOUR)<size then
+       SMALLEST:=TOUR
+       size:=getsize(SMALLEST)
+      end-if
+      if size=2 then
+       break
+      end-if 
+     end-if 
+    end-do        
+   end-if
+
+!*** Use at least one of the following cuts***
+! Add a subtour breaking constraint
+   sum(i in SMALLEST) fly(i,NEXTC(i)) <= getsize(SMALLEST) - 1
+
+! Optional: Also exclude the inverse subtour
+  if SMALLEST.size>2 then
+   sum(i in SMALLEST) fly(NEXTC(i),i) <= getsize(SMALLEST) - 1
+  end-if
+
+! Optional: Add a stronger subtour elimination cut
+   sum(i in SMALLEST,j in NodeSet-SMALLEST) fly(i,j) >= 1
+
+! Re-solve the problem
+   minimize(TotalDist)
+
+   break_subtour
+  end-if 
+ end-procedure
+ 
+!-----------------------------------------------------------------
+
+! Print the current solution
+ procedure print_sol
+  declarations
+   ALLCITIES: set of integer
+  end-declarations
+   
+  writeln("(", gettime-starttime, "s) Total distance: ", getobjval)
+  ALLCITIES:={}
+  forall(i in NodeSet) do
+   if(i not in ALLCITIES) then
+    write(i)
+    first:=i
+    repeat
+     ALLCITIES+={first}
+     write(" - ", NEXTC(first))
+     first:=NEXTC(first)
+    until first=i
+    writeln 
+   end-if
+  end-do        
+ end-procedure
+ 
+!-----------------------------------------------------------------
+
+! 2-opt algorithm: for all pairs of arcs in a tour, try out the effect  
+! of exchanging the arcs
+ procedure two_opt
+   declarations
+     NCtemp: array(NodeSet) of integer
+   end-declarations
+
+   if getsize(NodeSet)>3 then
+     forall(n in NodeSet) do
+       secondN:=NEXTC(n)
+       ADist:=DIST(n,NEXTC(n))+DIST(secondN,NEXTC(secondN))
+       AInd:=secondN
+       repeat
+         if DIST(n,NEXTC(n))+DIST(secondN,NEXTC(secondN)) > 
+            DIST(n,secondN)+DIST(NEXTC(n),NEXTC(secondN)) and
+            ADist > DIST(n,secondN)+DIST(NEXTC(n),NEXTC(secondN)) then
+           ADist:=DIST(n,secondN)+DIST(NEXTC(n),NEXTC(secondN))
+           AInd:=secondN
+         end-if
+         secondN:=NEXTC(secondN)
+       until secondN=n 
+       if AInd<>NEXTC(n) then
+         writeln("2-opt crossover: ", n, "-", NEXTC(n), " and ", 
+                 AInd, "-", NEXTC(AInd), " Dist: ", ADist, "<",
+                 DIST(n,NEXTC(n))+DIST(NEXTC(n),NEXTC(NEXTC(n))))
+         forall(m in NodeSet) NCtemp(m):=-1
+         i:=NEXTC(n)
+         nextI:=NEXTC(i)
+         repeat
+           NCtemp(nextI):=i
+           i:=nextI
+           nextI:=NEXTC(i)
+         until i=AInd
+       ! Exchange the two arcs
+         NEXTC(NEXTC(n)):=NEXTC(AInd)
+         NEXTC(n):=AInd
+       ! Inverse the sense of the tour between NEXTC(n) and AInd
+         forall(m in NodeSet | NCtemp(m)<>-1) NEXTC(m):=NCtemp(m)
+       end-if
+         
+     end-do
+   end-if
+ 
+ end-procedure
+
+end-model

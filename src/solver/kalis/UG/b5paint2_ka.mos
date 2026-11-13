@@ -1,0 +1,66 @@
+(!******************************************************
+   CP Example Problems
+   ===================
+
+   file b5paint2_ka.mos
+   ```````````````````
+   Planning of paint production
+   (See "Applications of optimization with Xpress-MP",
+        Section 7.5 Paint production)
+   - Alternative formulation using disjunctions and 
+     2D element constraints -
+   
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+       rev. Apr. 2022 
+*******************************************************!)
+
+model "B-5 Paint production (CP)"
+ uses "kalis", "mmsystem"
+
+ declarations   
+  NJ = 5                             ! Number of paint batches (=jobs)
+  JOBS=1..NJ
+
+  DUR: array(JOBS) of integer        ! Durations of jobs
+  CLEAN: array(JOBS,JOBS) of integer ! Cleaning times between jobs
+
+  rank: array(JOBS) of cpvar         ! Number of job in position k
+  clean: array(JOBS) of cpvar        ! Cleaning time after batches
+  cycleTime: cpvar                   ! Objective variable
+ end-declarations
+
+ initializations from 'Data/b5paint.dat'
+  DUR CLEAN 
+ end-initializations
+ 
+ forall(k in JOBS) setdomain(rank(k), JOBS) 
+
+! Cleaning time after every batch
+ forall(k in JOBS)
+  if k<NJ then
+   element(CLEAN, rank(k), rank(k+1)) = clean(k)
+  else
+   element(CLEAN, rank(k), rank(1)) = clean(k)
+  end-if
+ 
+! Objective: minimize the duration of a production cycle
+ cycleTime = sum(j in JOBS) DUR(j) + sum(k in JOBS) clean(k)
+
+! One position for every job
+ all_different(rank)
+
+! Solve the problem
+ if not cp_minimize(cycleTime) then
+  writeln("Problem is infeasible")
+  exit(1)
+ end-if
+ cp_show_stats
+
+! Solution printing
+ writeln("Minimum cycle time: ", getsol(cycleTime))
+ writeln("Sequence of batches:\nBatch Duration Cleaning")
+ forall(k in JOBS)
+  writeln(formattext("  %d%8d%9d", getsol(rank(k)), DUR(getsol(rank(k))), 
+          getsol(clean(k))))
+
+end-model

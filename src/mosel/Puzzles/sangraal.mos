@@ -1,0 +1,103 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file sangraal.mos 
+   `````````````````
+   Sangraal problem.
+
+   When the Sangraal (Holy Grail) is almost won the hero arrives 
+   at a castle where he finds 8 imprisoned knights. He is facing 
+   the task to bring the largest possible number of knights for 
+   the arrival of the Sangraal in twenty minutes' time. The time 
+   required for freeing a knight depends on his state of binding. 
+   A freed knight then needs a given amount of time to wash and 
+   recover himself physically.
+
+   Description and original model by M. Chlond:
+   https://doi.org/10.1287/ited.4.3.66
+    
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2005, rev. Mar. 2022
+*******************************************************!)
+
+model Sangraal
+ uses "mmxprs", "mmjobs"
+  
+ forward procedure print_solution
+
+ declarations
+  KNIGHTS = {"Agravain", "Bors", "Caradoc", "Dagonet", "Ector", "Feirefiz", 
+             "Gareth", "Harry"}
+  K = 8
+  POS = 1..K
+  FREE: array(KNIGHTS) of real   ! Time to free each knight
+  PREP: array(KNIGHTS) of real   ! Time to prepare each knight
+  x: array(KNIGHTS,POS) of mpvar ! x(k,j)=1 if knight k in position j, 
+                                 ! 0 otherwise
+  ontime: array(POS) of mpvar    ! ontime(j)=1 if position j finished within 
+                                 ! 20 minutes, 0 otherwise
+  ready: array(POS) of mpvar     ! Finish time for each position
+
+  SOLFOUND = 2                   ! Solution found event
+  pos: array(KNIGHTS) of integer ! Position of knight
+ end-declarations
+ 
+ FREE("Agravain"):=1;  PREP("Agravain"):=15
+ FREE("Bors")    :=1;  PREP("Bors")    := 5
+ FREE("Caradoc") :=2;  PREP("Caradoc") :=15
+ FREE("Dagonet") :=2;  PREP("Dagonet") := 5
+ FREE("Ector")   :=3;  PREP("Ector")   :=10
+ FREE("Feirefiz"):=4;  PREP("Feirefiz"):=15
+ FREE("Gareth")  :=5;  PREP("Gareth")  :=10
+ FREE("Harry")   :=6;  PREP("Harry")   := 5
+
+ MAXT:= sum(k in KNIGHTS) FREE(k) + max(k in KNIGHTS) PREP(k)
+ MINT:= min(k in KNIGHTS) (PREP(k) + FREE(k))
+
+ forall(k in KNIGHTS, j in POS) x(k,j) is_binary
+ forall(j in POS) ontime(j) is_binary
+   
+ ! Maximize number of positions finished within 20 minutes
+ TotalFreed := sum(j in POS) ontime(j)
+  
+ ! Each knight in one position
+ forall(k in KNIGHTS) sum(j in POS) x(k,j) = 1     
+  
+ ! Each position has one knight
+ forall(j in POS) sum(k in KNIGHTS) x(k,j) = 1 
+
+ ! Compute finish time for each position
+ forall(j in POS)
+  sum(k in KNIGHTS,l in 1..j-1) FREE(k)*x(k,l) + 
+  sum(k in KNIGHTS) (FREE(k)+PREP(k))*x(k,j) = ready(j)
+
+ ! ontime(j) = 1 if knight in position j is freed and prepared within 20 min.
+ forall(j in POS) do
+  ready(j) >= 21-(21-MINT)*ontime(j)
+  ready(j) <= MAXT-(MAXT-20)*ontime(j)
+ end-do
+ 
+! setparam("XPRS_VERBOSE", true)   
+
+! setparam("XPRS_HEUREMPHASIS", 0)
+! setparam("XPRS_CUTSTRATEGY", 0)
+! setparam("XPRS_PRESOLVE", 0)
+ 
+ setcallback(XPRS_CB_INTSOL,->print_solution)
+ maximize(TotalFreed)
+
+!********************************************************************
+
+ procedure print_solution
+  obj:=getparam("XPRS_LPOBJVAL")
+  writeln("Number of knights freed on time: ", obj)
+  writeln("Knight   Position  Ready  <=20 min")
+  forall(k in KNIGHTS) do
+   pos(k):=round(getsol(sum(j in POS) j*x(k,j)))
+   writeln(strfmt(k,-12), pos(k), "       ", strfmt(getsol(ready(pos(k))),2),
+           "       ", if(getsol(ontime(pos(k)))=1,"yes","no"))
+  end-do
+ end-procedure
+     
+end-model 

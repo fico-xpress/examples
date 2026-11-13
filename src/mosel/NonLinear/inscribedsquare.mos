@@ -1,0 +1,89 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file inscribedsquare.mos 
+   ````````````````````````
+   Computes a maximal inscribing square for the curve 
+   (sin(t)*cos(t), sin(t)*t), t in [-pi,pi]
+
+   Source: https://www.minlplib.org/inscribedsquare01.html
+
+   t1..t4 are the four values of the parameter t. 
+   x and y are the (x,y) coordinates of the first corner of the square. 
+   (vx, vy) is a vector pointing to a second vertex, all the other vertices 
+   are given by a combination of these four values. 
+   The length of the vector (vx,vy) is exactly the side length of the
+   square, which we are maximizing, that is, the square of it, to keep it nicer.
+   
+   (c) 2023 Fair Isaac Corporation
+       author: S. Heipcke, July 2023
+*******************************************************!)
+model "inscribedsquare"
+ uses "mmxnlp"
+ parameters
+   ALG=2      ! Solver choice:  1: global, 2: SLP, 3: Knitro
+ end-parameters
+
+ declarations
+   t1,t2,t3,t4,x,y,vx,vy: mpvar
+ end-declarations
+
+! Variable bounds
+ t1 >= -3.14159265358979; t1 <= 3.14159265358979;
+ t2 >= -3.14159265358979; t2 <= 3.14159265358979;
+ t3 >= -3.14159265358979; t3 <= 3.14159265358979;
+ t4 >= -3.14159265358979; t4 <= 3.14159265358979;
+ x is_free
+ y is_free
+
+(! Optionally, set initial values:
+ setinitval(t1, -3.14159265358979)
+ setinitval(t2, -1.5707963267949)
+ setinitval(t3, 1.5707963267949)
+ setinitval(t4, 1.5707963267949)
+ setinitval(x, 1.22464679914735E-16)
+ setinitval(y, 3.84734138744358E-16)
+ setinitval(vx, 1)
+ setinitval(vy, 1)
+!)
+
+ Obj:= vx^2 + vy^2;
+
+! Constraints
+ E2:= sin(t1)*cos(t1) - x = 0;
+ E3:= sin(t1)*t1 - y = 0;
+ E4:= sin(t2)*cos(t2) - x - vx = 0;
+ E5:= sin(t2)*t2 - y - vy = 0;
+ E6:= sin(t3)*cos(t3) - x + vy = 0;
+ E7:= sin(t3)*t3 - y - vx = 0;
+ E8:= sin(t4)*cos(t4) - x - vx + vy = 0;
+ E9:= sin(t4)*t4 - y - vx - vy = 0;
+
+ setparam("XNLP_VERBOSE",true)        ! Uncomment to see detailed output
+ case ALG of
+  1: writeln("Using global solver")
+  2: do
+     writeln("Using SLP as local solver")
+    ! Use multi-start heuristic 
+     addmultistart("random points", XNLP_MSSET_INITIALVALUES, 100)
+     setparam("XPRS_NLPSOLVER", 1)       ! Use a local NLP solver
+     setparam("XNLP_SOLVER", 0)          ! Select SLP as local solver
+   end-do
+  3: do
+     writeln("Using Knitro as local solver")
+    ! Use multi-start heuristic 
+     addmultistart("random points", XNLP_MSSET_INITIALVALUES, 100)
+     setparam("XPRS_NLPSOLVER", 1)       ! Use a local NLP solver
+     setparam("XNLP_SOLVER", 1)          ! Select Knitro as local solver
+   end-do
+ end-case
+
+ maximize(Obj)
+
+ writeln("Solution value: ", getobjval)
+ writeln("Corner point: ", x.sol, ",", y.sol)
+ writeln("Side vector: ", vx.sol, "  ", vy.sol)
+ writeln("t=", t1.sol, "  ", t2.sol, "  ", t3.sol, "  ", t4.sol)
+ 
+end-model

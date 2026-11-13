@@ -1,0 +1,109 @@
+(!*********************************************************************
+   Mosel NL examples
+   =================
+   file circlepacking.mos
+   ``````````````
+   Place N disjoint circles in the unit square to maximize the sum of their radii.
+
+   (c) 2025-2026 Fair Isaac Corporation
+       author: I. Polik, Jun. 2025
+*********************************************************************!)
+
+model CirclePacking
+  uses "mmxnlp", "mmsvg"
+  parameters
+    N = 6
+  end-parameters
+
+  declarations
+    Circles = 1..N
+    x: array(Circles) of mpvar ! x-coordinate of center points
+    y: array(Circles) of mpvar ! y-coordinate of center points
+    r: array(Circles) of mpvar ! radii
+    SumOfRadii: linctr
+  end-declarations
+  
+  ! Set bounds and containment constraints on variables
+  forall(i in Circles) do
+    x(i) >= r(i)
+    x(i) <= 1 - r(i)
+    y(i) >= r(i)
+    y(i) <= 1 - r(i)
+    r(i) <= 0.5
+    r(i) >= 0
+  end-do
+
+  declarations
+      Pconst: array(range,range) of nlctr
+  end-declarations
+
+  ! Non-overlap constraints
+  forall(i in Circles, j in i+1..N)
+    Pconst(i,j):= (x(i) - x(j))^2 + (y(i) - y(j))^2  >= (r(i) + r(j))^2
+
+  SumOfRadii := sum(i in Circles) r(i)
+
+  ! Exact arithmetic
+  setparam("XPRS_FEASTOL", 1e-9)
+  ! Set a time limit for global solver and print logs
+  setparam("XPRS_TIMELIMIT",3)
+  ! Alternatively, set a work limit instead of time as a deterministic stopping criterion
+  !setparam("XPRS_WORKLIMIT", 0.6)
+  setparam("XNLP_VERBOSE", true)
+  setparam("XSLP_NLPSOLVER", 2)
+
+  maximise(SumOfRadii)
+
+  ! Print a solution summary
+  writeln("Sum of radii for N=", N, " is ", SumOfRadii.sol)
+  forall(j in Circles)
+    writeln(j, ": ", x(j).sol, ", ", y(j).sol, " R=", r(j).sol)
+
+  ! **** Display the solution as user graph ****
+
+  offset := 0.2
+  
+  ! Scale the size of the displayed graph
+  svgsetgraphscale(500)
+  svgsetgraphpointsize(10)
+  svgsetgraphstyle(SVG_STROKEWIDTH,5)
+
+  ! Draw the unit square
+  svgsetstyle(SVG_FILL,SVG_WHITE)
+  svgaddrectangle(0 + offset, 0 + offset, 1, 1)
+  l:=svggetlastobj
+  svgsetstyle(l, SVG_STROKE, SVG_GRAY)
+  svgsetstyle(l, SVG_STROKEDASH, "1,1")
+
+  ! Draw the solution points
+  svgaddgroup("S", "Solution", SVG_BLUE)
+  svgsetstyle(SVG_FILL, SVG_BLUE)
+  svgsetstyle(SVG_FONTSIZE, "15pt")
+  svgsetstyle(SVG_FONTWEIGHT, "bold")
+  forall(i in Circles) do
+    svgaddcircle(x(i).sol + offset, y(i).sol + offset, 0.01) ! Solution point
+    svgaddline("S", x(i).sol + offset, y(i).sol + offset, x(i).sol + r(i).sol + offset, y(i).sol + offset) ! Radius
+    svgaddtext(x(i).sol + r(i).sol, y(i).sol + 1.1 * offset,"R=" + round(r(i).sol*100)/100) ! Label
+  end-do
+
+  ! Draw the circles around the solution points
+  svgaddgroup("C", "Circles", SVG_RED)
+  svgsetstyle(SVG_FILL, SVG_NONE)
+  forall(i in Circles) do
+    svgaddcircle(x(i).sol + offset, y(i).sol + offset, r(i).sol)
+    svgsetstyle(SVG_FILL, SVG_NONE)
+    svgsetstyle(SVG_OPACITY, 0.5)
+    svgsetgraphstyle(SVG_STROKEWIDTH,2)
+  end-do
+
+  ! Add some information text
+  svgaddgroup("gt", "Text", SVG_BLACK)    ! Group with user-defined color
+  svgsetstyle(SVG_FONTSIZE, "15pt")
+  svgaddtext(offset, 1.3, "N = " + N + "        Sum of radii = " + SumOfRadii.sol)
+
+  ! Update the display
+  svgrefresh
+
+  svgwaitclose("Close browser window to terminate model execution.", 1)
+
+end-model

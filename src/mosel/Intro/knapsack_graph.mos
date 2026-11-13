@@ -1,0 +1,80 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file knapsack.mos
+   `````````````````
+   TYPE:         Knapsack problem
+   DIFFICULTY:   1
+   FEATURES:     simple IP problem, formulation of knapsack constraints,
+                 model parameters, function 'random'
+   DESCRIPTION:  We wish to choose among items of different value and
+                 weight those that result in the maximum total value for 
+                 a given weight limit.     
+   FURTHER INFO: `Mosel User Guide', Section 2.1 `The burglar problem';
+                 `Applications of optimization with Xpress-MP', 
+                 Section 5.2 `Modeling with Mosel'.
+                 Similar problem: Section 9.2 `Barge loading'
+
+   (c) 2008 Fair Isaac Corporation
+       Creation: 2003, rev. Sep. 2017
+*******************************************************!)
+
+model Knapsack
+ uses "mmxprs", "mmsvg"
+
+ parameters
+  NUM=8                             ! Number of items
+  MAXVAL=100                        ! Maximum value
+  MAXWEIGHT=80                      ! Maximum weight
+  WTMAX=102                         ! Max weight allowed for haul
+ end-parameters
+
+ declarations
+  Items=1..NUM                      ! Index range for items
+  VALUE: array(Items) of real       ! Value of items
+  WEIGHT: array(Items) of real      ! Weight of items
+
+  x: array(Items) of mpvar          ! 1 if we take item i; 0 otherwise
+ end-declarations
+
+ setrandseed(7)
+ forall(i in Items) do
+  VALUE(i):=50+random*MAXVAL
+  WEIGHT(i):=1+random*MAXWEIGHT
+ end-do
+
+ MaxVal:= sum(i in Items) VALUE(i)*x(i)  ! Objective: maximize total value
+
+                                    ! Weight restriction
+ WtMax:= sum(i in Items) WEIGHT(i)*x(i) <= WTMAX 
+
+ forall(i in Items) x(i) is_binary  ! All x are 0/1
+  
+ maximize(MaxVal)                   ! Solve the MIP-problem
+
+                                    ! Print out the solution
+ writeln("Solution:\n Objective: ", getobjval)
+ writeln("Item  Weight  Value")
+ forall(i in Items)  writeln(i, ": ", getsol(x(i)), strfmt(WEIGHT(i),8,2), strfmt(VALUE(i),8,2))
+
+ ! Draw the solution
+ cumw:=0.0; cump:=0.0
+ forall(i in Items | getsol(x(i))>0) do
+   svgaddgroup("I"+i, "Item "+i)
+   svgsetstyle(SVG_STROKE,SVG_NONE)
+   svgaddpie(100,100,40,cumw,cumw+WEIGHT(i)/WTMAX)
+   cumw+=WEIGHT(i)/WTMAX
+   svgaddpie(200,100,40,cump,cump+VALUE(i)/getobjval)
+   cump+=VALUE(i)/getobjval
+ end-do
+ svgaddgroup("msg", "", SVG_BLACK)
+ svgsetstyle(SVG_TEXTANCHOR, "middle")
+ svgaddtext(100,30, "Weight")
+ svgaddtext(200,30, "Profit")
+
+ svgsetgraphviewbox(50,0,250,200)
+ svgsave("knapsack.svg")
+ svgrefresh
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+end-model

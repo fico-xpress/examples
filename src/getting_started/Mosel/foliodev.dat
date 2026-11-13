@@ -1,0 +1,5 @@
+! Data file for `foliograph.mos'
+
+DEV: [("treasury") 0.1 ("hardware") 19 ("theater") 28 ("telecom") 22
+      ("brewery") 4 ("highways") 3.5 ("cars") 5 ("bank") 0.5 
+      ("software") 25 ("electronics") 16 ]

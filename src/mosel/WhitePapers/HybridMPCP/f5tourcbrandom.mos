@@ -1,0 +1,380 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file f5touroptcbrandom.mos
+   ``````````````````````````
+   Problem 9.6: Planning a flight tour
+   (using randomly generated data with integer indices)
+   
+   - Creatig and loading heuristic start solutions -
+   - Using preintsol callback to add subtour elimination constraints -  
+   
+   (c) 2015 Fair Isaac Corporation
+       author: S. Heipcke, Nov. 2015, rev. Feb. 2024
+*******************************************************!)
+
+model "F-5 Tour planning (nodecb)"
+ uses "mmxprs", "mmsystem"
+
+ parameters
+  NUM=40
+  TOL=10E-10
+  EXTRA_OUTPUT = false		! Whether to print information about solutions checked and cuts created
+ end-parameters 
+
+ forward procedure print_sol
+ forward procedure check_sol
+ forward procedure two_opt
+
+ forward procedure create_initial_tour(Tour : array(set of mpvar) of real)
+ forward procedure create_initial_tour2(Tour : array(set of mpvar) of real)
+ forward procedure cb_preintsol(isheur : boolean, cutoff : real)
+
+ declarations
+  starttime: real
+  CITIES = 1..NUM                  ! Set of cities
+  X,Y: array(CITIES) of real
+ end-declarations
+
+ starttime:=gettime
+ 
+ setrandseed(3)
+ forall(i in CITIES) X(i):=100*random
+ forall(i in CITIES) Y(i):=100*random
+
+ declarations
+  NCITIES=getsize(CITIES)
+  
+  DIST: array(CITIES,CITIES) of integer  ! Distance between cities
+  NEXTC: array(CITIES) of integer        ! Next city after i in the solution
+
+  fly: array(CITIES,CITIES) of mpvar     ! 1 if flight from i to j 
+
+  InitTour, InitTour2 : array(set of mpvar) of real
+  MipSolutions : integer
+ end-declarations
+ 
+ forall(i,j in CITIES | i<>j) 
+  DIST(i,j):=round(sqrt((X(i)-X(j))^2 + (Y(i)-Y(j))^2))
+
+! Objective: total distance
+ TotalDist:= sum(i,j in CITIES | i<>j) DIST(i,j)*fly(i,j)
+
+! Visit every city once
+ forall(i in CITIES) sum(j in CITIES | i<>j) fly(i,j) = 1
+ forall(j in CITIES) sum(i in CITIES | i<>j) fly(i,j) = 1
+
+ forall(i,j in CITIES | i<>j) fly(i,j) is_binary
+
+
+! Set a callback to check heuristic solutions and create subtour elimination 
+! constraints for integer solutions
+ setcallback(XPRS_CB_PREINTSOL, ->cb_preintsol)
+
+! Set a callback to display intermediate solutions
+ if EXTRA_OUTPUT: setcallback(XPRS_CB_INTSOL, ->print_sol)
+
+! Prevent dominance or symmetry reductions by the Optimizer:
+! Since the optimizer does not see the whole model (subtour elimination 
+! constraints are only generated on the fly), dual reductions may cut off 
+! the optimal solution.
+ setparam("XPRS_MIPDUALREDUCTIONS", 0)
+
+! Set some additional tuning/output controls for the solve.
+ setparam("XPRS_VERBOSE", true)        ! Enable Optimizer output
+
+! Create an initial tour as a starting solution
+ create_initial_tour(InitTour)
+ create_initial_tour2(InitTour2)
+ 
+! Start the solve of the problem and stop after the initial LP solution...
+ setparam("XPRS_MIPSTOPSTAGE", XPRS_MIPSTOPSTAGE_INITIALRELAXATION)
+ minimize(TotalDist)
+! ... load our initial tours ...
+ addmipsol("InitTour", InitTour)
+ addmipsol("InitTour2", InitTour2)
+! ... and continue: reset MIPSTOPSTAGE to allow continuation of MIP solve
+ setparam("XPRS_MIPSTOPSTAGE", XPRS_MIPSTOPSTAGE_NONE)  
+ minimize(XPRS_CONT, TotalDist)
+
+ MipSolutions := getparam("XPRS_MIPSOLS")
+ if (MipSolutions > 0) then
+  print_sol
+ end-if
+
+
+!-----------------------------------------------------------------
+! Create an initial tour as a starting solution for the MIP search.
+! We simply visit every city in sequence.
+ procedure create_initial_tour(Tour : array(set of mpvar) of real)	
+  forall(i,j in CITIES | i<>j) Tour(fly(i,j)) := 0
+  forall(i in CITIES | i>1) Tour(fly(i-1,i)) := 1
+  Tour(fly(NCITIES,1)) := 1
+ end-procedure
+
+! This start solution first uses a greedy algorithm (nearest neighbour),
+! followed by a 2-opt step to find possible local improvements
+ procedure create_initial_tour2(Tour : array(set of mpvar) of real)
+  declarations
+   ToVisit,Visited:set of integer
+   first,lasti,nexti: integer
+  end-declarations
+  forall(i,j in CITIES | i<>j) Tour(fly(i,j)) := 0
+  ToVisit:=CITIES
+  first:=min(i in CITIES) i
+  ToVisit-={first}; Visited+={first}
+  lasti:=first
+  while (ToVisit<>{}) do
+   nexti:=getelt(ToVisit)
+   forall(i in ToVisit)
+    if DIST(lasti,i)<DIST(lasti,nexti) then
+     nexti:=i
+    end-if
+   NEXTC(lasti):=nexti
+   ToVisit-={nexti}; Visited+={nexti}
+   lasti:=nexti
+  end-do
+  NEXTC(lasti):=first
+
+!  writeln("(", gettime-starttime, "s) Total distance 2a: ", sum(i in 1..NCITIES) DIST(i, NEXTC(i)))
+  print_sol
+  two_opt
+  print_sol
+!  writeln("(", gettime-starttime, "s) Total distance 2b: ", sum(i in 1..NCITIES) DIST(i, NEXTC(i)))
+  forall(i in CITIES) Tour(fly(i,NEXTC(i))) := 1
+ end-procedure
+
+!-----------------------------------------------------------------
+! Callback function triggered when the Optimizer has a new integer
+! solution
+!
+! We use this function to reject any heuristic solutions that
+! contain subtours. If 'isheur' is true then this is done by calling
+! 'rejectintsol'. If 'isheur' is false then the solution came from 
+! an integral node. In this case we add at least one violated subtour
+! elimination constraint. 
+ procedure cb_preintsol(isheur : boolean, cutoff : real)
+  declarations
+    iCity: integer
+    nCitiesVisited,toursize: integer
+    SUBTOUR: set of integer
+    VISITEDCITIES: set of integer		
+    ncut:integer
+    CutRange: range                        ! Counter for cuts
+    cut: array(CutRange) of linctr         ! Cuts
+    cutid: array(CutRange) of integer      ! Cut type identification
+    type: array(CutRange) of integer       ! Cut constraint type 
+  end-declarations
+
+  ! Get the tour(s)
+  forall(i in CITIES) 
+    forall(j in CITIES)
+      if(getsol(fly(i,j))>=1-TOL) then 
+        NEXTC(i):=j
+        break
+      end-if
+
+  ! Verify that we have a complete tour
+  nCitiesVisited := 1;
+  iCity := 1
+  while (NEXTC(iCity) <> 1) do
+    iCity := NEXTC(iCity)
+    nCitiesVisited += 1
+  end-do
+	
+  if nCitiesVisited < NCITIES then
+   ! The tour given by the current solution does not pass through
+   ! all the nodes and is thus infeasible.
+    if isheur then
+    ! Reject infeasible heuristic solution
+      if EXTRA_OUTPUT:
+        writeln("Rejected heuristic solution (has a ", nCitiesVisited, " city subtour)")
+      rejectintsol
+
+    else
+    ! Create sub-tour elimination constraints
+      VISITEDCITIES := {}
+      forall (iFirstCity in CITIES)
+        if not iFirstCity in VISITEDCITIES then	
+          SUBTOUR := {}
+          iCity := iFirstCity
+          while (iCity not in SUBTOUR) do
+            SUBTOUR += {iCity}
+            iCity := NEXTC(iCity)
+          end-do
+			
+          ! Create the sub-tour elimination constraints as cut(s)
+	  toursize:=SUBTOUR.size
+          if toursize < NCITIES then
+          ! Exclude the subtour (at most toursize-1 of its legs can be used)
+            cutid(ncut):= 0
+            type(ncut):= CT_LEQ
+            cut(ncut):= sum(i in SUBTOUR) fly(i,NEXTC(i)) - (toursize - 1)
+            ncut+=1
+            if EXTRA_OUTPUT: writeln("Cut ", ncut, ": ", SUBTOUR)
+          ! Optional: Also exclude the inverse subtour 
+            cutid(ncut):= 0
+            type(ncut):= CT_LEQ
+            cut(ncut):= sum(i in SUBTOUR) fly(NEXTC(i),i) - (toursize - 1)
+            ncut+=1!)
+          ! Optional: Add a stronger subtour elimination cut
+            cutid(ncut):= 0
+            type(ncut):= CT_GEQ
+            cut(ncut) := sum(i in SUBTOUR, j in (CITIES)-SUBTOUR) fly(i,j) - 1
+            ncut+=1
+          end-if	
+          VISITEDCITIES += SUBTOUR
+        end-if
+
+      ! Add cuts to the problem
+      if ncut>0 then    
+        addcuts(cutid, type, cut)
+        num_cuts_added+=ncut
+        if (getparam("XPRS_VERBOSE")=true and EXTRA_OUTPUT) then
+          node:=getparam("XPRS_NODES")
+          depth:=getparam("XPRS_NODEDEPTH")
+          writeln("Cuts added : ", ncut, " (depth ", depth, ", node ", 
+                  node, ", obj. ", getparam("XPRS_LPOBJVAL"), ") count=",
+                  num_cuts_added)
+        end-if   
+      end-if
+
+    end-if
+  end-if
+
+ end-procedure
+
+!-----------------------------------------------------------------
+
+! Print the current solution
+ procedure print_sol 
+  declarations
+   ALLCITIES: set of integer
+   CalcDistance: real
+  end-declarations
+
+  ! Get the final tour
+   forall(i in CITIES) 
+    forall(j in CITIES)
+     if(getsol(fly(i,j))>=1-TOL) then 
+      NEXTC(i):=j
+      break
+     end-if
+
+  ! Recalculate the length of the tour
+  CalcDistance := sum(i in 1..NCITIES) DIST(i, NEXTC(i))
+
+  writeln("(", gettime-starttime, "s) Total distance: ", CalcDistance)
+  ALLCITIES:={}
+  forall(i in CITIES) do
+   if(i not in ALLCITIES) then
+    write(i)
+    first:=i
+    repeat
+     ALLCITIES+={first}
+     write(" - ", NEXTC(first))
+     first:=NEXTC(first)
+    until first=i
+    writeln 
+   end-if
+  end-do        
+ end-procedure
+
+!-----------------------------------------------------------------
+
+! Check whether the current solution is a single tour and if yes, print it
+ procedure check_sol
+  declarations
+   ALLCITIES: set of integer
+   ntour: integer
+   TOURLIST: array(TR:range) of list of integer
+   TOL=10E-5
+  end-declarations
+  
+  ! Get the successor solution value of every city
+  forall(i in CITIES) 
+   forall(j in CITIES | getsol(fly(i,j))>=1-TOL) do 
+    NEXTC(i):=j
+    break
+   end-do
+
+  ! Calculate tour(s)
+  ALLCITIES:={}
+  forall(i in CITIES) do
+   if(i not in ALLCITIES) then
+    ntour+=1
+    TOURLIST(ntour)+=[i]
+    first:=i
+    repeat
+     ALLCITIES+={first}
+     TOURLIST(ntour)+=[NEXTC(first)]
+     first:=NEXTC(first)
+    until first=i
+   end-if
+  end-do
+
+  ! Print tour output
+  if TR.size>1 then
+   writeln("(", gettime-starttime, "s) ", TR.size, " subtours: ", getobjval)
+  else 
+   writeln("(", gettime-starttime, "s) Total distance: ", getobjval)
+   forall(t in TR) do
+     write(gethead(TOURLIST(t),1))
+     cuthead(TOURLIST(t),1)
+     forall(i in TOURLIST(t)) write(" - ", i)
+     writeln      
+   end-do
+  end-if
+ end-procedure
+
+!-----------------------------------------------------------------
+
+! 2-opt algorithm: for all pairs of arcs in a tour, try out the effect  
+! of exchanging the arcs
+ procedure two_opt
+   declarations
+     NCtemp: array(CITIES) of integer
+     secondN,AInd: integer
+     ADist: real
+   end-declarations
+
+   if getsize(CITIES)>3 then
+     forall(n in CITIES) do
+       secondN:=NEXTC(n)
+       ADist:=DIST(n,NEXTC(n))+DIST(secondN,NEXTC(secondN))
+       AInd:=secondN
+       repeat
+         if DIST(n,NEXTC(n))+DIST(secondN,NEXTC(secondN)) > 
+            DIST(n,secondN)+DIST(NEXTC(n),NEXTC(secondN)) and
+            ADist > DIST(n,secondN)+DIST(NEXTC(n),NEXTC(secondN)) then
+           ADist:=DIST(n,secondN)+DIST(NEXTC(n),NEXTC(secondN))
+           AInd:=secondN
+         end-if
+         secondN:=NEXTC(secondN)
+       until secondN=n 
+       if AInd<>NEXTC(n) then
+         writeln("2-opt crossover: ", n, "-", NEXTC(n), " and ", 
+                 AInd, "-", NEXTC(AInd), " Dist: ", ADist, "<",
+                 DIST(n,NEXTC(n))+DIST(NEXTC(n),NEXTC(NEXTC(n))))
+         forall(m in CITIES) NCtemp(m):=-1
+         i:=NEXTC(n)
+         nextI:=NEXTC(i)
+         repeat
+           NCtemp(nextI):=i
+           i:=nextI
+           nextI:=NEXTC(i)
+         until i=AInd
+       ! Exchange the two arcs
+         NEXTC(NEXTC(n)):=NEXTC(AInd)
+         NEXTC(n):=AInd
+       ! Inverse the sense of the tour between NEXTC(n) and AInd
+         forall(m in CITIES | NCtemp(m)<>-1) NEXTC(m):=NCtemp(m)
+       end-if
+         
+     end-do
+   end-if
+ 
+ end-procedure
+
+end-model

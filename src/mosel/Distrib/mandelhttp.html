@@ -1,0 +1,164 @@
+<html>
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta charset="iso-8859-1"></meta>
+    <style>
+      body {font-family: Verdana, Geneva, Helvetica, Arial, sans-serif; 
+            color: #003f5f; background-color: #e9e3db; font-size: 85%; }
+      table {background-color: #80a1b6; }
+      input {color: #003f5f;} <!-- 003f5f  f7c526 -->
+      td {color: #f8981d;}
+      .checked {color: #f8981d;}  
+      .outertab {background-color: #e9e3db;}
+      .hidden {display: none;}
+      .unhidden { }
+
+    </style>
+
+    <script src="jquery-3.7.1.min.js"></script>
+    <script>
+      $(document).ready(function ()
+      {
+       $(window).bind("beforeunload", function ()
+       { $.ajax({async:false, url:"mosel/end"}); });
+       updnodes();
+      });
+
+      function updnodes()
+      {
+       $.getJSON("mosel/updnodes",
+	function (actn)
+	{
+	 for(i=0;i<actn.act.length;i++)
+	 {
+	  document.main.Nodes[i].type="checkbox";
+	  document.main.Nodes[i].checked=actn.act[i];
+	  $("#nd"+i).text(actn.name[i]);
+	  $("#nd"+i).removeClass("hidden");
+	 }
+	}
+	);
+      }
+
+      function cmdstart()
+      {
+       $.getJSON("mosel/cmdstart",{ "config" : $("#listconfig").val() },
+	function ()
+	{
+	 var canvas = document.getElementById("mandcanvas");
+         var ctx = canvas.getContext("2d");
+         document.main.StartButton.disabled=true;
+         document.main.StopButton.disabled=false;
+         document.main.SelectConfig.disabled=true;
+	 ctx.clearRect(0,0,canvas.width,canvas.height);
+	 updnodes();
+	 updimg();
+	}
+	);
+      }
+
+      function cmdstop()
+      {
+       document.main.StopButton.disabled=true;
+       $.getJSON("mosel/cmdstop",
+       function ()
+       {
+        document.main.StartButton.disabled=false;
+        document.main.StopButton.disabled=true;
+        document.main.SelectConfig.disabled=false;
+       }
+       );
+      }
+
+      function updimg()
+      {
+       $.getJSON("mosel/updimg",
+       function (r)
+       {
+        if(r==null)
+	{
+	 // all squares already displayed
+         document.main.StartButton.disabled=false;
+         document.main.StopButton.disabled=true;
+         document.main.SelectConfig.disabled=false;
+         updnodes();
+	}
+	else
+	{
+	 // new square to display
+	 var canvas = document.getElementById("mandcanvas");
+         var ctx = canvas.getContext("2d");
+	 var img=ctx.getImageData(r.x,r.y,r.w,r.h);
+         for(i=0;i<r.w*r.h;i++)
+	 {
+	  img.data[4*i]=r.points[3*i];
+	  img.data[4*i+1]=r.points[3*i+1];
+	  img.data[4*i+2]=r.points[3*i+2];
+	  img.data[4*i+3]=255;
+	 }
+	 ctx.putImageData(img,r.x,r.y);
+         updnodes();
+         updimg();
+	}
+       }
+       );
+      }
+
+    </script>
+  </head>
+
+  <body>
+
+    <table class="outertab">
+      <tr>
+       <td width="80px" valign="top" align="center">
+       <form name="main" action="#">
+        <table width="80px">
+	 <tr><td><br/></td></tr>
+	 <tr><td><br/></td></tr>
+	 <tr><td align="center"><input id="butstart" name="StartButton" type="button" value="Start" onClick=cmdstart()></td></tr>
+	 <tr><td><br/></td></tr>
+	 <tr><td align="center"><select id="listconfig" name="SelectConfig" type="radio" value="0">
+	  <option value="0" selected="true">0</option>
+	  <option value="1">1</option>
+	  <option value="2">2</option>
+	  <option value="3">3</option>
+	  <option value="4">4</option>
+	  </select></td></tr>
+	 <tr><td><br/></td></tr>
+	 <tr><td><br/></td></tr>
+	 <tr><td><br/></td></tr>
+	 <tr><td><br/></td></tr>
+	 <tr><td><br/></td></tr>
+	 <tr><td align="center"><input id="butstop" name="StopButton" type="button" value="Stop" onClick=cmdstop() disabled=true></td></tr>
+	 <tr><td><br/></td></tr>
+	 <tr><td><br/></td></tr>
+	 <tr><td><br/></td></tr>
+	 <tr><td><input name="Nodes" type="hidden" disabled=true/><span id="nd0" class="hidden" style="font-size:small">Node1</span></td></tr>
+	 <tr><td><br/></td></tr>
+	 <tr><td><input name="Nodes" type="hidden" disabled=true/><span id="nd1" class="hidden" style="font-size:small">Node2</span></td></tr>
+	 <tr><td><br/></td></tr>
+	 <tr><td><input name="Nodes" type="hidden" disabled=true/><span id="nd2" class="hidden" style="font-size:small">Node3</span></td></tr>
+	 <tr><td><br/></td></tr>
+	 <tr><td><input name="Nodes" type="hidden" disabled=true/><span id="nd3" class="hidden" style="font-size:small">Node4</span></td></tr>
+	 <tr><td><br/></td></tr>
+	 <tr><td><input name="Nodes" type="hidden" disabled=true/><span id="nd4" class="hidden" style="font-size:small">Node5</span></td></tr>
+	 <tr><td><br/></td></tr>
+	 <tr><td><input name="Nodes" type="hidden" disabled=true/><span id="nd5" class="hidden" style="font-size:small">Node6</span></td></tr>
+	 <tr><td><br/></td></tr>
+	 <tr><td><input name="Nodes" type="hidden" disabled=true/><span id="nd6" class="hidden" style="font-size:small">Node7</span></td></tr>
+	 <tr><td><br/></td></tr>
+	 <tr><td><input name="Nodes" type="hidden" disabled=true/><span id="nd7" class="hidden" style="font-size:small">Node8</span></td></tr>
+	 <tr><td><br/></td></tr>
+	 <tr><td><br/></td></tr>
+         <tr><td><br/></td></tr>
+	</table>
+       </td>
+       <td valign="top" bgcolor="white">
+         <span><canvas id="mandcanvas" width="1000" height="1000"/></canvas></span>
+       </td>
+      </tr>
+    </table>
+    </form>
+  </body>
+</html>

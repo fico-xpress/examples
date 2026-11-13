@@ -1,0 +1,46 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   File versionedpkg_test.mos
+   ``````````````````````````
+   Using the package 'versionedpkg'
+
+   *** Compile one version of versionedpkg[_v*].mos into versionedpkg.bim
+       before running this model ****
+
+   Display minimum required package version stored in the model BIM file:
+     mosel exam -h versionpkg_test.bim 
+   (Optionally, generate the versionedpkg.bim from another 
+   package source version and re-display the output of the 'exam' command.)
+
+   Run the model with the current package version on the BIM search path
+   (this may be different from the package version used for compilation):
+      mosel run versionpkg_test.bim
+
+   (c) 2023 Fair Isaac Corporation 
+       author: S. Heipcke, Jun. 2023
+*******************************************************!)
+model "test package versioning"
+ uses "versionedpkg"
+
+ writeln("Start test model run")
+
+!!! Uncomment one or several of the following subroutine calls 
+!!! to explore their effect on the required package version number
+
+! Subroutine requiring package version 2.0
+!  myproc2
+
+! Subroutine requiring package version 3.0.2
+!  myproc3
+! Subroutine deprecated starting from package version 3.0.1
+! A warning is displayed if 'myproc3' or 'newproc' is also called
+  myoldproc
+
+! Unversioned subroutine (=defaults to current package version)
+  mynewproc
+
+ showpkgver
+
+end-model

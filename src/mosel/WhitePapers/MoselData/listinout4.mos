@@ -1,0 +1,132 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file listinout4.mos
+   ```````````````````
+   Reading/writing lists from/to
+   an Oracle database.
+   - Using 'initializations' and OCI statements -
+   
+   (c) 2012 Fair Isaac Corporation
+       author: S. Heipcke, Dec. 2012, rev. Aug. 2023
+*******************************************************!)
+
+model "List handling (OCI)"
+ uses "mmoci"
+ options keepassert
+
+ parameters
+  DB="myname/mypassword@dbname"     ! Login to Oracle database (not provided)
+ end-parameters
+
+ declarations
+  LI: list of integer
+  A: integer
+  LS,LS2: list of string
+ end-declarations
+ 
+
+! **** Using SQL statements ****
+
+ setparam("OCIdebug",true)
+ OCIlogon(DB)
+ assert(getparam("OCIsuccess"))
+ writeln("Connection number: ",getparam("OCIconnection"))
+
+ OCIexecute("select * from List1 ", LI)
+ A:=OCIreadinteger("select * from A")
+ OCIexecute("select * from List2 ", LS)
+ 
+! Display the lists
+ writeln("LI: ", LI)
+ writeln("A: ", A, ", LS: ", LS)
+ 
+! Reverse the list LI
+ reverse(LI)
+
+! Append some text to every entry of LS 
+ LS2:= sum(l in LS) [l+" "+A]
+
+! Display the modified lists
+ writeln("LI: ", LI)
+ writeln("LS2: ", LS2)
+
+ OCIexecute("delete from List1Out")     ! Cleaning up previous output   
+ OCIexecute("delete from List2Out")
+ OCIexecute("insert into List1Out values (:1)", LI)
+ assert(getparam("OCIsuccess"))
+ OCIexecute("insert into List2Out values (:1)", LS2)
+ assert(getparam("OCIsuccess"))
+ 
+ OCIlogoff
+
+! **** Using 'initializations from' ****
+
+ initializations from "mmoci.oci:debug;"+DB
+  LI as "List1"
+  A
+  LS as "List2"
+ end-initializations 
+
+! Display the lists
+ writeln("LI: ", LI)
+ writeln("A: ", A, ", LS: ", LS)
+
+! Reverse the list LI
+ reverse(LI)
+
+! Append some text to every entry of LS 
+ LS2:= sum(l in LS) [l+" "+A]
+
+! Display the modified lists
+ writeln("LI: ", LI)
+ writeln("LS2: ", LS2)
+
+ initializations to "mmoci.oci:"+DB
+  LI as "List1Out"
+  LS2 as "List2Out"
+ end-initializations 
+
+end-model
+
+
+**************************************************
+
+
+! Creation of data tables in an Oracle database:
+
+ declarations
+  tsucc: array ({false,true}) of string
+ end-declarations
+
+ tsucc(false):="failed"; tsucc(true):="succeeded"
+
+ setparam("OCIdebug",true)
+ OCIlogon(DB)
+ writeln("Connection number: ",getparam("OCIconnection"))
+
+ OCIexecute("create table List1 (ListValues integer)")
+ writeln(" - Create List1 (",tsucc(getparam("OCIsuccess")),")")
+ OCIexecute("insert into List1 (ListValues) values (:1)", [ 1,2,3,4,5,6,7,8 ])
+ writeln(" - Insert values into List1 (",tsucc(getparam("OCIsuccess")),",",
+        getparam("OCIrowcnt"),'/',getparam("OCIrowxfr")," rows)")
+ 
+ OCIexecute("create table A (AValue integer)")
+ writeln(" - Create A (",tsucc(getparam("OCIsuccess")),")")
+ OCIexecute("insert into A (AValue) values (:1)", [ 2002 ])
+ writeln(" - Insert values into A (",tsucc(getparam("OCIsuccess")),",",
+        getparam("OCIrowcnt"),'/',getparam("OCIrowxfr")," rows)")
+ 
+ OCIexecute("create table List2 (ListValues char(3))")
+ writeln(" - Create List2 (",tsucc(getparam("OCIsuccess")),")")
+ OCIexecute("insert into List2 (ListValues) values (:1)", [ Jan,May,Jul,Nov,Dec ])
+ writeln(" - Insert values into List2 (",tsucc(getparam("OCIsuccess")),",",
+        getparam("OCIrowcnt"),'/',getparam("OCIrowxfr")," rows)")
+ 
+ OCIexecute("create table List1Out (ListValues integer)")
+ writeln(" - Create List1Out (",tsucc(getparam("OCIsuccess")),")")
+ OCIexecute("create table List2Out (ListValues char(10))")
+ writeln(" - Create List2Out (",tsucc(getparam("OCIsuccess")),")")
+ 
+ OCIlogoff

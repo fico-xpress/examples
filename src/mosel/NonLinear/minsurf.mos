@@ -1,0 +1,83 @@
+(!*********************************************************************
+   Mosel NL examples
+   =================
+   file minsurf.mos
+   ````````````````
+   Convex NLP problem minimizing the surface between given
+   boundaries.
+   Set parameter OBSTACLE to 'true' to add an additional fixed
+   area in the center of the surface. 
+
+   Based on AMPL model minsurf.mod
+   Source: http://www.orfe.princeton.edu/~rvdb/ampl/nlmodels/minsurf/ 
+
+   *** This model cannot be run with a Community Licence 
+       for the provided data instance ***
+
+   (c) 2008 Fair Issac Corporation
+       author: S. Heipcke, Sep. 2008, rev. Jun. 2023
+*********************************************************************!)
+
+model "minsurf"
+ uses "mmxnlp"
+
+ parameters
+  OBSTACLE=true
+  N0 = 35                          ! Number of points within borders
+ end-parameters
+ 
+ declarations
+  N = N0+1                         ! Border point index
+  X = 0..N                         ! Range for x-values
+  Y = 0..N                         ! Range for y-values
+  HX = 2/N
+  HY = 2/N
+  GAMMA0,GAMMA2: array(X) of real  ! Border points parallel to x axis
+  GAMMA1,GAMMA3: array(Y) of real  ! Broder points parallel to y axis
+ end-declarations
+
+ forall(x in X) GAMMA0(x):= 1.5*x*(N-x)/(N/2)^2
+ forall(y in Y) GAMMA1(y):= 2*y*(N-y)/(N/2)^2
+ forall(x in X) GAMMA2(x):= 4*x*(N-x)/(N/2)^2
+ forall(y in Y) GAMMA3(y):= 2*y*(N-y)/(N/2)^2
+
+(! Alternative border definition:
+ forall(x in X) GAMMA0(x):= 2*(if (x <= N/2, x, N-x)/(N/2))
+ forall(y in Y) GAMMA1(y):= 0*(if (y <= N/2, y, N-y)/(N/2))
+ forall(x in X) GAMMA2(x):= 2*(if (x <= N/2, x, N-x)/(N/2))
+ forall(y in Y) GAMMA3(y):= 0*(if (y <= N/2, y, N-y)/(N/2))
+!)
+
+ declarations
+  z: array(X,Y) of mpvar            ! Surface height at grid points
+ end-declarations
+
+ forall(x in X,y in Y) z(x,y) is_free
+
+! Objective function
+ Area:= (HX*HY/2)*sum(x in X | x<N, y in Y | y<N) 
+  ( sqrt(1 + ((z(x+1,y)-z(x,y))/HX)^2 + ((z(x,y+1)-z(x,y))/HX)^2) +
+    sqrt(1 + ((z(x+1,y+1)-z(x,y+1))/HX)^2 + ((z(x+1,y+1)-z(x+1,y))/HX)^2) )
+
+! Fix the boundaries
+ forall(x in X) z(x,0) = GAMMA0(x)
+ forall(y in Y) z(N,y) = GAMMA1(y)
+ forall(x in X) z(x,N) = GAMMA2(x)
+ forall(y in Y) z(0,y) = GAMMA3(y)
+
+! Add an obstacle in the center of the area
+ if OBSTACLE then
+  forall(x,y in ceil(N*0.4)..ceil(N*0.6)) z(x,y) = GAMMA2(ceil(N/2))
+ end-if
+ 
+! Since this is a convex problem, it is sufficient to call a local solver 
+ setparam("xprs_nlpsolver", 1)
+
+ setparam("XNLP_verbose", true)
+ minimise(Area)
+ 
+ writeln("Solution: ", Area.sol)
+
+ forall(x in X, y in Y) writeln(x, " ", y, " ", z(x,y).sol)
+
+end-model

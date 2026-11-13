@@ -1,0 +1,49 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file batch2.mos
+   ```````````````
+   Looping over program executions coupled with 
+   parameterized data in- and output.
+       
+   (c) 2008 Fair Isaac Corporation
+       author: S.Heipcke, 2002, rev. 2017
+*******************************************************!)
+
+model "batch 2"
+ uses "mmxprs"
+
+ parameters
+  INFILE="batchdata0.dat"
+  OUTFILE="batchdata1.dat"
+  LIM=100
+ end-parameters
+
+ declarations
+  R=1..10
+  A,B: array(R) of real
+  x: array(R) of mpvar
+  ACtr,AnObj: linctr
+ end-declarations
+
+ initializations from INFILE
+  A as "a"   B as "b"
+ end-initializations
+
+ if(LIM>100) then
+  forall(r in R) B(r)+=1
+ end-if 
+
+ ACtr:= sum(r in R) B(r)*x(r) <= LIM
+ AnObj:=sum(r in R) A(r)*x(r)
+ forall(r in R) x(r) is_binary
+ 
+ maximise(AnObj)
+ writeln("Objective: ", getobjval) 
+
+ initializations to OUTFILE
+  B as "b"
+ end-initializations
+
+end-model 

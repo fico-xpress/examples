@@ -1,0 +1,126 @@
+(!*******************************************************
+   Mosel Example Problems
+   ======================
+
+   file goalobjmo.mos
+   ``````````````````
+   Using the Xpress multi-objective functionality
+   for Archimedian and pre-emptive goal programming
+   with objective functions  
+
+   (c) 2022 Fair Isaac Corporation
+       author: S. Heipcke, June 2022
+  *******************************************************!)
+
+model GoalObjMO
+
+uses "mmxprs"                       ! Load the optimizer library
+uses "mmsystem"
+
+forward procedure preemptive        ! Declare some procedures that are
+forward procedure archimedian       ! defined later
+
+declarations
+ NGOALS=3                           ! Number of goals
+ GOALS=1..NGOALS
+ x,y: mpvar                         ! Variables
+ Type: array(GOALS) of string       ! Type of goal objectives
+ Sense: array(GOALS) of string      ! Sense of goal objectives
+ Weight: array(GOALS) of real       ! Weights of goals
+ Deviation: array(GOALS) of real    ! Max. deviation from goals
+ Priority: array(GOALS) of integer  ! Priority values for goals
+ Goal: array(GOALS) of linctr       ! Goal objective expressions
+ ObjCfg: array(GOALS) of objconfig  ! Goal configuration
+end-declarations
+
+ Limit:= 42*x + 13*y <= 100         ! Define a constraint
+
+                                    ! Define the goal objectives
+ Weight::[100, 1, 0.1]
+ Type:: ["perc", "abs", "perc"]
+ Sense:: ["max", "min", "max"]
+ Deviation:: [10, 4, 20] 
+ Priority:: [3, 2, 1]
+ 
+ Goal(1):=   5*x +  2*y - 20
+ Goal(2):=  -3*x + 15*y - 48
+ Goal(3):= 1.5*x + 21*y - 3.8
+
+ archimedian                        ! Archimedian goal programming
+ preemptive                         ! Pre-emptive goal programming
+ 
+! Priority:: [1, 2, 3]               ! Inverse priority order
+! preemptive                         ! Resolve the pre-emptive formulation
+
+!***********************************************************************
+ 
+procedure archimedian
+
+  writeln("Archimedian:")
+  
+ ! Define the objective function as weighted sum of the goals
+  forall(g in GOALS)
+   if(Sense(g)="max") then
+     ObjCfg(g).weight:=-Weight(g)
+   else 
+     ObjCfg(g).weight:=Weight(g)
+   end-if  
+
+  minimize(Goal,ObjCfg)             ! Solve the multi-objective problem
+ 
+                                    ! Solution printout 
+  writeln(" Solution: x: ", x.sol, ", y: ", y.sol)
+  writeln(" Goal", textfmt("Target",9), textfmt("Value",12))
+  forall(g in GOALS)
+   writeln(formattext("%4d %8s %12.6f", g, Sense(g), 
+     Goal(g).act + Goal(g).coeff ))
+
+end-procedure
+
+!***********************************************************************
+(! 
+  Optimize successively the goals in given priority order. 
+  After optimizing a goal turn it into a constraint applying the specified
+  tolerances to the limit given by the solution value.
+!)
+procedure preemptive
+
+  writeln("\nPre-emptive:")
+
+  forall(g in GOALS) 
+   ! Specify inversed objective sense (max vs min) via negative weight values
+    case Type(g) of     
+      "perc": ObjCfg(g):=
+        objconfig(Priority(g), if(Sense(g)="max",-1,1), 0, Deviation(g)/100)
+      "abs": ObjCfg(g):= if(Sense(g)="max",
+        objconfig(Priority(g), -1, -Deviation(g), 0),
+	objconfig(Priority(g), 1, Deviation(g), 0))
+      else writeln("Unknown tolerance type")
+    end-case
+
+  localsetparam("XPRS_multiobjops", 3)  ! Disable reduced cost fixing (req. with multiple runs)
+  minimize(Goal,ObjCfg)             ! Solve the multi-objective problem
+
+                                    ! Solution printout 
+  localsetparam("realfmt","%12.6f")
+  if(getprobstat=XPRS_OPT) then
+    writeln("Solved for all goals (", getparam("XPRS_SOLVEDOBJS"),")")
+  elif getparam("XPRS_SOLVEDOBJS")>=1 then
+    writeln("Solved for ", getparam("XPRS_SOLVEDOBJS"), " goals")
+  else
+    writeln("No solution found")
+    return
+  end-if
+  forall(i in GOALS)
+    writeln("  Iteration ", i, ": status=", getobjintattr(i, "XPRS_SOLSTATUS"), 
+      "/", getobjintattr(i, "XPRS_SOLVESTATUS"), 
+      ", val=", getobjrealattr(i, "XPRS_LPOBJVAL"))
+  writeln(" Solution: x: ", x.sol, ", y: ", y.sol)
+
+  writeln(" Goal", textfmt("Target",9), textfmt("Value",12), textfmt("(Activity)",13))
+  forall(g in GOALS)
+    writeln(formattext("%4d %8s %12.6f %12.6f", g, Sense(g), Goal(g).sol, Goal(g).act))
+
+end-procedure
+
+end-model

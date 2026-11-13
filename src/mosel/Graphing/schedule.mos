@@ -1,0 +1,97 @@
+(!******************************************************
+   Mosel graph examples
+   ==================== 
+
+   file schedule.mos
+   `````````````````
+   Produces a Gantt chart with rectangles per task,
+   colored per job.
+
+   - Using SVG animation -
+     (only visible with browsers supporting SVG animation)
+  
+   Uses functions from the mmsvg library to draw
+   a "User graph" in SVG format.
+   
+   (c) 2008 Fair Isaac Corporation
+       Creation: 2002, rev. Sep. 2017
+*******************************************************!)
+
+model schedule
+ options noimplicit
+ uses "mmsystem","mmsvg"
+
+ declarations
+   NUMM=6
+   NUMJ=6
+   MACHINES=1..NUMM
+   JOBS=1..NUMJ
+   job: array(JOBS) of string
+   curmachine, curjobs, curt: integer ! Iterators
+   n1,n2,n3,mint,maxt: integer
+   DURANIM=10                         ! Duration of animation in sec
+   SCALE=10                           ! Display scaling factor
+   DFACT: real
+   axml: text
+ end-declarations
+
+! svgsetgraphviewbox(0,0,60,7)
+
+! Define graph colours
+ forall(j in JOBS) do
+   job(j):="J"+j
+   svgaddgroup(job(j), "Job "+j)
+   svgsetstyle(SVG_STROKE,SVG_GRAY)
+   svgsetstyle(SVG_FILL,SVG_CURRENT)
+   svgsetstyle(SVG_FILLOPACITY,0.8)
+ end-do
+
+! Read data from file and draw a Gantt chart
+ fopen("schedule.dat",F_INPUT)
+
+ readln(mint,maxt)
+ DFACT:=DURANIM/(maxt-mint)
+ forall(i in MACHINES) do
+   readln(n1,n2)      ! Read the machine number and number of jobs per machine
+   writeln("Machine ",n1," Jobs:",n2) 
+   curmachine:=n1
+   curjobs:=n2
+   forall(j in 1..curjobs) do
+     readln(n1,n2,n3)    ! Read the job number, start time, finish time
+     writeln("On machine ", curmachine," job ",n1," starts at ",n2, 
+       " and finishes at ",n3) 
+     svgaddrectangle(job(n1),n2,curmachine*10,n3-n2,0.5*10)
+     curt:=svggetlastobj
+     svgsetstyle(curt, SVG_VISIBILITY, "visible")
+
+     ! Adding SVG animation changing the transparency level over time
+     axml:='<set attributeName="visibility" attributeType="CSS" to="hidden" begin="0s" dur="'+(n2-mint)*DFACT+'s"/>'+
+       '<set attributeName="visibility" attributeType="CSS" to="visible" begin="'+(n2-mint)*DFACT+'s" dur="'+(n3-n2)*DFACT+'s" fill="freeze"/>'+
+       if(n3<maxt,'<set attributeName="fill-opacity" attributeType="CSS" to="0.4" begin="'+(n3-mint)*DFACT+'s" dur="'+(DURANIM-(n3-mint)*DFACT)+'s"/>',"")
+     svgsetstyle(curt, SVG_ANIMATE, axml)
+
+     svgaddtext(job(n1),(3*n2+n3)/4,curmachine*10+1,"Job "+n1)
+     svgsetstyle(svggetlastobj,SVG_COLOR,SVG_BLACK)
+  end-do
+ end-do  
+  
+ fclose(F_INPUT)
+
+! Draw a line indicating the makespan (=termination of the schedule)
+ svgaddgroup("Makespan", "Makespan", SVG_GREY)
+ svgaddtext(maxt, 6, "Makespan="+maxt)
+ svgsetstyle(svggetlastobj, SVG_TEXTANCHOR, "end")
+ svgaddline(maxt, 9, maxt, (NUMM+0.5)*10+1)
+
+! Animate the line to move from 0 to the end of the schedule 
+ svgsetstyle(svggetlastobj, SVG_ANIMATE, '<animate attributeName="x1" attributeType="XML" from="0" to="'+maxt*SCALE+'" begin="0s" dur="'+DURANIM+'s"/><animate attributeName="x2" attributeType="XML" from="0" to="'+maxt*SCALE+'" begin="0s" dur="'+DURANIM+'s"/>')
+(! Equivalent:
+ svgsetstyle(svggetlastobj, SVG_ANIMATE, '<animateMotion path="M -'+maxt*SCALE+' 0 0 0" begin="0s" dur="'+DURANIM+'s" fill="freeze"/>')
+!)
+ svgsetgraphscale(SCALE)
+ svgsetgraphlabels("Time", "Machines")
+
+ svgsave("schedule.svg")
+ svgrefresh
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+end-model 

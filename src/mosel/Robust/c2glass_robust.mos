@@ -1,0 +1,133 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file c2glass_robust.mos
+   ```````````````````````
+   Planning the production of glasses
+   - Robust against demand scenarios or workers' absence -
+   
+   Based on c2_glass.mos (Mar 2002)
+   
+   (c) 2014 Fair Isaac Corporation
+       author: S. Heipcke, Apr. 2014
+*******************************************************!)
+
+model "C-2 Glass production (scenarios)"
+ uses "mmrobust"
+ parameters
+   DATAFILE="c2glass_scen.dat"
+   IF_SCEN = true  !false
+   IF_WORK = false !true
+ end-parameters  
+
+ declarations   
+  WEEKS: range                           ! Planning period
+  PRODS: range                           ! Set of products
+  SCEN: range                            ! Demand scenarios
+
+  CAPW,CAPM: integer                     ! Capacity of workers and machines
+  CAPS: integer                          ! Storage capacity
+  SCENDEM: array(SCEN,PRODS,WEEKS) of integer  ! Demand per product & week
+  CPROD: array(PRODS) of integer         ! Production cost per product
+  CSTOCK: array(PRODS) of integer        ! Storage cost per product
+  ISTOCK: array(PRODS) of integer        ! Initial stock levels
+  FSTOCK: array(PRODS) of integer        ! Min. final stock levels
+  TIMEW,TIMEM: array(PRODS) of integer   ! Worker and machine time per unit
+  SPACE: array(PRODS) of integer         ! Storage space required by products
+  ABSENCE: dynamic array(WEEKS) of real  ! Max. absence (hours)
+
+  produce: array(PRODS,WEEKS) of mpvar   ! Production of products per week
+  store: array(PRODS,WEEKS) of mpvar     ! Amount stored at end of week 
+  absent: dynamic array(WEEKS) of uncertain      ! Absence of personnel
+  demand: dynamic array(PRODS,WEEKS) of uncertain  ! Uncertain demand
+  SCENDATA: array(SCEN,set of uncertain) of real  ! Aux. data structure
+ end-declarations
+
+ initializations from DATAFILE
+  CAPW CAPM CAPS SCENDEM CSTOCK CPROD
+  ISTOCK FSTOCK TIMEW TIMEM SPACE ABSENCE
+ end-initializations
+
+! Objective: sum of production and storage costs
+ Cost:= 
+  sum(p in PRODS, t in WEEKS) (CPROD(p)*produce(p,t) + CSTOCK(p)*store(p,t))
+
+ if IF_SCEN then
+ ! Demand scenarios
+   forall(p in PRODS, t in WEEKS | sum(s in SCEN) SCENDEM(s,p,t)>0) 
+     create(demand(p,t))
+   forall(s in SCEN, p in PRODS, t in WEEKS | SCENDEM(s,p,t)>0) 
+     SCENDATA(s, demand(p,t)):= SCENDEM(s,p,t)
+   scenario(SCENDATA)
+
+ ! Stock balances
+   forall(p in PRODS, t in WEEKS) do
+     store(p,t) <= if(t>1, store(p,t-1), ISTOCK(p)) + produce(p,t) - demand(p,t)
+     store(p,t) >= if(t>1, store(p,t-1), ISTOCK(p)) + produce(p,t) - 
+       max(s in SCEN) SCENDEM(s,p,t)
+   end-do
+
+   setparam("ROBUST_UNCERTAIN_OVERLAP", true)
+ else
+   forall(p in PRODS, t in WEEKS)
+     store(p,t) =
+       if(t>1, store(p,t-1), ISTOCK(p)) + produce(p,t) - SCENDEM(1,p,t)
+ end-if
+
+! Final stock levels
+ forall(p in PRODS) store(p,WEEKS.last) >= FSTOCK(p)
+
+ if IF_WORK then
+   ! Limit on total absence (uncertainty set)
+   forall(t in WEEKS) create(absent(t))
+   sum(t in WEEKS) absent(t) <= 0.05*CAPW*WEEKS.size
+   forall(t in WEEKS) absent(t) <= ABSENCE(t)
+   forall(t in WEEKS) absent(t) >= 0
+   
+   setparam("ROBUST_UNCERTAIN_OVERLAP", true)
+ end-if  
+
+! Capacity constraints 
+ forall(t in WEEKS) do
+  if IF_WORK then
+    sum(p in PRODS) TIMEW(p)*produce(p,t) <= CAPW -absent(t) ! Workers
+  else
+    sum(p in PRODS) TIMEW(p)*produce(p,t) <= CAPW/1.1        ! Workers
+  end-if 
+  sum(p in PRODS) TIMEM(p)*produce(p,t) <= CAPM              ! Machines
+  sum(p in PRODS) SPACE(p)*store(p,t)   <= CAPS              ! Storage
+ end-do
+
+
+! Solve the problem
+ minimize(Cost)
+ 
+! Solution printing
+ if getprobstat<>XPRS_OPT then
+   writeln("No solution found."); exit(1)
+ end-if  
+ writeln("Total cost: ",getobjval)
+ writeln("Production plan:")
+ write("     Week")
+ forall(t in WEEKS) write(strfmt(t,7))
+ writeln
+ forall(p in PRODS) do
+  write(p,": Prod. ")
+  forall(t in WEEKS) write(strfmt(getsol(produce(p,t)),7,1))
+  writeln
+  write("   Store  ")
+  forall(t in WEEKS) write(" (", if( store(p,t).sol>0,  
+                           strfmt(getsol(store(p,t)),4,1), "  - "),  ")")
+  writeln
+ end-do
+
+ writeln("\nCapacities used:")
+ writeln("Week",strfmt("Workers",8),strfmt("Machines",9),strfmt("Space",7))
+ forall(t in WEEKS) 
+  writeln(strfmt(t,2),
+   strfmt(ceil(getsol(sum(p in PRODS) TIMEW(p)*produce(p,t))),8),
+   strfmt(getsol(sum(p in PRODS) TIMEM(p)*produce(p,t)),10,2),
+   strfmt(getsol(sum(p in PRODS) SPACE(p)*store(p,t)),9,2) ) 
+ 
+end-model

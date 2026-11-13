@@ -1,0 +1,44 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file SparseVariables_std.mos
+   ````````````````````````````
+   -- Enumeration of sparse multidimensional arrays --
+
+   (c) 2019-2026 Fair Isaac Corporation
+       author: S.Heipcke
+*******************************************************!)
+model "Sparse Variables"
+
+  !S:IMPORT
+  uses "mmsheet"
+
+  parameters
+    DATA_FILE_PREFIX = "00"
+  end-parameters
+  writeln("#E:IMPORT")
+
+  writeln("#S:READ")
+  declarations
+    ISet: range
+    f: dynamic array(ISet,ISet,ISet,ISet) of mpvar
+    C: dynamic array(ISet,ISet,ISet,ISet) of real
+  end-declarations
+
+  initializations from "mmsheet.csv:skiph;" + DATA_FILE_PREFIX + "_H_SparseVariables_C.csv"
+    C as "[]"
+  end-initializations
+  writeln("#E:READ")
+
+  writeln("#S:PROC")
+  forall(i,j,k,l in ISet | exists(C(i,j,k,l)) ) create(f(i,j,k,l))
+  writeln("#E:PROC")
+
+  writeln("#S:TEST")
+  forall(i,j,k,l in ISet | exists(C(i,j,k,l)) ) do
+    writeln(i, " ", j, " ", k, " ", l)
+  end-do
+  writeln("#E:TEST")
+
+end-model

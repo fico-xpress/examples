@@ -1,0 +1,55 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file indicatorlin.mos
+   `````````````````````
+   Indicator constraint definition example
+   - Example discussed in mipformref whitepaper -   
+
+   (c) 2009 Fair Isaac Corporation
+       author: S. Heipcke, Mar. 2009, rev. Feb. 2024
+*******************************************************!) 
+model "test indicator constraints"
+ uses "mmxprs"
+
+ public declarations
+  R=1..2
+  C: array(range) of linctr
+  L: array(range) of logctr
+  x: array(R) of mpvar
+  b: array(R) of mpvar
+ end-declarations  
+
+ forall(i in R) b(i) is_binary   ! Variables for indicator constraints
+
+ C(2):= x(2)<=5
+
+! Define 2 indicator constraints
+ L(1):= indicator(1, b(1), x(1)+x(2)>=12)    ! b(1)=1 -> x(1)+x(2)>=12
+ L(2):= indicator(-1, b(2), C(2))            ! b(2)=0 -> x(2)<=5
+
+ C(2):=0                         ! Delete auxiliary constraint definition
+
+ Obj:= b(1)+b(2)
+
+ setparam("XPRS_loadnames", true)
+ loadprob(Obj)
+ writeprob("logtestmat.lp","l")
+
+ maximize(Obj)
+ 
+ declarations
+  status:array({XPRS_OPT,XPRS_UNF,XPRS_INF,XPRS_UNB,XPRS_OTH}) of string
+ end-declarations
+
+ status::([XPRS_OPT,XPRS_UNF,XPRS_INF,XPRS_UNB,XPRS_OTH])[
+          "Optimum found","Unfinished","Infeasible","Unbounded","Failed"]
+ 
+ writeln("Problem status: ", status(getprobstat))
+ 
+ forall(i in R) writeln(x(i).name, "=", x(i).sol)
+
+ forall(i in R) writeln(L(i).name, ": ", L(i).var.name, "=", L(i).var.sol,
+                        " ", L(i).indictype)  
+end-model   

@@ -1,0 +1,160 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file freqas_graph.mos
+   `````````````````````
+   Frequency assignment problem from telecommunications.
+   - Solution graph drawing-
+
+   We are given a network of cells (nodes) with requirements of 
+   discrete frequency bands. Each cell has a demand of a number of 
+   frequencies (bands).
+   The objective is to minimize the number of frequencies used in 
+   the network so that
+   (1) Neighboring nodes all use different frequencies (interference).
+   (2) If a cell uses several frequencies they must all be different
+       by at least 2.
+
+   *** This model cannot be run with a Community Licence 
+       for the provided data instance ***
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+       Creation: 2005, rev. Apr. 2022       
+*****************************************************************!)
+
+model "Frequency assignment"
+ uses "kalis", "mmsvg"
+ 
+ forward procedure print_solution
+ forward procedure draw_solution
+  
+ declarations
+  NODES = 1..10                               ! Range of nodes
+  LINKS = 1..18                               ! Range of links between nodes
+  DEM: array(NODES) of integer                ! Demand of nodes
+  LINK: array(LINKS,1..2) of integer          ! Neighboring nodes 
+  INDEX: array(NODES) of integer              ! Start index in 'use' 
+  NUMDEM: integer                             ! Upper bound on no. of freq.
+ end-declarations
+
+ DEM :: (1..10)[4, 5, 2, 3, 2, 4, 3, 4, 3, 2]
+ LINK:: (1..18,1..2)[1, 3, 1, 4, 1, 6, 
+                     2, 4, 2, 7, 
+                     3, 4, 3, 6, 3, 8, 3, 9,
+                     4, 7, 4, 9, 4,10, 
+                     5, 7, 5, 8, 5, 9, 
+                     6, 9, 7, 8, 8,10]
+ NUMDEM:= sum(n in NODES) DEM(n)
+
+! Correspondence of nodes and demand indices:
+! use(d) d = 1, ..., DEM(1) correspond to the demands of node 1
+!            d = DEM(1)+1, ..., DEM(1)+DEM(2))     - " -     node 2  etc.
+ INDEX(1):= 1
+ forall(n in NODES | n > 1) INDEX(n) := INDEX(n-1) + DEM(n-1)
+
+ declarations
+  DEMANDS = 1..NUMDEM                         ! Range of frequency demands 
+  use: array(DEMANDS) of cpvar                ! Frequency used for a demand
+  numfreq: cpvar                              ! Number of frequencies used
+  Strategy: array(range) of cpbranching
+ end-declarations
+
+! Setting the domain of the decision variables
+ forall(d in DEMANDS) setdomain(use(d), 1, NUMDEM)
+
+! All frequencies attached to a node must be different by at least 2
+ forall(n in NODES, c,d in INDEX(n)..INDEX(n)+DEM(n)-1 | c<d)
+  distance(use(c), use(d)) >= 2
+!  abs(use(c) - use(d)) >= 2
+
+! Neighboring nodes take all-different frequencies
+ forall(l in LINKS)
+  all_different(
+   union(d in INDEX(LINK(l,1))..INDEX(LINK(l,1))+DEM(LINK(l,1))-1) {use(d)} + 
+   union(d in INDEX(LINK(l,2))..INDEX(LINK(l,2))+DEM(LINK(l,2))-1) {use(d)},
+   KALIS_GEN_ARC_CONSISTENCY)
+
+! Objective function: minimize the number of frequencies used, that is, 
+! minimize the largest value assigned to 'use'
+ setname(numfreq, "NumFreq")
+ numfreq = maximum(use)
+
+! Search strategy
+ Strategy(1):=assign_var(KALIS_SMALLEST_DOMAIN, KALIS_MIN_TO_MAX, use)
+ Strategy(2):=assign_var(KALIS_MAX_DEGREE, KALIS_MIN_TO_MAX, use)
+ cp_set_branching(Strategy(1))
+ setparam("KALIS_MAX_COMPUTATION_TIME", 1)
+ cp_set_solution_callback(->print_solution)
+
+! Try to find solution(s) with strategy 1
+ if cp_minimize(numfreq) then
+  draw_solution
+  cp_show_stats
+  sol:=getsol(numfreq)
+ end-if
+
+! Restart search with strategy 2
+ cp_reset_search
+ if sol>0 then                             ! If a solution was found:
+  numfreq <= sol-1                         ! Add upper bound on objective
+ end-if
+ cp_set_branching(Strategy(2))
+ setparam("KALIS_MAX_COMPUTATION_TIME", 1000)
+
+ if cp_minimize(numfreq) then
+  draw_solution
+  cp_show_stats
+ elif sol>0 then
+  writeln("Optimality proven")
+ else
+  writeln("Problem has no solution")
+ end-if
+
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+
+!********************************************************************
+! **** Solution printout ****
+ procedure print_solution
+  writeln("Number of frequencies: ", getsol(numfreq))
+  writeln("Frequency assignment: ")
+  forall(n in NODES) do
+   write("Node ", n, ": ")
+   forall(d in INDEX(n)..INDEX(n)+DEM(n)-1) write(getsol(use(d)), " ")
+   writeln
+  end-do
+ end-procedure
+
+! **** Solution drawing ****
+ procedure draw_solution
+  declarations
+   X,Y: array(NODES) of real        ! Coordinates of nodes
+  end-declarations 
+  
+  N:= getsize(NODES)
+  forall(n in NODES) do
+   X(n):= N/2*(cos(M_PI/3+1.2*n*M_PI/N))
+   Y(n):= (getsol(numfreq)+1)/2*(1+sin(M_PI/3+1.2*n*M_PI/N))
+  end-do
+  
+ ! Draw different color graph per frequency 
+  forall (f in 1..getsol(numfreq)) do
+   svgaddgroup("G"+f, "Frequency "+f)
+   svgaddtext(3, f, "Freq "+f)
+  end-do
+  forall(n in NODES, d in INDEX(n)..INDEX(n)+DEM(n)-1)
+   svgaddline("G"+getsol(use(d)), X(n), Y(n), 3, getsol(use(d)))
+ 
+ ! Graph representing nodes and links between nodes 
+  svgaddgroup("N", "Network", SVG_BLACK)
+  svgsetstyle("text-anchor", "end")
+  forall(l in LINKS) 
+   svgaddline(X(LINK(l,1)), Y(LINK(l,1)), X(LINK(l,2)), Y(LINK(l,2)))
+  forall(n in NODES) svgaddtext(X(n),Y(n), "Node "+n)
+
+  svgsetgraphviewbox(-N/2-2,-1,N+5,N+5)
+  svgsetgraphscale(25)
+  svgrefresh
+ end-procedure
+
+end-model

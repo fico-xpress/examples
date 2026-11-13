@@ -1,0 +1,106 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file xparse.mos
+   ```````````````
+   A simple example of the use of the SAX parser in mmxml
+   
+   (c) 2014 Fair Isaac Corporation
+       author: Y. Colombani, October 2014
+*******************************************************!)
+
+model xparse
+uses 'mmxml'
+
+declarations
+ d:xmldoc
+end-declarations
+
+forward public procedure myload(d:xmldoc,fname:text)
+
+myload(d,"refexample.xml")
+save(d,"")
+
+!------------------------------------------------------
+
+! The following structure will be used to store the state of the parser
+declarations
+ public s_ctx=
+    record
+	doc:xmldoc
+	curnode:integer
+    end-record
+end-declarations
+
+!------------------------------------------------------
+
+! **** Callback function: Beginning of an element ****
+public function start_elt(c:s_ctx,name:text,nba:integer):integer
+ declarations
+  att,val:text
+ end-declarations
+
+ c.curnode:=addnode(c.doc,c.curnode,XML_ELT,name)
+ ! 'xmlattr' is used to retrieve attributes associated to current node
+ ! 'xmlattr(att,val)' can also be used to retrieve the value of attribute 'att'
+ forall(i in 1..nba) do
+  xmlattr(i,att,val)
+  setattr(c.doc,c.curnode,string(att),val)
+ end-do
+ xmlattr("name",val)
+end-function
+
+! **** Callback function: Mark the end of a an element ****
+public function end_elt(c:s_ctx):integer
+ c.curnode:=getparent(c.doc,c.curnode)
+end-function
+
+! **** Callback function: Store a text object 
+!     'type' indicates the XML node type (e.g. TEXT, CDATA...) ****
+public function txthdl(c:s_ctx,type:integer,data:text):integer
+ n:=addnode(c.doc,c.curnode,type,data)
+end-function
+
+! **** Callback function: Record document declaration details ****
+public function xdecl(c:s_ctx,vers:text,encoding:text,std:integer):integer
+ setencoding(c.doc,string(encoding))
+ setstandalone(c.doc,std)
+ setxmlversion(c.doc,string(vers))
+end-function
+
+! **** Callback function: Store a processing instruction ****
+public function pinst(c:s_ctx,target:text,data:text):integer
+ n:=addnode(c.doc,c.curnode,XML_PINST,string(target),data)
+end-function
+
+!------------------------------------------------------
+
+! **** An implementation of 'load(xmldoc,text)' using the SAX parser ****
+public procedure myload(d:xmldoc,fname:text)
+ declarations
+  afct:array(range) of string
+  ctx:s_ctx
+ end-declarations
+
+ afct(XML_FCT_DECL):="xdecl"         ! Declaration (XML version, encoding)
+ afct(XML_FCT_TXT):="txthdl"         ! Text
+ afct(XML_FCT_CDATA):="txthdl"       ! Cdata
+ afct(XML_FCT_COM):="txthdl"         ! Comment
+ afct(XML_FCT_DATA):="txthdl"        ! Data (non qualifiee)
+ afct(XML_FCT_PINST):="pinst"        ! Processing instruction
+ afct(XML_FCT_OPEN_ELT):="start_elt" ! Start of an element
+ afct(XML_FCT_CLOSE_ELT):="end_elt"  ! End of an element
+
+ ctx.curnode:=0;
+ fopen(fname,F_INPUT)
+ ! 'xmlparse' expects a table of functions (all are optional)
+ ! the option indicates whether spaces should be kept (0: keep spaces;
+ ! 1: skip spaces)
+ ! the last argument will be passed to all functions
+ rts:=xmlparse(afct,1,ctx)
+ fclose(F_INPUT)
+ d:=ctx.doc
+end-procedure
+
+end-model

@@ -1,0 +1,54 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file runburglarior.mos
+   ``````````````````````
+   Running a model from another Mosel model.
+   Data exchange in memory using binary format using 'raw'.
+       
+   (c) 2013 Fair Isaac Corporation
+       author: S. Heipcke, Apr. 2013
+*******************************************************!)
+
+model "Run model burglar IO"
+ uses "mmjobs", "mmsystem"
+
+ declarations
+  modBurg: Model                    ! Submodel
+  ISet,SSet: set of string          ! Index set for data arrays
+  V,W: array(ISet) of real          ! Data arrays
+  Solution: array(SSet) of real     ! Solution values
+ end-declarations
+
+ V:: (["camera","necklace","vase","picture","tv","video","chest","brick"])
+      [15, 100, 90, 60, 40, 15, 10,  1]
+ W:: (["camera","necklace","vase","picture","tv","video","chest","brick"])
+      [ 2,  20, 20, 30, 40, 30, 60, 10]
+
+                                    ! Compile the model, save bim in memory
+ if compile("", "burglar2r.mos", "shmem:burglar.bim")<>0 then exit(1); end-if
+ load(modBurg, "shmem:burglar.bim") ! Load the bim file
+ fdelete("shmem:burglar.bim")       ! bim file is no longer needed
+ 
+ setdefstream(modBurg, F_OUTPUT, "null:")   ! Disable output from submodel
+
+! Save data in shared memory
+ IODRV:="raw:"
+ initializations to IODRV
+  [V,W] as "shmem:bdat"
+ end-initializations
+ 
+                                    ! Start model execution, setting parameters 
+ run(modBurg, "IODRV='" +IODRV + "',DATA='shmem:bdat',SOL='shmem:Solution'")   
+ wait                               ! Wait for model termination
+ dropnextevent                      ! Ignore termination event message
+
+! Retrieve solution from shared memory
+ initializations from IODRV
+  Solution as "shmem:Solution"
+ end-initializations
+
+ forall(i in SSet)  writeln(" take(", i, "): ", Solution(i))
+
+end-model 

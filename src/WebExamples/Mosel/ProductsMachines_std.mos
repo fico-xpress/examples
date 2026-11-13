@@ -1,0 +1,61 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file ProductsMachines_std.mos
+   ```````````````````````````````
+   -- Multiple conditions on loop over block of statements --
+
+   (c) 2019-2026 Fair Isaac Corporation
+       author: S.Heipcke
+*******************************************************!)
+model "Products and Machines"
+
+    !S:IMPORT
+    uses "mmsheet", "mmxprs"
+
+    parameters
+        DATA_FILE_PREFIX = "00"
+    end-parameters
+    writeln("#E:IMPORT")
+
+    writeln("#S:READ")
+    declarations
+        PRODS, MACH: range
+        z: dynamic array(PRODS,MACH) of mpvar
+        y: dynamic array(PRODS,MACH) of mpvar
+        K: array(PRODS,MACH) of integer
+        T: array(MACH) of integer 
+        U: array(PRODS) of integer 
+    end-declarations
+
+    initializations from "mmsheet.csv:skiph;" + DATA_FILE_PREFIX + "_H_ProductsMachines_T.csv"
+        T  as "[]"
+    end-initializations
+
+    initializations from "mmsheet.csv:skiph;" + DATA_FILE_PREFIX + "_H_ProductsMachines_U.csv"
+        U  as "[]"
+    end-initializations
+
+    initializations from "mmsheet.csv:skiph;" + DATA_FILE_PREFIX + "_H_ProductsMachines_K.csv"
+        K  as "[]"
+    end-initializations
+    writeln("#E:READ")
+
+    writeln("#S:PROC")
+    forall(p in PRODS, m in MACH | K(p,m)=1 and 3*T(m)<13) do
+        create(z(p,m))
+        create(y(p,m))
+        y(p,m) is_binary
+        z(p,m) <= U(p)
+    end-do
+
+    loadprob(0)
+    writeln("#E:PROC")
+
+    writeln("#S:TEST")
+    forall(p in PRODS, m in MACH | K(p,m)=1 and 3*T(m)<13) do
+        writeln(p, " ", m)
+    end-do
+    writeln("#E:TEST")
+end-model

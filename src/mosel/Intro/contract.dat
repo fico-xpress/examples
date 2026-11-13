@@ -1,0 +1,7 @@
+! Data file for `contract.mos'
+
+OUTPUT: [50 40 10 20 70 50]              ! Maximum output per district
+
+COST:   [50 20 25 30 45 40]              ! Cost per district
+
+VOLUME: [20 10 30 15 20 30 10 50 10 20]  ! Volume of contracts

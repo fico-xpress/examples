@@ -1,0 +1,14 @@
+! Data file for 'purch.mos'
+"Nb suppliers": 3
+"Nb price breaks": 3
+
+BR: [100 200 1000
+     50  250 2000
+     100 300 4000]
+
+UC: [9.2 9   7
+     9   8.5 8.3
+     11  8.5 7.5]
+
+MAXPERC: [40 35 40]
+REQ: 600

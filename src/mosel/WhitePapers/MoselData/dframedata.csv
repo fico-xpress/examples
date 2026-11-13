@@ -1,0 +1,5 @@
+StrField,NumField,IntField,BoolField,TxtField,DateField
+AB,1.5,2,TRUE,some more text,31/01/2024
+ab,3.2,4,FALSE,another text,29/02/2024
+Cb,5.7,7,FALSE,more text,31/12/2023
+BB,2.4,5,TRUE,a text,22/07/2022

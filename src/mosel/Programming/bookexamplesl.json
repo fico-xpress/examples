@@ -1,0 +1,657 @@
+[
+  {
+    "id":"book_1",
+    "title":"Mining and Process Industries",
+    "directory":"A_BldProc",
+    "models":[
+     {
+      "id":"book_A_1",
+      "modFile":"a1alloy.mos",
+      "modData":"a1alloy.dat",
+      "modTitle":"Production of alloys",
+      "modType":"Blending problem",
+      "modRating":1,
+      "modFeatures":"formulation of blending constraints; data with numerical indices, solution printout, if-then, getsol"
+     },
+     {
+      "id":"book_A_2",
+      "modTitle":"Animal food production",
+      "modFile":"a2food.mos",
+      "modData":"a2food.dat",
+      "modType":"Blending problem",
+      "modRating":1,
+      "modFeatures":"formulation of blending constraints; data with string indices, as, formatted solution printout, use of getsol with linear expressions, strfmt"
+     },
+     {
+      "id":"book_A_3",
+      "modFile":"a3refine.mos",
+      "modData":"a3refine.dat",
+      "modTitle":"Refinery",
+      "modType":"Blending problem",
+      "modRating":2,
+      "modFeatures":"formulation of blending constraints; sparse data with string indices, dynamic initialization, union of sets"
+     },
+     {
+      "id":"book_A_4",
+      "modFile":"a4sugar.mos",
+      "modData":"a4sugar.dat",
+      "modTitle":"Cane sugar production",
+      "modType":"Minimum cost flow (in a bipartite graph)",
+      "modRating":1,
+      "modFeatures":"ceil, is_binary, formattext"
+     },
+     {
+      "id":"book_A_5",
+      "modFileL":["a5mine.mos", "a5mine2.mos"],
+      "modDataL":["a5mine.dat", "a5mine2.dat"],
+      "modTitle":"Opencast mining",
+      "modType":"Minimum cost flow",
+      "modRating":2,
+      "modFeatures":"encoding of arcs, solving LP-relaxation only, array of set"
+     },
+     {
+      "id":"book_A_6",
+      "modFileL":["a6electr.mos", "a6electrg.mos"],
+      "modData":"a6electr.dat",
+      "modTitle":"Production of electricity",
+      "modType":"Dispatch problem",
+      "modRating":2,
+      "modFeatures":"inline if, is_integer, looping over optimization problem solving"
+     }
+    ]
+   },
+   {
+    "id":"book_2",
+    "title":"Scheduling Problems",
+    "directory":"B_Sched",
+    "models":[
+     {
+      "id":"book_B_1",
+      "modFile":"b1stadium.mos",
+      "modData":"b1stadium.dat",
+      "modTitle":"Construction of a stadium",
+      "modType":"Project scheduling (Method of Potentials)",
+      "modRating":3,
+      "modFeatures":"2 problems; selection with `|', sparse/dense format, naming and redefining constraints, subroutine: procedure for solution printing, forward declaration, array of set"
+     },
+     {
+      "id":"book_B_2",
+      "modFile":"b2flowshop.mos",
+      "modData":"b2flowshop.dat",
+      "modTitle":"Flow shop scheduling",
+      "modType":"Flow shop scheduling",
+      "modRating":4,
+      "modFeatures":"alternative formulation using SOS1, Special Ordered Sets"
+     },
+     {
+      "id":"book_B_3",
+      "modFileL":["b3jobshop.mos", "b3jobshop2.mos", "b3jobshop3.mos"],
+      "modDataL":["b3jobshop.dat", "b3jobshop2.dat", "b3jobshop3.dat"],
+      "modTitle":"Job shop scheduling",
+      "modType":"Job shop scheduling",
+      "modRating":3,
+      "modFeatures":"formulating disjunctions (BigM); dynamic array, range, exists, forall-do, array of set, array of list"
+     },
+     {
+      "id":"book_B_4",
+      "modFile":"b4seq.mos",
+      "modData":"b4seq.dat",
+      "modTitle":"Sequencing jobs on a bottleneck machine",
+      "modType":"Single machine scheduling",
+      "modRating":3,
+      "modFeatures":"3 different objectives; subroutine: procedure for solution printing, localsetparam, if-then"
+     },
+     {
+      "id":"book_B_5",
+      "modFile":"b5paint.mos",
+      "modData":"b5paint.dat",
+      "modTitle":"Paint production",
+      "modType":"Asymmetric Traveling Salesman Problem (TSP)",
+      "modRating":3,
+      "modFeatures":"solution printing, repeat-until, cast to integer, selection with `|', round"
+     },
+     {
+      "id":"book_B_6",
+      "modFile":"b6linebal.mos",
+      "modData":"b6linebal.dat",
+      "modTitle":"Assembly line balancing",
+      "modType":"Assembly line balancing",
+      "modRating":2,
+      "modFeatures":"encoding of arcs, range"
+     }
+    ]
+   },
+   {
+    "id":"book_3",
+    "title":"Planning Problems",
+    "directory":"C_ProdPlan",
+    "models":[
+     {
+      "id":"book_C_1",
+      "modFile":"c1bike.mos",
+      "modData":"c1bike.dat",
+      "modTitle":"Planning the production of bicycles",
+      "modType":"Production planning (single product)",
+      "modRating":3,
+      "modFeatures":"modeling inventory balance; inline if, forall-do"
+     },
+     {
+      "id":"book_C_2",
+      "modFile":"c2glass.mos",
+      "modData":"c2glass.dat",
+      "modTitle":"Production of drinking glasses",
+      "modType":"Multi-item production planning",
+      "modRating":2,
+      "modFeatures":"modeling stock balance constraints; inline if, index value 0"
+     },
+     {
+      "id":"book_C_3",
+      "modFile":"c3toy.mos",
+      "modData":"c3toy.dat",
+      "modTitle":"Material requirement planning",
+      "modType":"Material requirement planning (MRP)",
+      "modRating":2,
+      "modFeatures":"working with index (sub)sets, dynamic initialization, automatic finalization, as"
+     },
+     {
+      "id":"book_C_4",
+      "modFile":"c4compo.mos",
+      "modData":"c4compo.dat",
+      "modTitle":"Planning the production of electronic components",
+      "modType":"Multi-item production planning",
+      "modRating":2,
+      "modFeatures":"modeling stock balance constraints; inline if"
+     },
+     {
+      "id":"book_C_5",
+      "modFile":"c5fiber.mos",
+      "modData":"c5fiber.dat",
+      "modTitle":"Planning the production of fiberglass",
+      "modType":"Production planning with time-dependent production cost",
+      "modRating":3,
+      "modFeatures":"representation of multi-period production as flow; encoding of arcs, exists, create, isodd, getlast, inline if"
+     },
+     {
+      "id":"book_C_6",
+      "modFile":"c6assign.mos",
+      "modData":"c6assign.dat",
+      "modTitle":"Assignment of production batches to machines",
+      "modType":"Generalized assignment problem",
+      "modRating":1
+     }
+    ]
+   },
+   {
+    "id":"book_4",
+    "title":"Loading and Cutting Problems",
+    "directory":"D_LoadCut",
+    "models":[
+     {
+      "id":"book_D_1",
+      "modFileL":["d1wagon.mos", "d1wagon2.mos"],
+      "modData":"d1wagon.dat",
+      "modTitle":"Wagon load balancing",
+      "modType":"Nonpreemptive scheduling on parallel machines",
+      "modRating":4,
+      "modFeatures":"heuristic solution requiring sorting algorithm, formulation of maximin objective; nested subroutines: function returning heuristic solution value and sorting procedure, ceil, getsize, if-then, break, exit, all loop types (forall-do, repeat-until, while-do), setparam, cutoff value, qsort"
+     },
+     {
+      "id":"book_D_2",
+      "modFile":"d2ship.mos",
+      "modData":"d2ship.dat",
+      "modTitle":"Barge loading",
+      "modType":"Knapsack problem",
+      "modRating":2,
+      "modFeatures":"incremental problem definition with 3 different objectives, procedure for solution printing"
+     },
+     {
+      "id":"book_D_3",
+      "modFile":"d3tanks.mos",
+      "modData":"d3tanks.dat",
+      "modTitle":"Tank loading",
+      "modType":"Loading problem",
+      "modRating":3,
+      "modFeatures":"2 objectives; data preprocessing, as, dynamic creation of variables, procedure for solution printing, if-then-else"
+     },
+     {
+      "id":"book_D_4",
+      "modFile":"d4backup.mos",
+      "modData":"d4backup.dat",
+      "modTitle":"Backing up files",
+      "modType":"Bin-packing problem",
+      "modRating":2,
+      "modFeatures":"2 versions of mathematical model, symmetry breaking; data preprocessing, ceil, range"
+     },
+     {
+      "id":"book_D_5",
+      "modFile":"d5cutsh.mos",
+      "modData":"d5cutsh.dat",
+      "modTitle":"Cutting sheet metal",
+      "modType":"Covering problem",
+      "modRating":1
+     },
+     {
+      "id":"book_D_6",
+      "modFile":"d6cutbar.mos",
+      "modData":"d6cutbar.dat",
+      "modTitle":"Cutting steel bars for desk legs",
+      "modType":"Cutting-stock problem",
+      "modRating":2,
+      "modFeatures":"set operation(s) on range sets, set of integer (data as set contents)"
+     }
+    ]
+   },
+   {
+    "id":"book_5",
+    "title":"Ground Transport",
+    "directory":"E_TransGrd",
+    "models":[
+     {
+      "id":"book_E_1",
+      "modFile":"e1carrent.mos",
+      "modData":"e1carrent.dat",
+      "modTitle":"Car rental",
+      "modType":"Transport problem",
+      "modRating":3,
+      "modFeatures":"data preprocessing, set operations, finalize, sqrt and ^2, if-then-elif"
+     },
+     {
+      "id":"book_E_2",
+      "modFile":"e2minflow.mos",
+      "modData":"e2minflow.dat",
+      "modTitle":"Choosing the mode of transport",
+      "modType":"Minimum cost flow",
+      "modRating":2,
+      "modFeatures":"formulation with extra nodes for modes of transport; encoding of arcs, union of sets, nodes labeled with strings"
+     },
+     {
+      "id":"book_E_3",
+      "modFile":"e3depot.mos",
+      "modData":"e3depot.dat",
+      "modTitle":"Depot location",
+      "modType":"Facility location problem",
+      "modRating":3,
+      "modFeatures":"modeling flows as fractions, definition of model cuts"
+     },
+     {
+      "id":"book_E_4",
+      "modFile":"e4deliver.mos",
+      "modData":"e4deliver.dat",
+      "modTitle":"Heating oil delivery",
+      "modType":"Vehicle routing problem (VRP)",
+      "modRating":4,
+      "modFeatures":"elimination of inadmissible subtours, cuts; selection  with `|', definition of model cuts"
+     },
+     {
+      "id":"book_E_5",
+      "modFile":"e5combine.mos",
+      "modData":"e5combine.dat",
+      "modTitle":"Combining different modes of transport",
+      "modType":"NN",
+      "modRating":3,
+      "modFeatures":"modeling implications, weak and strong formulation of bounding constraints; triple indices"
+     },
+     {
+      "id":"book_E_6",
+      "modFile":"e6vanrent.mos",
+      "modData":"e6vanrent.dat",
+      "modTitle":"Fleet planning for vans",
+      "modType":"NN",
+      "modRating":3,
+      "modFeatures":"maxlist, minlist, max, min"
+     }
+    ]
+   },
+   {
+    "id":"book_6",
+    "title":"Air Transport",
+    "directory":"F_TransAir",
+    "models":[
+     {
+      "id":"book_F_1",
+      "modFile":"f1connect.mos",
+      "modData":"f1connect.dat",
+      "modTitle":"Flight connections at a hub",
+      "modType":"Assignment problem",
+      "modRating":1
+     },
+     {
+      "id":"book_F_2",
+      "modFile":"f2crew.mos",
+      "modData":"f2crew.dat",
+      "modTitle":"Composing flight crews",
+      "modType":"Bipartite matching",
+      "modRating":4,
+      "modFeatures":"2 problems, data preprocessing, incremental definition of data array, encoding of arcs, logical or (cumulative version) and and, procedure for printing solution, forall-do, max, finalize"
+     },
+     {
+      "id":"book_F_3",
+      "modFile":"f3landing.mos",
+      "modData":"f3landing.dat",
+      "modTitle":"Scheduling flight landings",
+      "modType":"Scheduling problem with time windows",
+      "modRating":3,
+      "modFeatures":"disjunctive constraints; calculation of specific BigM, forall-do"
+     },
+     {
+      "id":"book_F_4",
+      "modFileL":["f4hub.mos", "f4hub2.mos", "f4hub3.mos"],
+      "modData":"f4hub.dat",
+      "modTitle":"Airline hub location",
+      "modType":"Hub location problem",
+      "modRating":3,
+      "modFeatures":"quadruple indices; improved (re)formulation (first model not usable with student version), union of index (range) sets"
+     },
+     {
+      "id":"book_F_5",
+      "modFileL":["f5tour.mos", "f5tour2.mos"],
+      "modDataL":["f5tour.dat", "f5tour23.dat", "f5tour7.dat"],
+      "modTitle":"Planning a flight tour",
+      "modType":"Symmetric traveling salesman problem",
+      "modRating":5,
+      "modFeatures":"loop over problem solving, TSP subtour elimination algorithm; procedure for generating additional constraints, recursive subroutine calls, working with sets, forall-do, repeat-until, getsize, not"
+     }
+    ]
+   },
+   {
+    "id":"book_7",
+    "title":"Telecommunication Problems",
+    "directory":"G_Telecomm",
+    "models":[
+     {
+      "id":"book_G_1",
+      "modFile":"g1rely.mos",
+      "modData":"g1rely.dat",
+      "modTitle":"Network reliability",
+      "modType":"Maximum flow with unitary capacities",
+      "modRating":3,
+      "modFeatures":"encoding of arcs, range, exists, create, algorithm for printing paths, forall-do, while-do, round, list handling"
+     },
+     {
+      "id":"book_G_2",
+      "modFile":"g2dimens.mos",
+      "modData":"g2dimens.dat",
+      "modTitle":"Dimensioning of a mobile phone network",
+      "modType":"NN",
+      "modRating":2,
+      "modFeatures":"if-then, exit"
+     },
+     {
+      "id":"book_G_3",
+      "modFile":"g3routing.mos",
+      "modData":"g3routing.dat",
+      "modTitle":"Routing telephone calls",
+      "modType":"Multi-commodity network flow problem",
+      "modRating":3,
+      "modFeatures":"encoding of paths, getsize"
+     },
+     {
+      "id":"book_G_4",
+      "modFile":"g4cable.mos",
+      "modData":"g4cable.dat",
+      "modTitle":"Construction of a cabled network",
+      "modType":"Minimum weight spanning tree problem",
+      "modRating":3,
+      "modFeatures":"formulation of constraints to exclude subcycles"
+     },
+     {
+      "id":"book_G_5",
+      "modFile":"g5satell.mos",
+      "modData":"g5satell.dat",
+      "modTitle":"Scheduling of telecommunications via satellite",
+      "modType":"Preemptive open shop scheduling",
+      "modRating":5,
+      "modFeatures":"data preprocessing, algorithm for preemptive scheduling that involves looping over optimization, ``Gantt chart'' printing"
+     },
+     {
+      "id":"book_G_6",
+      "modFile":"g6transmit.mos",
+      "modData":"g6transmit.dat",
+      "modTitle":"Location of GSM transmitters",
+      "modType":"Covering problem",
+      "modRating":1,
+      "modFeatures":"modeling an equivalence; sparse data format"
+     }
+    ]
+   },
+   {
+    "id":"book_8",
+    "title":"Economics and Finance",
+    "directory":"H_EconFin",
+    "models":[
+     {
+      "id":"book_H_1",
+      "modFile":"h1loan.mos",
+      "modData":"h1loan.dat",
+      "modTitle":"Choice of loans",
+      "modType":"NN",
+      "modRating":1,
+      "modFeatures":"calculation of net present value"
+     },
+     {
+      "id":"book_H_2",
+      "modFile":"h2publ.mos",
+      "modData":"h2publ.dat",
+      "modTitle":"Publicity campaign",
+      "modType":"NN",
+      "modRating":1,
+      "modFeatures":"forall-do"
+     },
+     {
+      "id":"book_H_3",
+      "modFile":"h3portf.mos",
+      "modData":"h3portf.dat",
+      "modTitle":"Portfolio selection",
+      "modType":"NN",
+      "modRating":2,
+      "modFeatures":"sets of integers, second formulation with semi-continuous, parameters"
+     },
+     {
+      "id":"book_H_4",
+      "modFile":"h4retire.mos",
+      "modData":"h4retire.dat",
+      "modTitle":"Financing an early retirement scheme",
+      "modType":"NN",
+      "modRating":2,
+      "modFeatures":"inline if, selection with `|'"
+     },
+     {
+      "id":"book_H_5",
+      "modFile":"h5budget.mos",
+      "modData":"h5budget.dat",
+      "modTitle":"Family budget",
+      "modType":"NN",
+      "modRating":2,
+      "modFeatures":"formulation of monthly balance constraints including different payment frequencies; as, mod, inline if, selection with `|'"
+     },
+     {
+      "id":"book_H_6",
+      "modFile":"h6expand.mos",
+      "modData":"h6expand.dat",
+      "modTitle":"Choice of expansion projects",
+      "modType":"NN",
+      "modRating":2,
+      "modFeatures":"experiment with solutions: solve LP problem explicitly, ``round'' some almost integer variable and re-solve"
+     },
+     {
+      "id":"book_H_7",
+      "modFile":"h7qportf.mos",
+      "modData":"h7qportf.dat",
+      "modTitle":"Mean variance portfolio selection",
+      "modType":"Quadratic Programming problem",
+      "modRating":3,
+      "modFeatures":"parameters, forall-do, min, max, loop over problem solving"
+     }
+    ]
+   },
+   {
+    "id":"book_9",
+    "title":"Timetabling and Personnel Planning",
+    "directory":"I_TimePers",
+    "models":[
+     {
+      "id":"book_I_1",
+      "modFile":"i1assign.mos",
+      "modData":"i1assign.dat",
+      "modTitle":"Assigning personnel to machines",
+      "modType":"Assignment problem",
+      "modRating":4,
+      "modFeatures":"formulation of maximin objective; heuristic solution + 2 different problems (incremental definition) solved, working with sets, while-do, forall-do"
+     },
+     {
+      "id":"book_I_2",
+      "modFile":"i2nurse.mos",
+      "modData":"i2nurse.dat",
+      "modTitle":"Scheduling nurses",
+      "modType":"NN",
+      "modRating":3,
+      "modFeatures":"2 problems, using mod to formulate cyclic schedules; forall-do, set of integer, getact"
+     },
+     {
+      "id":"book_I_3",
+      "modFile":"i3school.mos",
+      "modData":"i3school.dat",
+      "modTitle":"Establishing a college timetable",
+      "modType":"NN",
+      "modRating":3,
+      "modFeatures":"many specific constraints, tricky (pseudo) objective function"
+     },
+     {
+      "id":"book_I_4",
+      "modFile":"i4exam.mos",
+      "modData":"i4exam.dat",
+      "modTitle":"Exam schedule",
+      "modType":"NN",
+      "modRating":2,
+      "modFeatures":"symmetry breaking, no objective"
+     },
+     {
+      "id":"book_I_5",
+      "modFile":"i5pplan.mos",
+      "modData":"i5pplan.dat",
+      "modTitle":"Production planning with personnel assignment",
+      "modType":"NN",
+      "modRating":3,
+      "modFeatures":"2 problems, defined incrementally with partial re-definition of constraints (named constraints), exists, create, dynamic array"
+     },
+     {
+      "id":"book_I_6",
+      "modFile":"i6build.mos",
+      "modData":"i6build.dat",
+      "modTitle":"Planning the personnel at a construction site",
+      "modType":"NN",
+      "modRating":2,
+      "modFeatures":"formulation of balance constraints using inline if"
+     }
+    ]
+   },
+   {
+    "id":"book_10",
+    "title":"Local Authorities and Public Services",
+    "directory":"J_Service",
+    "models":[
+     {
+      "id":"book_J_1",
+      "modFileL":["j1water.mos", "j1water2.mos"],
+      "modDataL":["j1water.dat", "j1water2.dat"],
+      "modTitle":"Water conveyance / water supply management",
+      "modType":"Maximum flow problem",
+      "modRating":2,
+      "modFeatures":"encoding of arcs, selection with `|', record data structure"
+     },
+     {
+      "id":"book_J_2",
+      "modFile":"j2bigbro.mos",
+      "modData":"j2bigbro.dat",
+      "modTitle":"CCTV surveillance",
+      "modType":"Maximum vertex cover problem",
+      "modRating":2,
+      "modFeatures":"encoding of network, exists"
+     },
+     {
+      "id":"book_J_3",
+      "modFileL":["j3elect.mos", "j3elect_calc.mos", "j3elect_calc2.mos"],
+      "modDataL":["j3elect.dat", "j3elect2.dat"],
+      "modTitle":"Rigging elections",
+      "modType":"Partitioning problem",
+      "modRating":4,
+      "modFeatures":"algorithm for data preprocessing; file inclusion, 3 nested/recursive procedures, working with sets, if-then, forall-do, exists, finalize"
+     },
+     {
+      "id":"book_J_4",
+      "modFileL":["j4grit.mos", "j4grit2.mos"],
+      "modData":"j4grit.dat",
+      "modTitle":"Gritting roads",
+      "modType":"Directed Chinese postman problem",
+      "modRating":4,
+      "modFeatures":"algorithm for finding Eulerian path/graph for printing; encoding of arcs, dynamic array, exists, 2 functions implementing Eulerian circuit algorithm, round, getsize, break, while-do, if-then-else, list handling"
+     },
+     {
+      "id":"book_J_5",
+      "modFile":"j5tax.mos",
+      "modData":"j5tax.dat",
+      "modTitle":"Location of income tax offices",
+      "modType":"p-median problem",
+      "modRating":4,
+      "modFeatures":"modeling an implication, all-pairs shortest path algorithm (Floyd-Warshall); dynamic array, exists, procedure for shortest path algorithm, forall-do, if-then, selection with `|'"
+     },
+     {
+      "id":"book_J_6",
+      "modFile":"j6hospit.mos",
+      "modData":"j6hospit.dat",
+      "modTitle":"Efficiency of hospitals",
+      "modType":"Data Envelopment Analysis (DEA)",
+      "modRating":3,
+      "modFeatures":"description of DEA method; loop over problem solving with complete re-definition of problem every time, naming and declaring constraints"
+     }
+    ]
+   },
+   {
+    "id":"book_Intro",
+    "title":"Introductory examples",
+    "directory":"Intro",
+    "models":[
+     {
+      "id":"book_Intro_approx",
+      "modFileL":["approx.mos","approx2.mos"],
+      "modTitle":"Approximation",
+      "modType":"Piecewise linear approximation",
+      "modRating":2,
+      "modFeatures":"SOS-2, Special Ordered Sets, piecewise linear approximation of a nonlinear function, pwlin"
+     },
+     {
+      "id":"book_Intro_burg",
+      "modFileL":["burglar1.mos", "burglar2.mos", "burglari.mos", "burglar_rec.mos"],
+      "modDataL":["burglar.dat", "burglar2.dat", "burglar_rec.dat"],
+      "modTitle":"Burglar",
+      "modType":"Knapsack problem",
+      "modRating":1,
+      "modFeatures":"simple MIP model, data input from text data file, array initialization, numerical indices, string indices, record data structure"
+     },
+     {
+      "id":"book_Intro_chess",
+      "modFileL":["chess.mos", "chess2.mos"],
+      "modTitle":"Chess",
+      "modType":"Production planning",
+      "modRating":1,
+      "modFeatures":"simple LP model, solution output, primal solution values, slack values, activity values, dual solution values"
+     },
+     {
+      "id":"book_Intro_pbrai",
+      "modFileL":["pricebrai.mos", "pricebrai2.mos"],
+      "modTitle":"All item discount pricing",
+      "modType":"Piecewise linear function",
+      "modRating":3,
+      "modFeatures":"SOS-1, Special Ordered Sets, piecewise linear function, approximation of non-continuous function, step function, pwlin"
+     },
+     {
+      "id":"book_Intro_pbrinc",
+      "modFileL":["pricebrinc.mos", "pricebrinc2.mos", "pricebrinc3.mos"],
+      "modTitle":"Incremental pricebreaks",
+      "modType":"Piecewise linear function",
+      "modRating":3,
+      "modFeatures":"SOS-2, Special Ordered Sets, piecewise linear function, step function,"
+     }
+    ]
+  }
+]

@@ -1,0 +1,38 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================   
+
+   Example model for the 
+   Robust Optimization with Xpress white paper
+
+   (c) 2014 Fair Isaac Corporation
+       
+*******************************************************!)
+model Careful
+ uses "mmrobust"                    ! Load the robust library
+
+  declarations
+    x,y,z: mpvar
+    ex, ey, ez: uncertain
+  end-declarations
+
+  x is_binary ; y is_binary ; z is_binary
+
+  20*x + 10*y + 5*z >= 20
+
+  ex>=0 ; ex<=1 
+  ey>=0 ; ey<=1
+  ez>=0 ; ez<=1
+
+  cardinality({ex,ey,ez},1)   ! Allow only one of the uncertains to be nonzero
+
+  setparam("ROBUST_UNCERTAIN_OVERLAP",true)   ! Allow overlaps
+  
+  10*(x-x*ex) + 10*(y-y*ey) + 10*(z-z*ez) >= 10
+  10*(x-x*ex) + 10*(y-y*ey) + 10*(z-z*ez) <= 20
+    
+  maximize(x+y+z)
+
+  writeln("x = ", getsol(x), "  y = ", getsol(y), "  z = ", getsol(z))
+
+end-model

@@ -1,0 +1,53 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file i4exam2_ka.mos
+   ```````````````````
+   Scheduling exams
+   (See "Applications of optimization with Xpress-MP",
+        Section 14.4 Exam schedule)
+   - Reading indices from file + dynamic creation of variables. -
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+       Creation: 2005, rev. Mar. 2013       
+*****************************************************************!)
+
+model "I-4 Scheduling exams (CP) - 2"
+ uses "kalis"
+ 
+ declarations
+  NT: integer                         ! Number of time slots
+  EXAM: set of string                 ! Set of exams
+  TIME: set of integer                ! Set of time slots  
+  INCOMP: dynamic array(EXAM,EXAM) of integer ! Incompatibility between exams
+  
+  plan: array(EXAM) of cpvar          ! Time slot for exam
+ end-declarations
+
+ initializations from 'Data/i4exam2.dat'
+  INCOMP NT
+ end-initializations
+
+ TIME:= 1..NT
+ 
+ setparam("kalis_default_lb", 1); setparam("kalis_default_ub", NT)
+ forall(e in EXAM) create(plan(e))
+ 
+! Respect incompatibilities
+ forall(d,e in EXAM | exists(INCOMP(d,e)) and d<e)  plan(d) <> plan(e)  
+
+! Solve the problem
+ if not cp_find_next_sol then
+  writeln("Problem is infeasible")
+  exit(1)
+ end-if   
+
+! Solution printing
+ forall(t in TIME) do
+  write("Slot ", t, ": ")
+  forall(e in EXAM | getsol(plan(e))=t) write(e," ")
+  writeln
+ end-do
+
+end-model

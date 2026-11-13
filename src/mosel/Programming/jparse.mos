@@ -1,0 +1,132 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file xparse.mos
+   ```````````````
+   A simple example of the use of the JSON parser in mmxml
+   
+   (c) 2014 Fair Isaac Corporation
+       author: Y. Colombani, October 2014
+*******************************************************!)
+
+model jparse
+
+uses 'mmxml'
+
+declarations
+ d:xmldoc
+ public src=`
+[
+ {
+  "name": "bob",
+  "age": 25,
+  "student": true,
+  "phone":
+  [
+   { "type": "home", "number": "1234567900" },
+   { "type": "work", "number": "6789012345" }
+  ],
+  "empty":null
+  }
+]
+`
+end-declarations
+
+forward public procedure myjsonload(d:xmldoc,fname:text)
+
+myjsonload(d,"text:src")
+save(d,"")
+
+!------------------------------------------------------
+
+! The following structure will be used to store the state of the parser
+declarations
+ public s_ctx=
+    record
+	doc:xmldoc
+	jtype:array(0..3) of string
+	curnode:integer
+    end-record
+end-declarations
+
+!------------------------------------------------------
+
+! **** Callback function: Start an object ****
+public function open_obj(c:s_ctx,name:text):integer
+ c.curnode:=addnode(c.doc,c.curnode,XML_ELT,if(name="","jsv",string(name)))
+ setattr(c.doc,c.curnode,"jst","obj")
+end-function
+
+! **** Callback function: End an object ****
+public function close_obj(c:s_ctx):integer
+ c.curnode:=getparent(c.doc,c.curnode)
+end-function
+
+! **** Callback function: Start an array ****
+public function open_arr(c:s_ctx,name:text):integer
+ c.curnode:=addnode(c.doc,c.curnode,XML_ELT,if(name="","jsv",string(name)))
+ setattr(c.doc,c.curnode,"jst","arr")
+end-function
+
+! **** Callback function: End an array ****
+public function close_arr(c:s_ctx):integer
+ c.curnode:=getparent(c.doc,c.curnode)
+end-function
+
+! **** Callback function: Store a value ****
+public function setvalue_all(c:s_ctx,name:text,type:integer,val:text):integer
+ n:=addnode(c.doc,c.curnode,XML_ELT,if(name="","jsv",string(name)),val)
+ setattr(c.doc,n,"jst",c.jtype(type))
+end-function
+
+! **** Callback function: Store a numerical value 
+!      ('JSON_FCT_TEXT' is used if this one is not defined) ****
+public function setvalue_num(c:s_ctx,name:text,val:real):integer
+ n:=addnode(c.doc,c.curnode,XML_ELT,if(name="","jsv",string(name)),text(val))
+ setattr(c.doc,n,"jst","num")
+end-function
+
+! **** Callback function: Store a Boolean value 
+!      ('JSON_FCT_TEXT' is used if this one is not defined) ****
+public function setvalue_bool(c:s_ctx,name:text,val:boolean):integer
+ n:=addnode(c.doc,c.curnode,XML_ELT,if(name="","jsv",string(name)),text(val))
+ setattr(c.doc,n,"jst","boo")
+end-function
+
+! **** Callback function: Store the null value 
+!      ('JSON_FCT_TEXT' is used if this one is not defined) ****
+public function setvalue_null(c:s_ctx,name:text):integer
+ n:=addnode(c.doc,c.curnode,XML_ELT,if(name="","jsv",string(name)),"null")
+ setattr(c.doc,n,"jst","nul")
+end-function
+
+!------------------------------------------------------
+
+! **** An implementation of 'jsonload(xmldoc,text)' using the JSON parser ****
+public procedure myjsonload(d:xmldoc,fname:text)
+ declarations
+  afct:array(range) of string
+  ctx:s_ctx
+ end-declarations
+
+ afct(JSON_FCT_OPEN_OBJ):="open_obj"      ! Start an object
+ afct(JSON_FCT_CLOSE_OBJ):="close_obj"    ! End an object
+ afct(JSON_FCT_OPEN_ARR):="open_arr"      ! Start an array
+ afct(JSON_FCT_CLOSE_ARR):="close_arr"    ! End an array
+ afct(JSON_FCT_TEXT):="setvalue_all"      ! A value as a text
+ afct(JSON_FCT_NUM):="setvalue_num"       ! A numerical value
+ afct(JSON_FCT_BOOL):="setvalue_bool"     ! A Boolean value
+ afct(JSON_FCT_NULL):="setvalue_null"     ! The "null" value
+
+ fopen(fname,F_INPUT)
+ ctx.curnode:=0;
+ ctx.jtype::([0,1,2,3])["nul","str","num","boo"]
+ ! 'jsonparse' expects a table of functions (all are optional)
+ ! the last argument will be passed to all functions
+ rts:=jsonparse(afct,ctx)
+ fclose(F_INPUT)
+ d:=ctx.doc
+end-procedure
+
+end-model

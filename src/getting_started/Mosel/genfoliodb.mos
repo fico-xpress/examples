@@ -1,0 +1,54 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file genfoliodb.mos
+   ```````````````````
+   Generate the "folio" database with input data.
+   
+  (c) 2011 Fair Isaac Corporation
+      author: S.Heipcke, Mar. 2011, rev. Sep. 2014
+*******************************************************!)
+
+model "Generate Portfolio database (ODBC)"
+ uses "mmxprs", "mmodbc"
+
+ parameters
+  DATAFILE = "DSN=mysql;DB=folio"    ! MySQL database with problem data	 	
+!  DATAFILE = "folio.sqlite"         ! SQLite database with problem data
+  DBDATA = "folio"                   ! Database table with problem data
+  DBSOL = "foliosol"                 ! Table for solution data 
+ end-parameters
+
+ declarations
+  SHARES: set of string              ! Set of shares
+  RISKset: set of string             ! Set of high-risk values among shares
+  NAset: set of string               ! Set of shares issued in N.-America
+  RET: array(SHARES) of real         ! Estimated return in investment
+  RISK: array(SHARES) of boolean     ! List of high-risk values among shares
+  NA: array(SHARES) of boolean       ! List of shares issued in N.-America
+ end-declarations
+
+ 
+ initializations from "folio.dat"
+  RISKset as "RISK"
+  RET 
+  NAset as "NA"
+ end-initializations
+
+ forall(s in SHARES) RISK(s):= (s in RISKset)
+ forall(s in SHARES) NA(s):= (s in NAset)
+
+ setparam("SQLdebug",true)
+ SQLconnect(DATAFILE)
+ SQLexecute("drop table " + DBDATA)
+ SQLexecute("create table " + DBDATA + " ( SHARES VARCHAR(20) NOT NULL PRIMARY KEY, RET integer, RISK boolean, NA boolean)" )
+ SQLexecute("drop table " + DBSOL)
+ SQLexecute("create table " + DBSOL + " ( SHARES VARCHAR(20) NOT NULL PRIMARY KEY, Solfrac double)" )
+ SQLdisconnect
+
+ initializations to "mmodbc.odbc:debug;" + DATAFILE
+   [RET,RISK,NA] as DBDATA
+ end-initializations
+
+end-model

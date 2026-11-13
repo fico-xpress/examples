@@ -1,0 +1,55 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file linctr.mos
+   ```````````````
+   Posting and propagating linear constraints.
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+       Creation: 2005, rev. Mar. 2013
+*****************************************************************!)
+model "Linear constraints"
+ uses "kalis"
+
+ declarations
+  N = 3
+  R = 1..N
+  x: array(R) of cpvar
+  c1: cpctr
+ end-declarations  
+
+ forall(i in R) do
+  0 <= x(i); x(i) <= 50
+  setname(x(i), "x"+i)
+ end-do
+
+! Automated post+propagation
+ x(1) >= x(3) + 5
+ writeln(x(1), " ", x(3))
+ 
+! Named constraint (explicit post)
+ c1:= x(3) >= x(2) + 10 
+ 
+ if cp_post(c1) then
+  writeln("With constraint c1: ", x)
+ else exit(1)
+ end-if            
+
+! Stop automated propagation
+ setparam("kalis_auto_propagate", false)
+
+! Automated post w/o propagation
+ x(2) >= 10
+ writeln("new bound for x2: ", x) 
+ if cp_propagate then
+  writeln("after propagation: ", x) 
+ end-if
+
+! Minimize the value of x(1) 
+ if cp_minimize(x(1)) then
+  write("Solution: ")
+  forall(i in R) write(getsol(x(i)), " ")
+  writeln  
+ end-if
+end-model

@@ -1,0 +1,105 @@
+! Data file for 'bridgescheduling_alt.mos'
+
+DISTEE: [(1 1) "S6" "B6" (2 1) "S5" "B5" (3 1) "S4" "B4"
+         (4 1) "S3" "B3" (5 1) "S2" "B2" (6 1) "S1" "B1" ]
+DISTES: [(1 1) "A6" "S6" (2 1) "A5" "S5" (3 1) "P2" "S4"
+         (4 1) "P2" "S4" (5 1) "P1" "S3" (6 1) "A2" "S2" 
+	 (7 1) "A1" "S1" ]
+DISTSS: [(1 1) "UE" "SOF" ]
+DISTSE: [(1 1) "EOM" "UA" ]
+
+! (Task name) [duration, resource used]    
+TASKDATA: [     
+ ("PA")  [0  ""]
+ ("A1")  [4  "excavator"]
+ ("A2")  [2  "excavator"]
+ ("A3")  [2  "excavator"]
+ ("A4")  [2  "excavator"]
+ ("A5")  [2  "excavator"]
+ ("A6")  [5  "excavator"]
+ ("P1")  [20  "pile-driver"]
+ ("P2")  [13  "pile-driver"]
+ ("UE")  [10  "other"]
+ ("SOF") [0  ""] 
+ ("S1")  [8  "carpentry"]
+ ("S2")  [4  "carpentry"]
+ ("S3")  [4  "carpentry"]
+ ("S4")  [4  "carpentry"]
+ ("S5")  [4  "carpentry"]
+ ("S6")  [10  "carpentry"] 
+ ("B1")  [1  "concrete-mixer"]
+ ("B2")  [1  "concrete-mixer"]
+ ("B3")  [1  "concrete-mixer"]
+ ("B4")  [1  "concrete-mixer"]
+ ("B5")  [1  "concrete-mixer"]
+ ("B6")  [1  "concrete-mixer"]
+ ("AB1") [1  "other"]
+ ("AB2") [1  "other"]
+ ("AB3") [1  "other"]
+ ("AB4") [1  "other"]
+ ("AB5") [1  "other"]
+ ("AB6") [1  "other"]
+ ("M1")  [16  "bricklaying"]
+ ("M2")  [8  "bricklaying"]
+ ("M3")  [8  "bricklaying"]
+ ("M4")  [8  "bricklaying"]
+ ("M5")  [8  "bricklaying"]
+ ("M6")  [20  "bricklaying"] 
+ ("EOM") [0  "other"]
+ ("L")   [2  "crane"]
+ ("T1")  [12  "crane"]
+ ("T2")  [12  "crane"]
+ ("T3")  [12  "crane"]
+ ("T4")  [12  "crane"]
+ ("T5")  [12  "crane"]
+ ("UA")  [10  "other"]
+ ("V1")  [15  "caterpillar"]
+ ("V2")  [10  "caterpillar"] 
+ ("PE")  [0  "other"] 
+]
+
+PRECS: [
+ ("A1") "PA"
+ ("A2") "PA"
+ ("A3") "PA"
+ ("A4") "PA"
+ ("A5") "PA"
+ ("A6") "PA"
+ ("P1") "A3"
+ ("P2") "A4"
+ ("UE") "PA"
+ ("S1") ["A1" "SOF"] 
+ ("S2") ["A2" "SOF"] 
+ ("S3") ["P1" "SOF"] 
+ ("S4") ["P2" "SOF"] 
+ ("S5") ["A5" "SOF"] 
+ ("S6") ["A6" "SOF"] 
+ ("B1") "S1"
+ ("B2") "S2"
+ ("B3") "S3"
+ ("B4") "S4"
+ ("B5") "S5"
+ ("B6") "S6"
+ ("AB1") "B1"
+ ("AB2") "B2"
+ ("AB3") "B3"
+ ("AB4") "B4"
+ ("AB5") "B5"
+ ("AB6") "B6"
+ ("M1") "AB1"
+ ("M2") "AB2"
+ ("M3") "AB3"
+ ("M4") "AB4"
+ ("M5") "AB5"
+ ("M6") "AB6" 
+ ("EOM") ["M1" "M2" "M3" "M4" "M5" "M6"]
+ ("T1") ["M1" "M2" "L"]
+ ("T2") ["M2" "M3" "L"]
+ ("T3") ["M3" "M4" "L"]
+ ("T4") ["M4" "M5" "L"]
+ ("T5") ["M5" "M6" "L"]
+ ("UA") "UE"
+ ("V1") "T1"
+ ("V2") "T5"
+ ("PE") ["T2" "T3" "T4" "UA" "V1" "V2"] 
+]

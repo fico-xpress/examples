@@ -1,0 +1,44 @@
+(!*******************************************************
+   Mosel Example Problems
+   ======================
+
+   file exbtree.mos
+   ````````````````
+   Example of use lists and of the 'bintree' package
+
+   -- Note: The package 'bintree' (file bintree.mos)  
+      needs to be compiled before executing this model --
+
+   (c) 2008 Fair Isaac Corporation
+       author: Y. Colombani, 2006
+  *******************************************************!)
+model exbtree
+uses ':bintree.bim'
+! Uncomment the following line in place of the previous if you see the 
+! compilation error message "Package ':bintree.bim' not found"
+!  uses "bintree"
+
+declarations
+ arbre:tree
+ allvals:list of real
+end-declarations
+
+repeat
+ insert(arbre,round(random*100))
+until arbre.size = 10
+
+write("Values in the binary tree:"); show(arbre)
+
+allvals:=tolist(arbre)
+writeln("The smallest value:",allvals.first)
+writeln("The biggest value:",allvals.last)
+writeln("The 5 first entries:",splithead(allvals,5))
+writeln("Remaining after split:",allvals)
+writeln("Element ",allvals.first," is in the tree: ",find(arbre,allvals.first))
+r:=round(random*100)
+writeln("Element ",r," is in the tree: ",find(arbre,r))
+
+reset(arbre)
+write("Values after reset:"); show(arbre)
+end-model
+

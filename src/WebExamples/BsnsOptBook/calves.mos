@@ -1,0 +1,50 @@
+(!*********************************************************************
+   Mosel Example Problems
+   ======================
+
+   file calves.mos
+   ```````````````
+   Calves and pigs problem 
+   
+     Example discussed in section 3.3.1 of
+     J. Kallrath: Business Optimization Using Mathematical Programming -
+     An Introduction with Case Studies and Solutions in Various Algebraic 
+     Modeling Languages. 2nd edition, Springer Nature, Cham, 2021 
+
+   author: S. Heipcke, June 2018
+
+   (c) Copyright 2020 Fair Isaac Corporation
+  
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+*********************************************************************!)
+
+model 'calves'
+  uses "mmxprs"
+
+  declarations
+    c: mpvar               ! Number of calves
+    p: mpvar               ! Number of pigs
+  end-declarations
+
+  Money:= c + p<= 3.5      ! Must stay within limit
+  Ret:= 3*c + 2*p          ! Objective: maximise return
+
+  c is_integer; c<=2
+  p is_integer; p<=2
+
+  maximise(Ret)
+  writeln("Solution: Return=", getobjval)
+  writeln("Number of calves=", c.sol, " pigs=", p.sol)
+
+end-model

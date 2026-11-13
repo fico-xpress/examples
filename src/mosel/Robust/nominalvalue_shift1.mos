@@ -1,0 +1,27 @@
+ (!******************************************************
+   Mosel Example Problems
+   ======================   
+
+   Example model for the 
+   Robust Optimization with Xpress white paper
+
+   (c) 2014 Fair Isaac Corporation
+       
+*******************************************************!)
+model Nominalvalues
+ uses "mmrobust"                    ! Load the robust library
+
+declarations
+ x,y : mpvar
+ e,f : uncertain
+end-declarations
+     
+e^2 + f^2 <= 2      ! An ellipsoidal uncertainty constraint
+
+e*x + f*y <= 1
+
+maximize(x + y)
+
+writeln("x = ", getsol(x), ",  y = ", getsol(y))
+
+end-model

@@ -1,0 +1,90 @@
+! XNLP example for dual multipliers for non-linear problems
+!
+! This example solves a series of problem, some of which do not have valid dual 
+! multipliers (Lagrange multipliers) in the absense of one of the regularity 
+! conditions (like Slater's condition)
+!
+! This example demonstrates a particular non-linear optimization concept as related 
+! to Xpress NonLinear.
+! The version of the example is for Xpress 7.5.
+!
+!  (c) 2013-2026 Fair Isaac Corporation
+!       author: Zsolt Csizmadia
+model mmxnlp_nlp_duals
+uses "mmxnlp"; 
+
+declarations
+ x,y: mpvar
+end-declarations
+
+! Simple model minimizing a linear objective over a ball
+Ball1 := x^2 + y^2 <= 1
+x is_free
+y is_free
+
+! Solve with a local solver to be able to obtain duals
+setparam("XPRS_NLPSOLVER",1)
+
+! Optimize with defaults. Note that y solution of y is not exact
+writeln("Step one: default options")
+minimize(y)
+writeln("Optimal solution: x=",getsol(x)," y=",getsol(y))
+writeln("-----------------------------------------------")
+writeln
+
+! Set a strict complementarity target. Bargaptarget is a "wish", it is safe to 
+! set it small, if the solver cannot satisfy it, it will stop early 
+! (in constrast to bargapstop)
+! This is a solver specific setting, use the xprs_ pretag.
+setparam("xprs_bargaptarget",1e-20)
+minimize(y)
+writeln("Optimal solution: x=",getsol(x)," y=",getsol(y))
+! Look at the dual values
+! Observe that the multipliers provide a proof of local optimality
+writeln("Optimal solution: pi(Ball1)=",getdual(Ball1))
+writeln("Linearization of Ball1 at the optimal solution: (", 2*getsol(x),
+        ",",2*getsol(y),")")
+writeln("Multiplied with its dual: (", getdual(Ball1)*2*getsol(x),
+        ",",getdual(Ball1)*2*getsol(y),")")
+writeln("Linearization of the objective at the optimal solution: (0,1)")
+writeln("-----------------------------------------------")
+writeln
+
+! Now introduce a new nonlinear constraint that only intersects the first 
+! constraint in a single point
+Ball2 := (x-2)^2 + y^2 <= 1
+minimize(y)
+writeln("Optimal solution: x=",getsol(x)," y=",getsol(y))
+! Look at the dual values, and note the very large numbers
+! Note that the solver kept pertubing y even though the very strict 
+! complementarity target
+writeln("Optimal solution: pi(Ball1)=",getdual(Ball1), " pi(Ball2)=",getdual(Ball2))
+writeln("-----------------------------------------------")
+writeln
+
+! The solver has artifically pertuebed (relaxed) the problem.
+! Let we do the relaxation instead by the means of redefining the second constraints
+Ball2 := (x-2)^2 + y^2 <= 1.001
+minimize(y)
+writeln("Optimal solution: x=",getsol(x)," y=",getsol(y))
+! Even though the relaxation is small, 0.1%, the duals are now meaningful
+writeln("Optimal solution: pi(Ball1)=",getdual(Ball1), " pi(Ball2)=",getdual(Ball2))
+writeln("-----------------------------------------------")
+writeln
+
+! The case of x^2 <= 0 is interseting, as there is simply no constraint gradient
+! The effect is the same: the solver perturbs
+sethidden(Ball1, true)
+sethidden(Ball2, true)
+Ball := x^2 + y^2 <= 0
+minimize(y)
+writeln("Optimal solution: x=",getsol(x)," y=",getsol(y))
+! Even though the relaxation is small, 0.1%, the duals are now meaningful
+writeln("Optimal solution: pi(Ball)=",getdual(Ball))
+writeln("-----------------------------------------------")
+writeln
+
+
+
+end-model
+

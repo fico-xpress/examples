@@ -1,0 +1,135 @@
+(!******************************************************
+   CP Example Problems
+   ===================
+
+   file j5tax_ka.mos
+   `````````````````
+   Choice of locations for income tax offices
+   (See "Applications of optimization with Xpress-MP",
+        Section 15.5 Location of income tax offices)
+   
+   The variables build(c) representing the decisions
+   whether to build an office and the variables depend(c)
+   indicating the office associated with a town are linked
+   by `occurrence' and `equivalence' constraints:
+     numdep(c) = |depend(d)=c|
+     numdep(c) >= 1 <=> build(c) = 1 
+   
+   The distances in the objective function are represented
+   through `element' constraints (auxiliary variables depdist(c)
+   indicate the distance from town c to the closest office).
+   
+   *** This model cannot be run with a Community Licence 
+       for the provided data instance ***
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+       Creation: 2005, rev. Mar. 2013, Apr. 2022       
+*******************************************************!)
+
+model "J-5 Tax office location (CP)"
+ uses "kalis"
+
+ forward procedure calculate_dist
+
+ setparam("KALIS_DEFAULT_LB", 0)
+
+ declarations
+  NC = 12
+  CITIES = 1..NC                        ! Set of cities
+
+  DIST: array(CITIES,CITIES) of integer ! Distance matrix
+  POP: array(CITIES) of integer         ! Population of cities
+  LEN: dynamic array(CITIES,CITIES) of integer ! Road lengths
+  NUMLOC: integer                       ! Desired number of tax offices
+  D: array(CITIES) of integer           ! Auxiliary array used in constr. def.
+  
+  build: array(CITIES) of cpvar         ! 1 if office in city, 0 otherwise
+  depend: array(CITIES) of cpvar        ! Office on which city depends
+  depdist: array(CITIES) of cpvar       ! Distance to tax office
+  numdep: array(CITIES) of cpvar        ! Number of depending cities per off.
+  totDist: cpvar                        ! Objective function variable
+  Strategy: array(1..2) of cpbranching  ! Branching strategy
+ end-declarations
+
+ initializations from 'Data/j5tax.dat'
+  LEN POP NUMLOC
+ end-initializations
+
+! Calculate the distance matrix
+ calculate_dist    
+
+ forall(c in CITIES) do
+  build(c) <= 1
+  1 <= depend(c); depend(c) <= NC
+  min(d in CITIES) DIST(c,d) <= depdist(c) 
+  depdist(c) <= max(d in CITIES) DIST(c,d)
+  numdep(c) <= NC
+ end-do
+
+! Distance from cities to tax offices
+ forall(c in CITIES) do
+  forall(d in CITIES) D(d):=DIST(c,d)
+  element(D, depend(c)) = depdist(c)
+ end-do
+
+! Number of cities depending on every office
+ forall(c in CITIES) occurrence(c, depend) = numdep(c) 
+
+! Relations between dependencies and offices built
+ forall(c in CITIES) equiv( build(c) = 1, numdep(c) >= 1 )
+ 
+! Limit total number of offices
+ sum(c in CITIES) build(c) <= NUMLOC
+ 
+! Branching strategy
+ Strategy(1):= assign_and_forbid(KALIS_MAX_DEGREE, KALIS_MAX_TO_MIN, build)
+ Strategy(2):= split_domain(KALIS_SMALLEST_DOMAIN, KALIS_MIN_TO_MAX, 
+                            depdist, true, 5)
+ cp_set_branching(Strategy)
+ 
+! Objective: weighted total distance
+! totDist = sum(c in CITIES) POP(c)*depdist(c)
+! Equivalent formulation:
+ totDist = dot(POP,depdist)
+ 
+! Solve the problem
+ if not cp_minimize(totDist) then
+  writeln("Problem is infeasible")
+  exit(1)
+ end-if
+ 
+! Solution printing
+ writeln("Total weighted distance: ", getsol(totDist), 
+        " (average per inhabitant: ", 
+	   getsol(totDist)/sum(c in CITIES) POP(c), ")")
+ forall(c in CITIES | getsol(build(c))>0) do
+  write("Office in ", c, ": ")
+  forall(d in CITIES | getsol(depend(d))=c) write(" ",d)
+  writeln
+ end-do
+
+!-----------------------------------------------------------------
+
+! Calculate the distance matrix using Floyd-Warshall algorithm
+ procedure calculate_dist
+ ! Initialize all distance labels with a sufficiently large value
+  BIGM:=sum(c,d in CITIES | exists(LEN(c,d))) LEN(c,d)
+  forall(c,d in CITIES) DIST(c,d):=BIGM
+
+  forall(c in CITIES) DIST(c,c):=0    ! Set values on the diagonal to 0
+ 
+! Length of existing road connections
+  forall(c,d in CITIES | exists(LEN(c,d))) do
+   DIST(c,d):=LEN(c,d)
+   DIST(d,c):=LEN(c,d)
+  end-do
+ 
+! Update shortest distance for every node triple 
+  forall(b,c,d in CITIES | c<d )
+   if DIST(c,d) > DIST(c,b)+DIST(b,d) then
+    DIST(c,d):= DIST(c,b)+DIST(b,d)
+    DIST(d,c):= DIST(c,b)+DIST(b,d)
+   end-if 
+ end-procedure 
+ 
+end-model

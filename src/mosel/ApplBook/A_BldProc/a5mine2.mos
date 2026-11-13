@@ -1,0 +1,71 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file a5mine_set.mos
+   ```````````````````
+   Opencast mining
+   - Set version -
+  
+   An opencast uranium mine is being prospected. 6 of 
+   the 18 blocks contain uranium. To extract a block, 3
+   blocks of the level above it need to be extracted. 
+   Blocks have varied extraction costs and each block 
+   of uranium has a different market value. The objective
+   is to determine which blocks to extract to maximize 
+   total benefit.
+   
+   This model uses binary variables to indicate which 
+   blocks will be extracted. The extraction order between 
+   layers is represented via an array of sets data structure.
+   A relaxed (aggregated) formulation of this constraint is 
+   commented out for reference.
+
+   (c) 2008-2022 Fair Isaac Corporation
+       author: S. Heipcke, Jan. 2006, rev. Mar. 2022
+*******************************************************!)
+
+model "A-5 Opencast mining (2)"
+ uses "mmxprs"
+
+ declarations
+  BLOCKS = 1..18                         ! Set of blocks
+  LEVEL23: set of integer                ! Blocks in levels 2 and 3
+  COST: array(BLOCKS) of real            ! Exploitation cost of blocks
+  VALUE: array(BLOCKS) of real           ! Value of blocks
+  PRED: array(LEVEL23) of set of integer ! Predecessor blocks
+
+  extract: array(BLOCKS) of mpvar        ! 1 if block b is extracted
+ end-declarations
+
+ initializations from 'a5mine2.dat'
+  COST VALUE PRED
+ end-initializations
+
+! Objective: maximize total profit 
+ Profit:= sum(b in BLOCKS) (VALUE(b)-COST(b))* extract(b)  
+
+! Extraction order
+! forall(b in LEVEL23) getsize(PRED(b))*extract(b) <= sum(c in PRED(b)) extract(c)
+ forall(b in LEVEL23) forall(c in PRED(b)) extract(b) <= extract(c)
+
+ forall(b in BLOCKS) extract(b) is_binary
+  
+! Solve the problem
+ maximize(Profit)
+
+! Solution printing
+ declarations
+  WEIGHT: integer                        ! Weight of blocks 
+ end-declarations
+
+ initializations from 'a5mine2.dat'
+  WEIGHT
+ end-initializations
+
+ writeln("Total profit:", strfmt(getobjval*WEIGHT,8,0))
+ write("Extract blocks")
+ forall(b in BLOCKS | getsol(extract(b))>0) write(" ", b)
+ writeln 
+
+end-model

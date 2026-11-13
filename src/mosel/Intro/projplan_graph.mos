@@ -1,0 +1,123 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file projplan.mos
+   `````````````````
+   TYPE:         Planning projects with resource constraints
+   DIFFICULTY:   3
+   FEATURES:     MIP problem, alternative formulation with SOS-1,
+                 tricky formulation of resource use profiles and
+                 calculation of benefits, graphical solution representation
+   DESCRIPTION:  Over the next 6 months we have three projects which can 
+                 be done. Each of these projects has a profile of manpower 
+                 requirements over its lifetime, and a benefit which accrues 
+                 each month when the project has been completed.
+                 Our problem is to determine when each project is to start, 
+                 subject to the constraint that in no month can we try to 
+                 use more manpower than is available.     
+   FURTHER INFO: `Applications of optimization with Xpress-MP teaching 
+                 material', Section 2.3 `SOS-1: Manpower planning';
+                 `Applications of optimization with Xpress-MP', 
+                 Section 3.4.4 `Special Ordered Sets of type 1'.
+                 Similar problem:
+                 Section 7.1 `Construction of a stadium'
+
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2001, rev. Sep. 2017
+*******************************************************!)
+
+model "Manpower planning" 
+ uses "mmxprs", "mmsvg"
+
+ parameters
+  USESOS = false                   ! Set to true to use formulation with SOS
+ end-parameters
+
+ declarations
+  NP = 3                           ! Number of projects
+  PROJ = 1..NP                     ! Projects
+  NT = 6                           ! Time horizon
+  TIME = 1..NT                     ! Months to plan for
+  DUR: array(PROJ) of integer      ! Duration of projects
+  RESUSE: array(PROJ,TIME) of integer  ! Resource usage per project
+  RESMAX: array(TIME) of integer   ! Resource available per month
+  BEN: array(PROJ) of real         ! Benefit per month once project finished 
+
+  x: array(PROJ,TIME) of mpvar     ! 1 if project p starts in month t, else 0
+  start: array(PROJ) of mpvar      ! Starting time of project t
+ end-declarations
+
+ initializations from 'projplan.dat'
+  DUR RESMAX BEN RESUSE
+ end-initializations
+   
+! Objective: Maximize Benefit
+ MaxBen:= 
+  sum(p in PROJ,t in 1..NT-DUR(p)) (BEN(p)*(NT-t-DUR(p)+1)) * x(p,t)
+
+! Resource availability
+ forall(t in TIME)
+  Capacity(t):= sum(p in PROJ,s in 1..t) RESUSE(p,t-s+1)*x(p,s) <= RESMAX(t)
+
+! Each project starts once and only once  
+ forall(p in PROJ) OneStart(p):= sum(t in TIME) x(p,t) = 1
+
+! Connect variables x(p,t) and start(p)
+ forall(p in PROJ) Link(p):= sum(t in TIME) t*x(p,t) = start(p)
+
+! Finish everything by the end of the planning period
+ forall(p in PROJ) start(p) <= NT-DUR(p)+1
+ 
+ if not USESOS then                ! Turn variables x into binaries
+  forall(p in PROJ,t in TIME) x(p,t) is_binary
+ else                              ! Define SOS-1 sets 
+  forall(p in PROJ) StartSet(p):= sum(t in TIME) t*x(p,t) is_sos1
+ end-if
+
+! Solve the problem  
+ maximize(MaxBen)
+
+! Solution printing
+ writeln("Total benefit: ", getobjval)
+ write("   ")
+ forall(t in TIME) write(t)
+ writeln
+ forall(p in PROJ) do
+  write(p, ": ")
+  forall(t in TIME) 
+   write( if(t<getsol(start(p)), " ", if(t<getsol(start(p))+DUR(p), "*", "B")) )
+  writeln 
+ end-do
+
+! Solution drawing
+ declarations
+  ProjGraph: array(PROJ) of string
+ end-declarations
+
+ svgsetgraphviewbox(0,0,NT,max(t in TIME)RESMAX(t)+1) 
+ svgsetgraphscale(10)
+ svgsetgraphlabels("Time", "Resource usage")
+
+ forall(p in PROJ) do
+  ProjGraph(p):= "P"+p
+  svgaddgroup(ProjGraph(p), "Project "+p)
+  svgsetstyle(SVG_FILL,SVG_CURRENT)
+  svgsetstyle(SVG_STROKEWIDTH,0)
+ end-do 
+ forall(t in TIME) do
+  u:=0.0
+  forall(p in PROJ) do
+   svgaddrectangle(ProjGraph(p), t-1, u, 
+                    1, getsol(sum(s in 1..t) RESUSE(p,t-s+1)*x(p,s)))
+   u+=getsol(sum(s in 1..t) RESUSE(p,t-s+1)*x(p,s))
+  end-do
+ end-do
+ 
+ svgaddgroup("Res", "Available resource", SVG_RED)
+ svgaddline(sum(t in 1..NT) [t-1, RESMAX(t), t, RESMAX(t)])
+
+ svgsave("projplan.svg")
+ svgrefresh
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+end-model

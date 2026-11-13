@@ -1,0 +1,91 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file unionops.mos 
+   `````````````````
+   Using the 'reference to' operator and working with 
+   unions of array type (exists, create, delcell, reset).
+ 
+   (c) 2022 Fair Isaac Corporation
+       author: S. Heipcke, Mar. 2022
+*******************************************************!)
+model "union operations"
+ uses 'mmsystem'
+
+!**** Using 'reference to' with various data structures and types 
+ declarations
+   anInt: integer
+   aList: list of integer
+   Dates: array(1..10) of date
+   u: any
+ end-declarations
+ u:= ->anInt              ! u.integer and anInt are the same entity
+ u.integer:=10
+ writeln("anInt=", anInt) 
+
+ u:= ->aList
+ writeln("u=", u)   
+ aList:=[1,2,3]
+ writeln("u=", u) 
+
+ u:= ->Dates(2)
+ u.date:=date("2011-11-11")
+ writeln("Dates(2)=", Dates(2)) 
+
+!**** Difference between assignment and reference
+ declarations
+   A: array(range) of integer
+ end-declarations
+ A::(2..5)[2,4,6,8]
+
+ writeln("Assignment:")
+ u:=A                            ! u holds a copy of A
+ writeln("A=", A, "  u=", u) 
+ writeln("u is array:", u is array)
+ u.array(2).integer:=10          ! Modify 'u'      
+ writeln("A=", A, "  u=", u)     ! ('A' unchanged)
+ A(5):=10                        ! Modify 'A'
+ writeln("A=", A, "  u=", u)     ! ('u' unchanged)
+
+ writeln("Reference to:")
+ u:=->A                          ! u is a reference to A
+ writeln("A=", A, "  u=", u) 
+ writeln("u is array:", u is array) 
+ u.array(2).integer:=-1          ! Modify 'u'
+ writeln("A=", A, "  u=", u)
+ A(5):=25                        ! Modify 'A'
+ writeln("A=", A, "  u=", u) 
+
+
+!**** Working with exists, create, delcell, reset
+!**** (typed and untyped versions are equivalent)
+ declarations
+   B: dynamic array(string,range) of real
+ end-declarations
+ B("a",2):=2.5; B("a",4):=4.5; B("c",4):=6.5
+
+ writeln("B: nbdim:", B.nbdim, " size:", B.size)
+ writeln("   first index:", B.index(1))
+ u:=->B
+ writeln("u: first index:", u.array.index(1))
+ create(u.array("b",4).any)
+ create(u.array("b",5).real)
+ writeln("B: new size:", B.size, " first index:", B.index(1))
+ writeln("test of existence (typed): ", exists(u.array("a",2).real))
+ writeln("test of existence (untyped): ", exists(u.array("a",2).any))
+ writeln(u.array("a",2).real)
+
+! Removing an entry from a sparse array:
+ delcell(u.array("a",2).any)
+ delcell(u.array("a",4).real)
+ writeln("B: new size:", B.size)
+! Resetting (=deleting contents of) the array for sparse or dense arrays:
+ reset(u.array)
+ writeln("Arrays are empty:", B.size=0 and u.array.size=0)  
+ writeln("u is defined:", isdefined(u), " is array:", u is array of real)
+! Reset the reference (original array B remains unchanged)
+ reset(u)
+ writeln("u is defined:", isdefined(u), " is array:", u is array)    
+
+end-model

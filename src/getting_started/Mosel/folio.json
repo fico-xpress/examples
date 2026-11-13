@@ -1,0 +1,25 @@
+{
+ "share":[
+   {"name":"treasury", "ret":"5", "dev":"0.1", "country":"Canada", "region":"NA", "risk":"low"}, 
+   {"name":"hardware", "ret":"17", "dev":"19", "country":"USA", "region":"NA", "risk":"high"}, 
+   {"name":"theater", "ret":"26", "dev":"28", "country":"USA", "region":"NA", "risk":"high"}, 
+   {"name":"telecom",  "ret":"12", "dev":"22", "country":"USA", "region":"NA", "risk":"high"},
+   {"name":"brewery",  "ret":"8", "dev":"4", "country":"UK", "region":"Europe", "risk":"low"},
+   {"name":"highways", "ret":"9", "dev":"3.5", "country":"UK", "region":"Europe", "risk":"low"}, 
+   {"name":"cars",  "ret":"7", "dev":"5", "country":"Germany", "region":"Europe", "risk":"low"},
+   {"name":"bank", "ret":"6", "dev":"0.5", "country":"Luxemburg", "region":"Europe", "risk":"low"}, 
+   {"name":"software", "ret":"31", "dev":"25", "country":"India", "region":"Asia", "risk":"high"}, 
+   {"name":"electronics", "ret":"21", "dev":"16", "country":"Japan", "region":"Asia", "risk":"high"} ],
+   
+ "share2":[
+   ["treasury", "5", "0.1", "Canada", "NA", "low"], 
+   ["hardware", "17", "19", "USA", "NA", "high"], 
+   ["theater", "26", "28", "USA", "NA", "high"], 
+   ["telecom",  "12", "22", "USA", "NA", "high"],
+   ["brewery",  "8", "4", "UK", "Europe", "low"],
+   ["highways", "9", "3.5", "UK", "Europe", "low"], 
+   ["cars",  "7", "5", "Germany", "Europe", "low"],
+   ["bank", "6", "0.5", "Luxemburg", "Europe", "low"], 
+   ["software", "31", "25", "India", "Asia", "high"], 
+   ["electronics", "21", "16", "Japan", "Asia", "high"] ] 
+}

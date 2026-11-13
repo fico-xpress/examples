@@ -1,0 +1,123 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file solution.mos
+   `````````````````
+   Using callbacks to output the search tree.
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+       Creation: 2005, rev. Apr. 2022
+*****************************************************************!)
+model "Using callbacks"
+ uses "kalis"
+
+ declarations
+  NBTASKS = 5
+  TASKS = 1..NBTASKS                     ! Set of tasks
+  DUR: array(TASKS) of integer           ! Task durations
+  DURs: array(set of cpvar) of integer   ! Durations
+  DUE: array(TASKS) of integer           ! Due dates
+  WEIGHT: array(TASKS) of integer        ! Weights of tasks         
+  start: array(TASKS) of cpvar           ! Start times
+  tmp: array(TASKS) of cpvar             ! Aux. variable
+  tardiness: array(TASKS) of cpvar       ! Tardiness
+  twt: cpvar                             ! Objective variable
+  zeroVar: cpvar                         ! 0-valued variable
+  Strategy: array(range) of cpbranching  ! Branching strategy    
+  Disj: set of cpctr                     ! Disjunctions 
+  nodesx: array(range) of integer        ! x-coordinates
+  nodesy: array(range) of integer        ! y-coordinates
+  currentpos: integer    
+ end-declarations
+
+! Initialization of search tree data  
+ nodesx(0) := 1
+ nodesy(0) := 0
+ currentpos := 1
+   
+! **********************************************************
+! solution_found: called each time a solution is found
+! ********************************************************** 
+ procedure solution_found
+  writeln("A solution has been found :")
+  forall (t in TASKS)
+   writeln("[", getsol(start(t)), "==>",
+           (getsol(start(t)) + DUR(t)), "]:\t ",
+           getsol(tardiness(t)), "  (", getsol(tmp(t)), ")")     
+  writeln("Total weighted tardiness: ", getsol(twt))
+ end-procedure
+
+! **********************************************************
+! node_explored: called each time a node is explored
+! ********************************************************** 
+ procedure node_explored   
+  nodesx(currentpos) += 1 
+  if nodesx(currentpos-1)>nodesx(currentpos) then
+   nodesx(currentpos) := nodesx(currentpos-1)
+  end-if
+  nodesy(currentpos) := -currentpos  
+  writeln("[Node explored depth : " , (-nodesy(currentpos)), "]")   
+ end-procedure
+ 
+! **********************************************************
+! go_down_branch: called each time the search goes down 
+!                 a branch of the search tree
+! ********************************************************** 
+ procedure go_down_branch      
+  writeln("[Branch go_down " , (-nodesy(currentpos)) , "]")             
+  currentpos := currentpos + 1    
+ end-procedure
+ 
+! **********************************************************
+! go_up_branch: called each time the search goes up 
+!               a branch of the search tree
+! **********************************************************
+ procedure go_up_branch   
+  currentpos := currentpos - 1
+  writeln("[Branch go_up " , (-nodesy(currentpos)) , "]")    
+ end-procedure
+ 
+! **********************************************************
+! Problem definition
+! **********************************************************
+
+ DUR :: [21,53,95,55,34]
+ DUE :: [66,101,232,125,150]
+ WEIGHT :: [1,1,1,1,1]
+               
+ setname(twt, "Total weighted tardiness")
+ zeroVar = 0
+ setname(zeroVar, "zeroVar")
+
+! Setting up the decision variables 
+ forall (t in TASKS) do
+  start(t) >= 0
+  setname(start(t), "Start("+t+")")
+  DURs(start(t)):= DUR(t)
+  tmp(t) = start(t) + DUR(t) - DUE(t)
+  setname(tardiness(t), "Tard("+t+")")
+  tardiness(t) = maximum({tmp(t), zeroVar})
+ end-do    
+ 
+ twt = sum(t in TASKS) (WEIGHT(t) * tardiness(t)) 
+ 
+ ! Create the disjunctive constraints 
+ disjunctive(union(t in TASKS) {start(t)}, DURs, Disj, 1)
+ 
+ ! The setxxxcallback methods must be called before 
+ ! setting the branching with 'cp_set_branching'
+ cp_set_solution_callback(->solution_found)
+ cp_set_node_callback(->node_explored)
+ cp_set_branch_callback(->go_down_branch, ->go_up_branch)
+ 
+ Strategy(0):= settle_disjunction
+ Strategy(1):= split_domain(KALIS_MAX_DEGREE,KALIS_MIN_TO_MAX)
+ cp_set_branching(Strategy) 
+
+ if not cp_minimize(twt) then
+  writeln("problem is inconsistent")
+  exit(0)
+ end-if  
+   
+end-model

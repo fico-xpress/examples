@@ -1,0 +1,85 @@
+(!*********************************************************************
+   Mosel NL examples
+   =================
+   file steiner.mos
+   ````````````````````
+   Steiner tree problem.
+   SOCP formulation. 
+
+   Based on AMPL model steiner_socp.mod
+   Source: http://www.orfe.princeton.edu/~rvdb/ampl/nlmodels/steiner/ 
+
+   (c) 2013 Fair Issac Corporation
+       author: S. Heipcke, Sep. 2013, rev. Jun. 2023
+*********************************************************************!)
+model "steiner"
+ uses "mmxnlp"
+
+ parameters
+  DATAFILE = "steiner.dat"
+ end-parameters
+
+ declarations
+  NNODES: integer           ! Number of nodes (original plus steiner)
+  NSTEINER: integer         ! Number of steiner nodes
+ end-declarations
+
+ initialisations from DATAFILE
+  NNODES
+  NSTEINER
+ end-initialisations
+
+ declarations
+  SNODES = 1..NSTEINER                    ! Steiner nodes
+  ONODES = NSTEINER+1..NNODES             ! Original nodes
+  NODES = 1..NNODES                       ! All nodes
+  DIM: range                              ! Dimensions of coordinates
+  POS: array(ONODES,DIM) of real          ! Coordinates of original nodes
+  ARCS: dynamic array(NODES,NODES) of boolean    ! Arcs between nodes
+  x: array(NODES,DIM) of mpvar            ! Node positions
+  t: dynamic array(NODES,NODES) of mpvar  ! Distance between nodes
+ end-declarations
+
+ initialisations from DATAFILE
+  ARCS
+  POS
+ end-initialisations
+
+! Decision variables
+ forall(i in NODES,k in DIM) x(i,k) is_free
+
+ forall(i,j in NODES | exists(ARCS(i,j))) do
+  create(t(i,j))
+  t(i,j)>=0
+ end-do
+
+! Objective: total distance
+ Dist:= sum(i,j in NODES | exists(ARCS(i,j))) t(i,j)
+
+! Constraints
+ forall(i,j in NODES | exists(ARCS(i,j))) 
+   Bnd_t(i,j):= sqrt(sum(k in DIM) (x(i,k)-x(j,k))^2) <= t(i,j)
+
+! Fix position for original nodes  
+ forall(j in ONODES,k in DIM) x(j,k)= POS(j,k)
+
+! Start values
+ setrandseed(3)
+ forall(j in SNODES,k in DIM) setinitval(x(j,k),random)
+ 
+! Since this is a convex problem, it is sufficient to call a local solver
+ setparam("xprs_nlpsolver", 1)
+
+! Solving
+ setparam("xnlp_verbose", true)
+ minimize(Dist)
+
+! Solution reporting
+ writeln("Solution: ", Dist.sol)
+ forall(i in NODES) do
+   write(i, ": ")
+   forall(k in DIM) write(x(i,k).sol, " ")
+   writeln
+ end-do  
+
+end-model

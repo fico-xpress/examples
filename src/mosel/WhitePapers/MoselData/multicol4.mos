@@ -1,0 +1,81 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file multicol4.mos
+   ``````````````````
+   Reading several data arrays from a single table.
+   - Using 'initializations' and OCI statements -
+       
+   (c) 2012 Fair Isaac Corporation
+       author: S. Heipcke, Dec. 2012, rev. Aug. 2023
+*******************************************************!)
+
+model "Multiple data columns (OCI)"
+ uses "mmoci"
+
+ parameters
+  DB="myname/mypassword@dbname"     ! Login to Oracle database (not provided)
+ end-parameters
+
+ declarations
+  PRODUCTS: set of string
+  MACH: range
+  COST1,COST2: dynamic array(PRODUCTS,MACH) of real
+  DUR1,DUR2: dynamic array(PRODUCTS,MACH) of integer
+ end-declarations
+
+
+! **** Using SQL statements ****
+! This assumes the database contains a table "ProdData" 
+! in sparse format (i.e., with indices) with the columns "COST" and "DUR"
+
+ setparam("OCIdebug",true)
+ OCIlogon(DB)
+ if not getparam("OCIsuccess"): setioerr("Database connection failed")
+ writeln("Connection number: ",getparam("OCIconnection"))
+ OCIexecute("select * from ProdData ", [COST1,DUR1])
+ OCIlogoff
+
+ writeln("OCI:"); writeln(COST1); writeln(DUR1)
+
+
+! **** Using 'initializations from' ****
+
+ initializations from "mmoci.oci:debug;"+DB
+  [COST2,DUR2] as 'ProdData'
+ end-initializations
+
+ writeln("initializations from:"); writeln(COST2); writeln(DUR2)
+
+end-model
+
+**************************************************
+
+
+! Creation of data tables in an Oracle database:
+
+ declarations
+  COST: dynamic array(PRODUCTS,MACH) of real
+  DUR: dynamic array(PRODUCTS,MACH) of integer
+  tsucc: array ({false,true}) of string
+ end-declarations
+
+ tsucc(false):="failed"; tsucc(true):="succeeded"
+
+ initializations from "multicol.dat"
+  [COST,DUR] as "ProdData"
+ end-initializations
+
+ setparam("OCIdebug",true)
+ OCIlogon(DB)
+ writeln("Connection number: ",getparam("OCIconnection"))
+
+ OCIexecute("drop table ProdData")
+ OCIexecute("create table ProdData (Products varchar(10), Mach integer, Cost float, Duration integer)")
+ writeln(" - Create ProdData (",tsucc(getparam("OCIsuccess")),")")
+ OCIexecute("insert into ProdData (Products, Mach, Cost, Duration) values (:1, :2, :3, :4)", [ COST,DUR ])
+ writeln(" - Insert values into ProdData (",tsucc(getparam("OCIsuccess")),",",
+        getparam("OCIrowcnt"),'/',getparam("OCIrowxfr")," rows)")
+
+OCIlogoff

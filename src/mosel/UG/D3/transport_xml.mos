@@ -1,0 +1,108 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file transport_xml.mos
+   ``````````````````````
+   Reading and writing data in XML format.
+   
+   (c) 2012 Fair Isaac Corporation
+       author: S.Heipcke, Oct. 2012
+*******************************************************!)
+
+model "Transport (XML)"
+ uses "mmxprs", "mmxml"
+
+ declarations
+  REGION: set of string                 ! Set of customer regions
+  PLANT: set of string                  ! Set of plants
+
+  DEMAND: array(REGION) of real         ! Demand at regions
+  PLANTCAP: array(PLANT) of real        ! Production capacity at plants
+  PLANTCOST: array(PLANT) of real       ! Unit production cost at plants
+  TRANSCAP: dynamic array(PLANT,REGION) of real
+                                        ! Capacity on each route plant->region
+  DISTANCE: dynamic array(PLANT,REGION) of real
+                                        ! Distance of each route plant->region
+  FUELCOST: real                        ! Fuel cost per unit distance
+
+  MaxCap: array(PLANT) of linctr        ! Capacity constraints
+  flow: dynamic array(PLANT,REGION) of mpvar    ! Flow on each route
+
+  AllData: xmldoc                       ! XML document
+  NodeList: list of integer             ! List of XML nodes
+ end-declarations
+ 
+
+!**** Reading data from an XML file ****
+ load(AllData, "transprt.xml")          ! Load the entire XML document
+
+ getnodes(AllData, "transport/demand/region", NodeList) 
+ forall(l in NodeList)
+   DEMAND(getstrattr(AllData,l,"name")):= getrealvalue(AllData, l) 
+
+ getnodes(AllData, "transport/plantdata/plant", NodeList) 
+ forall(l in NodeList) do
+   PLANTCAP(getstrattr(AllData,l,"name")):= 
+     getrealvalue(AllData, getnode(AllData,l,"capacity"))    
+   PLANTCOST(getstrattr(AllData,l,"name")):= 
+     getrealvalue(AllData, getnode(AllData,l,"cost"))    
+ end-do
+
+ getnodes(AllData, "transport/routes/route", NodeList) 
+ forall(l in NodeList) do
+   DISTANCE(getstrattr(AllData,l,"from"),getstrattr(AllData,l,"to")):=
+     getrealattr(AllData,l,"distance")
+   TRANSCAP(getstrattr(AllData,l,"from"),getstrattr(AllData,l,"to")):=
+     getrealattr(AllData,l,"capacity")
+ end-do
+
+ FUELCOST:= getrealattr(AllData, getnode(AllData, "transport"), "fuelcost")
+
+!**** Problem statement + solving ****
+
+! Create the flow variables that exist
+ forall(p in PLANT, r in REGION | exists(TRANSCAP(p,r)) ) create(flow(p,r))
+ 
+! Objective: minimize total cost
+ MinCost:= sum(p in PLANT, r in REGION | exists(flow(p,r))) 
+            (FUELCOST * DISTANCE(p,r) + PLANTCOST(p)) * flow(p,r)
+ 
+! Limits on plant capacity
+ forall(p in PLANT) MaxCap(p):= sum(r in REGION) flow(p,r) <= PLANTCAP(p)
+
+! Satisfy all demands
+ forall(r in REGION) sum(p in PLANT) flow(p,r) = DEMAND(r)
+ 
+! Bounds on flows
+ forall(p in PLANT, r in REGION | exists(flow(p,r))) 
+  flow(p,r) <= TRANSCAP(p,r)
+ 
+ minimize(MinCost)                       ! Solve the problem
+
+!**** Create solution representation in XML format ****
+ declarations
+  ResData: xmldoc                        ! XML document
+  Sol,Plant,Reg,Total: integer           ! XML nodes
+ end-declarations
+
+ Sol:=addnode(ResData, 0, XML_ELT, "solution")     ! Create root node "solution"
+ setattr(ResData, Sol, "Objective", MinCost.sol)   ! Obj. value as attribute
+ setattr(ResData, Sol, "RunDate", text(datetime(SYS_NOW)))
+
+ forall(p in PLANT) do
+   Plant:=addnode(ResData, Sol, XML_ELT, "plant")  ! Add a node to "solution"
+   setattr(ResData, Plant, "name", p)              ! ... with attribute "name"
+   forall(r in REGION | flow(p,r).sol>0) do
+     Reg:=addnode(ResData, Plant, XML_ELT, "region") ! Add a node to "plant"
+     setattr(ResData, Reg, "name", r)              ! ... with attribute "name"
+     setvalue(ResData, Reg, flow(p,r).sol)         ! ... and solution value
+   end-do
+   Total:=addnode(ResData, Plant, "total", 
+                  sum(r in REGION)flow(p,r).sol)   ! Add node with total flow
+ end-do
+ 
+ save(ResData, "transportres.xml")   ! Save solution to XML format file
+ save(ResData, Sol, "")              ! Display XML format solution on screen
+
+end-model

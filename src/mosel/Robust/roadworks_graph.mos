@@ -1,0 +1,247 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file roadworks_graph.mos
+   ````````````````````````
+   Shortest path with cardinality robustness constraints
+   - IVE graph drawing -
+
+   (c) 2014 Fair Isaac Corporation
+       author: S. Heipcke, Mar. 2014, rev. Sep. 2017
+*******************************************************!)
+model "road network"
+ uses "mmxprs", "mmsvg",  "mmsystem"
+ uses "mmrobust"
+
+ parameters
+   DATAFILE="roads_9.dat"
+   NWORK = 1                                     ! Number of roadworks
+ end-parameters 
+
+ forward procedure printsol(val: real)
+ forward procedure drawsol(val: real, iter: integer)
+
+ declarations
+   X,Y: array(Nodes:range) of integer            ! Nodes coordinates for drawing
+   ARCX,ARCY: array(Arcs:range) of integer       ! Arc coordinates for drawing
+   ARC: array(Arcs,1..2) of integer              ! Arc origins/destinations
+   LEN,MAXDELAY: array(Arcs) of real             ! Length and max delay per arc
+   DELAY: array(Arcs) of real                    ! Actual delay
+   Source,Sink: integer                          ! Source and sink node numbers
+
+   NomProb,ExtProb,RobProb: mpproblem            ! Alternative problem formulations
+   use: array(Arcs) of mpvar                     ! 1 iff arc is used
+   usesol: array(Arcs) of real                   ! Solution values
+   userobsol: array(Arcs) of real                ! Robust solution values
+
+   delay: array(Arcs) of uncertain               ! Uncertain delay
+ end-declarations
+
+ !**** Input datafile ****
+ initializations from DATAFILE
+  Nodes
+  Arcs
+  ARC
+  X Y
+  [LEN,MAXDELAY] as "ArcData"
+  Source  Sink
+  ARCX ARCY
+ end-initializations
+
+!**** Robust problem formulation ****
+ with RobProb do
+   forall(a in Arcs) use(a) is_binary
+
+  ! Sink and source of flow
+   OneSourceR:= sum(a in Arcs | ARC(a,1)=Source) use(a)=1
+   OneSinkR:= sum(a in Arcs | ARC(a,2)=Sink) use(a)=1
+   NoRetSourceR:= sum(a in Arcs | ARC(a,2)=Source) use(a)=0
+   NoRetSinkR:=sum(a in Arcs | ARC(a,1)=Sink) use(a)=0
+
+  ! Flow balance in intermediate nodes
+   forall(n in Nodes-{Source,Sink})
+     BalanceR(n):= sum(a in Arcs | ARC(a,2)=n) use(a) = sum(a in Arcs | ARC(a,1)=n) use(a)
+  
+  ! Only use one direction per arc
+   forall(a in Arcs | ARC(a,1)<ARC(a,2)) use(a) + 
+     sum(b in Arcs | ARC(b,2)=ARC(a,1) and ARC(b,1)=ARC(a,2)) use(b) <= 1
+
+  ! Random construction work on NWORK arcs   
+   forall(a in Arcs) delay(a) <= MAXDELAY(a) 
+   forall(a in Arcs) delay(a) >= 0 
+   cardinality(union(a in Arcs) {delay(a)}, NWORK)
+  
+  ! Shortest path length
+   TotalLengthR:= sum(a in Arcs) (LEN(a)+delay(a))*use(a)
+
+  ! Solving
+   minimize(TotalLengthR)
+
+  ! Solution reporting
+   writeln("#### Robust solution ####")
+   if getprobstat=XPRS_OPT then	 
+     writeln("Delay: ", array(a in Arcs) delay(a).sol)	
+     writeln("Shortest path: ", getobjval)
+     writeln("Delay on shortest path: ",  
+       sum(a in Arcs | use(a).sol>0 ) delay(a).sol)
+     forall(a in Arcs | use(a).sol>0)
+       write("  ", if(ARC(a,1)=Source, "Source", string(ARC(a,1))), "->", 
+             if(ARC(a,2)=Sink, "Sink", string(ARC(a,2))), " (",
+             LEN(a), "+", delay(a).sol,");")
+     writeln
+   else
+     writeln("No solution")
+   end-if    	
+
+   drawsol(getobjval, 1)
+   
+  ! Save the robust solution
+   forall(a in Arcs) userobsol(a):=use(a).sol 
+   
+ end-do
+ 
+ !**** Nominal problem (all delays fixed to zero) ****
+ with NomProb do
+   forall(a in Arcs) use(a) is_binary
+
+  ! Sink and source of flow
+   sum(a in Arcs | ARC(a,1)=Source) use(a)=1
+   sum(a in Arcs | ARC(a,2)=Sink) use(a)=1
+   sum(a in Arcs | ARC(a,2)=Source) use(a)=0
+   sum(a in Arcs | ARC(a,1)=Sink) use(a)=0
+ 
+  ! Flow balance in intermediate nodes
+   forall(n in Nodes-{Source,Sink})
+     sum(a in Arcs | ARC(a,2)=n) use(a) = sum(a in Arcs | ARC(a,1)=n) use(a)
+
+  ! Only use one direction per edge
+   forall(a in Arcs | ARC(a,1)<ARC(a,2)) use(a) + 
+     sum(b in Arcs | ARC(b,2)=ARC(a,1) and ARC(b,1)=ARC(a,2)) use(b) <= 1
+
+  ! Delays fixed to maximum
+   forall(a in Arcs) DELAY(a):= 0
+
+  ! Shortest path length
+   TotalLengthN:= sum(a in Arcs) (LEN(a)+DELAY(a))*use(a)
+
+  ! Solving
+   minimize(TotalLengthN)
+
+  ! Solution reporting
+   writeln("\n#### Nominal solution (no delay) ####")
+   printsol(getobjval)
+
+  ! Save the solution values
+   forall(a in Arcs) usesol(a):=use(a).sol 
+
+   !** Uncomment to view different routes**
+   svgpause
+   drawsol(getobjval,2)
+  
+ end-do
+ 
+ !**** Extreme problem (all delays fixed to upper bounds) ****
+ with ExtProb do
+   forall(a in Arcs) use(a) is_binary
+
+  ! Sink and source of flow
+   sum(a in Arcs | ARC(a,1)=Source) use(a)=1
+   sum(a in Arcs | ARC(a,2)=Sink) use(a)=1
+   sum(a in Arcs | ARC(a,2)=Source) use(a)=0
+   sum(a in Arcs | ARC(a,1)=Sink) use(a)=0
+ 
+  ! Flow balance in intermediate nodes
+   forall(n in Nodes-{Source,Sink})
+     sum(a in Arcs | ARC(a,2)=n) use(a) = sum(a in Arcs | ARC(a,1)=n) use(a)
+
+  ! Only use one direction per edge
+   forall(a in Arcs | ARC(a,1)<ARC(a,2)) use(a) + 
+     sum(b in Arcs | ARC(b,2)=ARC(a,1) and ARC(b,1)=ARC(a,2)) use(b) <= 1
+
+  ! Delays fixed to maximum
+   forall(a in Arcs) DELAY(a):= MAXDELAY(a)
+
+  ! Shortest path length
+   TotalLengthE:= sum(a in Arcs) (LEN(a)+DELAY(a))*use(a)
+
+  ! Solving
+   minimize(TotalLengthE)
+
+  ! Solution reporting
+   writeln("\n#### Worst-case solution (all roads delayed) ####")
+   printsol(getobjval)
+
+  ! Save the solution values
+   forall(a in Arcs) usesol(a):=use(a).sol 
+
+   !** Uncomment to view different routes**
+   svgpause
+   drawsol(getobjval,3)
+  
+ end-do
+ 
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+ 
+ !**** Solution reporting ****
+ procedure printsol(val: real)
+   writeln("Delay: ", DELAY)	
+   if getprobstat=XPRS_OPT then	 
+     writeln("Shortest path: ", getobjval)
+     forall(a in Arcs | use(a).sol>0) 
+       write(if(ARC(a,1)=Source, "Source", string(ARC(a,1))), " -> ", 
+             if(ARC(a,2)=Sink, "Sink", string(ARC(a,2))), "  ")
+     writeln
+   else
+     writeln("No solution")
+   end-if    	
+ end-procedure
+
+
+ !**** Draw node + roads graphs ****
+ procedure drawsol(val: real, iter:integer)
+   declarations
+     NGr,RGr,URGr,CGr,SGr: string
+   end-declarations
+ 
+   svgerase
+   RGr:= "Roads"; CGr:="Delays"; URGr:= "Sol"; NGr:= "Nodes"; SGr:="SE"
+   svgaddgroup(RGr, "All roads", SVG_GREY)
+   svgaddgroup(CGr, "Delayed roads", svgcolor(248,151,29))
+   svgaddgroup(URGr, "Solution", svgcolor(0,173,200))
+   svgaddgroup(NGr, "Nodes", svgcolor(0,63,95))
+   svgaddgroup(SGr, "Start/end points", svgcolor(184,32,42))
+   svgsetstyle(SVG_FONTWEIGHT, "bold")
+
+!   IVEzoom(-20,0, 50+max(n in Nodes) X(n), 50+max(n in Nodes) Y(n))
+ 
+   svgaddtext(URGr, 120,1, "Path length: "+ val)
+ 
+  ! Network layout: nodes and arcs
+   forall(n in Nodes) svgaddpoint(NGr, X(n), Y(n))
+   forall(n in Nodes) svgaddtext(NGr, X(n)+1, Y(n)+5, string(n))
+   forall(a in Arcs | ARC(a,1)<ARC(a,2) and DELAY(a)=0) do
+     svgaddline(RGr, X(ARC(a,1)), Y(ARC(a,1)), X(ARC(a,2)), Y(ARC(a,2)))
+     svgaddtext(RGr, ARCX(a),ARCY(a), string(LEN(a)))
+   end-do
+  ! Source and sink nodes
+   svgaddpoint(SGr, X(Source), Y(Source))  
+   svgaddtext(SGr, X(Source)-5, Y(Source)-10, "Source")  
+   svgaddpoint(SGr, X(Sink), Y(Sink)) 
+   svgaddtext(SGr, X(Sink)-5, Y(Sink)-10, "Sink") 
+
+  ! Construction work delays   
+   forall(a in Arcs | ARC(a,1)<ARC(a,2) and DELAY(a)>0) do
+     svgaddline(CGr, X(ARC(a,1)), Y(ARC(a,1)), X(ARC(a,2)), Y(ARC(a,2)))
+     svgaddtext(CGr, ARCX(a),ARCY(a), text(a)+":"+text(LEN(a))+"+"+DELAY(a)) 
+   end-do
+ 
+  ! Solution (shortest path) 
+   forall(a in Arcs | use(a).sol>0)
+     svgaddline(URGr, X(ARC(a,1)), Y(ARC(a,1)), X(ARC(a,2)), Y(ARC(a,2)))
+
+   svgsave("roads"+iter+".svg")
+   svgrefresh
+ end-procedure
+
+end-model

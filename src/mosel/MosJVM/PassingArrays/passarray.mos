@@ -1,0 +1,45 @@
+(!*******************************************************
+   file passarray.mos
+   ``````````````````
+   a model that demonstrates passing an array from Mosel to a Java method
+
+   This example requires an installation of Java, see
+   the manual 'mosjvm Module for Mosel' for
+   compatible versions and setup instructions.
+   
+   The compiled PassArray.class file must be in the current working
+   directory.
+
+   (c) 2016 Fair Isaac Corporation
+       author: J. Farmer, 2016
+  *******************************************************!)
+
+
+model myModel
+  uses 'mosjvm'
+  
+  declarations
+    classAndMethodName = "PassArray.sumValues"
+    result: real
+    values: dynamic array(0..9) of real
+  end-declarations
+ 
+  ! Set to initial array elements
+  values(0) := 1
+  values(1) := 5
+  values(2) := 10
+  values(7) := 10
+ 
+  ! Abort model if we encounter a Java exception
+  setparam('jvmabortonexception',true)
+
+  ! Tell Java to look for classes in work directory
+  setparam('jvmclasspath',getparam('workdir'))
+
+  ! Call into Java to sum values
+  ! (missing values in the array will be passed to Java as 0)
+  result := jvmcallreal( classAndMethodName, values )
+  
+  ! Output result
+  writeln('Sum of values: ',result)
+end-model

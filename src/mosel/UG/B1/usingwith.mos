@@ -1,0 +1,57 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file usingwith.mos 
+   `````````````````` 
+   Definition of 'with' statements for local declaration
+   of structured types.
+ 
+   (c) 2022 Fair Isaac Corporation
+       author: S. Heipcke, Feb. 2022
+*******************************************************!)
+
+model "using with statements"
+
+!**** 'with' can take a comma-separated list of several local declarations 
+ L:=[1,4,2,10,1]
+ with first=L.first, last=L.last do
+   writeln("L starts with value 1: ", first=1)
+   writeln("L starts and ends with same value: ", first=last)
+ end-do
+
+!**** Local declaration as shorthand to save access time for elements of
+!**** complex structures when using them repeatedly within a block of code
+ declarations
+   NB: dynamic array(R:range) of set of integer   
+ end-declarations
+
+ NB(1):={2,3,4}; NB(2):={1,3,5,6}; NB(6):={2,4}
+ forall(i in R | exists(NB(i)) )
+   with S=NB(i), el=getelt(S) do
+     writeln(i, ": Size of set=", S.size, ", contains 1:", 1 in S,
+             ", an element the set:", el, " is different from 0:", el<>0)
+   end-do
+
+! Local declaration of scalars is also possible in 'forall' statements, but
+! this form cannot be used for structured types
+ forall(i in R | exists(NB(i)), el=getelt(NB(i)))
+   with S=NB(i) do
+     writeln(i, ": Size of set=", S.size, ", contains 1:", 1 in S,
+             ", an element the set:", el)
+   end-do
+
+!**** Aliasing of an array and its index set(s): efficient use of 'exists' 
+!**** for enumerating an array with unnamed indexing sets
+ declarations
+   A1:dynamic array(range,string) of integer  ! Array with unnamed indexing sets
+ end-declarations
+
+ A1(1,'a'):=1; A1(4,'c'):=4; A1(6,'d'):=6
+
+ with A(I,J)=A1 do
+   forall(i in I, j in J | exists(A(i,j))) write(" ", A(i,j))
+ end-do
+ writeln 
+
+end-model

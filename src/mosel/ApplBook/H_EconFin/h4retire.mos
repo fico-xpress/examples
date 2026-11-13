@@ -1,0 +1,78 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file h4retire.mos
+   `````````````````
+   Financing an early retirement scheme
+  
+   To finance a pre-retirement scheme, a bank can invest 
+   in three different types of bonds during a given period
+   of years. Bonds can be acquired only at the beginning of
+   the first year. Some technical conditions are defined on
+   the money not invested, the quantity of bonds to be bought 
+   and the available money to be distributed. How many bonds 
+   of each type should the bank acquire to minimize the money
+   spent to cover the retirement scheme?
+
+   A MIP model is implemented to determine the best way to 
+   finance the retirement plan. To model the constraints 
+   based on the maturity (duration) of the bond, conditionals
+   over sums and the inline 'if' are used to generalize
+   the set of constraints.
+
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Mar. 2002
+*******************************************************!)
+
+model "H-4 Retirement"
+ uses "mmxprs"
+
+ declarations
+  BONDS = {"SNCF","Fujitsu","Treasury"}  ! Set of bonds
+  NT = 7                              ! Length of planning period
+  YEARS = 1..NT
+  
+  DEM: array(YEARS) of integer        ! Annual payments for retirement
+  VALUE: array(BONDS) of real         ! Unit price of bonds
+  RATE: array(BONDS) of real          ! Remuneration rates paid by bonds
+  RET: array(BONDS) of real           ! Unit annual interest of bonds
+  DUR: array(BONDS) of real           ! Duration of loans
+  INTEREST: real                      ! Interest for other secure investment
+  
+  buy: array(BONDS) of mpvar          ! Number of bonds acquired
+  invest: array(YEARS) of mpvar       ! Other annual investment
+  capital: mpvar                      ! Total capital required
+ end-declarations
+
+ initializations from 'h4retire.dat'
+  DEM VALUE RATE DUR INTEREST
+ end-initializations
+
+ forall(b in BONDS) RET(b):= VALUE(b)*RATE(b)/100
+
+! Annual balances
+ capital - sum(b in BONDS) VALUE(b)*buy(b) - invest(1) = DEM(1)
+
+ forall(t in 2..NT)
+  sum(b in BONDS | DUR(b)+1>=t) (RET(b)*buy(b) + 
+                                 if(DUR(b)+1=t, VALUE(b)*buy(b), 0)) +
+   (1+INTEREST/100)*invest(t-1) - if(t<NT, invest(t), 0) = DEM(t)
+
+ forall(b in BONDS) buy(b) is_integer
+
+! Solve the problem: minimize invested capital
+ minimize(capital)
+ 
+! Solution printing
+ writeln("Total capital: ", getobjval)
+ writeln("Number of bonds to buy:")
+ forall(b in BONDS) write(b, ": ", getsol(buy(b)), 
+                          " (price: ", VALUE(b)*getsol(buy(b)), ") ")
+ writeln("\nOther investment:") 
+ forall(t in 1..NT-1) write("   year ", t)
+ writeln
+ forall(t in 1..NT-1) write(strfmt(getsol(invest(t)),9,3))
+ writeln 
+ 
+end-model

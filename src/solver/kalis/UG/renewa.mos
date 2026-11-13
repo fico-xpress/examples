@@ -1,0 +1,84 @@
+(!******************************************************
+   CP Example Problems
+   ===================
+
+   file renewa.mos
+   ```````````````
+   Provision/requirement of a renewable resource.
+   
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+       Creation: 2007, rev. Apr. 2022 
+*******************************************************!)
+
+model "Renewable resource"
+ uses "kalis", "mmsystem"
+
+ forward procedure solution_found
+
+ declarations   
+  FIRST = {'P1','P2'}
+  FINAL = {'P3','P4','P5'}
+  JOBS = FIRST+FINAL
+
+  MIND,MAXD: array(JOBS) of integer  ! Limits on job durations
+  RESAMT: array(JOBS) of integer  ! Resource use/production
+  HORIZON: integer                ! Time horizon
+  PROFIT: array(FINAL) of real    ! Profit from production
+  COST: array(JOBS) of real       ! Cost of production
+  CAP: integer                    ! Available resource quantity
+
+  totalProfit: cpfloatvar
+  task: array(JOBS) of cptask     ! Task objects for jobs
+  intermProd: cpresource          ! Non-renewable resource (intermediate prod.)
+ end-declarations
+  
+ initializations from 'Data/renewa.dat'
+  [MIND,MAXD] as 'DUR' RESAMT HORIZON PROFIT COST CAP
+ end-initializations
+
+! Setting up resources
+ set_resource_attributes(intermProd, KALIS_DISCRETE_RESOURCE, CAP)
+ setname(intermProd, "IntP") 
+
+! Setting up the tasks
+ forall(j in JOBS) do
+  setname(task(j), j)
+  setduration(task(j), MIND(j), MAXD(j)) 
+  setdomain(getend(task(j)), 0, HORIZON) 
+ end-do 
+
+! Providing tasks
+ forall(j in FIRST) provides(task(j), RESAMT(j), intermProd)
+
+! Requiring tasks
+ forall(j in FINAL) requires(task(j), RESAMT(j), intermProd)
+
+! Objective function: total profit  
+ totalProfit = sum(j in FINAL) PROFIT(j)*getduration(task(j)) -
+               sum(j in JOBS) COST(j)*getduration(task(j))                       
+ cp_set_solution_callback(->solution_found)
+ setparam("KALIS_MAX_COMPUTATION_TIME", 30)
+
+! Solve the problem
+ starttime:= gettime	                
+ if cp_schedule(totalProfit,true)=0 then
+  exit(1)
+ end-if
+
+! Solution printing
+ writeln("Total profit: ", getsol(totalProfit))
+ writeln("Job\tStart\tEnd\tDuration")
+ forall(j in JOBS) 
+  writeln(j, "\t ", getsol(getstart(task(j))), "\t ", getsol(getend(task(j))),
+          "\t ", getsol(getduration(task(j))))
+
+ procedure solution_found
+  writeln(gettime-starttime , " sec. Solution found with total profit = ",
+          getsol(totalProfit))
+  forall(j in JOBS) 
+   write(j, ": ", getsol(getstart(task(j))), "-", getsol(getend(task(j))),
+          "(", getsol(getduration(task(j))), "), ")
+  writeln
+ end-procedure
+ 
+end-model

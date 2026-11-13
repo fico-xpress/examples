@@ -1,0 +1,27 @@
+(!******************************************************
+   Mosel Matlab Example Problems
+   =============================
+
+   file fib_relay.mos
+   ``````````````````
+   Calling a MATLAB user-defined function 
+   
+  (c) 2014 Fair Isaac Corporation
+      author: L.Bertacco, Apr. 2014
+*******************************************************!)
+
+model "fib_relay"                              
+ function fibonacci(i:integer):integer         
+  initializations to "matlab.mws:"             
+    i                                          
+  end-initializations                          
+
+  initializations from "matlab.mws:"           
+   returned as "fibonacci(i)"                  
+  end-initializations                          
+ end-function                                  
+
+ forall(i in 1..10) do                         
+  writeln("fibonacci(", i, ")=", fibonacci(i)) 
+ end-do                                        
+end-model                                      

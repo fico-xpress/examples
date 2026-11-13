@@ -1,0 +1,131 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file foliomiis.mos
+   ``````````````````
+   Modeling a MIP problem 
+   to perform portfolio optimization.
+
+   Same model as in foliomip3.mos.
+   -- Infeasible model parameter values --
+   -- Retrieving MIIS --
+   
+  (c) 2010 Fair Isaac Corporation
+      author: S.Heipcke, Oct. 2010, rev. Mar. 2024
+*******************************************************!)
+
+model "Portfolio optimization with MIP"
+ uses "mmxprs"
+
+ parameters
+  MAXRISK = 1/4                     ! Max. investment into high-risk values
+  MINREG = 0.1                      ! Min. investment per geogr. region
+  MAXREG = 0.25                     ! Max. investment per geogr. region
+  MAXSEC = 0.15                     ! Max. investment per ind. sector
+  MAXVAL = 0.225                    ! Max. investment per share
+  MINVAL = 0.1                      ! Min. investment per share
+  MAXNUM = 5                        ! Max. number of different assets
+  DATAFILE = "folio5.dat"           ! File with problem data
+ end-parameters
+
+ declarations
+  SHARES: set of string              ! Set of shares
+  RISK: set of string                ! Set of high-risk values among shares
+  REGIONS: set of string             ! Geographical regions
+  TYPES: set of string               ! Share types (ind. sectors)
+  LOC: array(REGIONS) of set of string ! Sets of shares per geogr. region
+  RET: array(SHARES) of real         ! Estimated return in investment
+  SEC: array(TYPES) of set of string ! Sets of shares per industry sector
+ end-declarations
+
+ initializations from DATAFILE
+  RISK RET LOC SEC
+ end-initializations
+
+ public declarations
+  frac: array(SHARES) of mpvar      ! Fraction of capital used per share
+  buy: array(SHARES) of mpvar       ! 1 if asset is in portfolio, 0 otherwise
+  Return: linctr                    ! Total return
+  LimitRisk: linctr                 ! Max. percentage of high-risk values
+  LimitMinReg,LimitMaxReg: array(REGIONS) of linctr  ! Min/max perc. per region
+  LimitSec: array(TYPES) of linctr  ! Max. percentage per industry sector
+  TotalOne: linctr                  ! Spend all the capital
+  LimitNum: linctr                  ! Max. total number of assets
+  LinkUB,LinkLB: array(SHARES) of linctr  ! Linking buy+frac variables
+ end-declarations
+
+! Objective: total return
+ Return:= sum(s in SHARES) RET(s)*frac(s) 
+
+! Limit the percentage of high-risk values
+ LimitRisk:= sum(s in RISK) frac(s) <= MAXRISK
+
+! Limits on geographical distribution
+ forall(r in REGIONS) do
+  LimitMinReg(r):= sum(s in LOC(r)) frac(s) >= MINREG
+  LimitMaxReg(r):= sum(s in LOC(r)) frac(s) <= MAXREG
+ end-do 
+
+! Diversification across industry sectors
+ forall(t in TYPES) LimitSec(t):= sum(s in SEC(t)) frac(s) <= MAXSEC
+
+! Spend all the capital
+ TotalOne:= sum(s in SHARES) frac(s) = 1
+ 
+! Upper bounds on the investment per share
+ forall(s in SHARES) frac(s) <= MAXVAL
+
+! Limit the total number of assets
+ LimitNum:= sum(s in SHARES) buy(s) <= MAXNUM
+
+ forall(s in SHARES) do
+  buy(s) is_binary                  ! Turn variables into binaries
+  LinkUB(s):= frac(s) <= MAXVAL*buy(s)     ! Linking the variables
+  LinkLB(s):= frac(s) >= MINVAL*buy(s)     ! Linking the variables
+ end-do
+
+
+! Display Optimizer log
+ setparam("XPRS_verbose", true)
+ setparam("XPRS_LOADNAMES", true)
+
+! Uncomment this line to see whether the problem is LP-feasible
+! maximize(XPRS_LIN,Return)
+
+! Solve the problem
+ maximize(Return)
+
+ declarations
+  V: set of mpvar
+  C: set of linctr
+ end-declarations
+
+ probstat:= getprobstat
+ case probstat of
+  XPRS_OPT: writeln("Problem solved")
+  XPRS_INF: do
+              setparam("XPRS_verbose", false)  ! Disable Optimizer output
+	      writeln("MIP infeasible")
+
+              getiis({},{})                    ! Generate all IIS
+              numiis:= getparam("XPRS_NUMIIS") ! Retrieve number of IIS
+                                               ! (at most 1 for MIP) 
+              writeln("Total IIS:", numiis, " status:", 
+                getparam("XPRS_IISSOLSTATUS"))
+ ! IIS status: 0: unstarted, 1: feasible (no IIS), 2: completed, 3: unfinished
+              forall(i in 1..numiis) do
+               getiis(i, V, C)                 ! Retrieve the i'th IIS
+               writeln("IIS ", i)
+               write("  variables: "); writeln(getsize(V))
+	       forall(v in V) write(getname(v), " "); writeln
+               write("  constraints: "); writeln(getsize(C))
+	       forall(c in C) write(getname(c), " "); writeln
+              end-do	     
+            end-do
+  XPRS_OTH: writeln("Problem unbounded") 
+  XPRS_UNF: writeln("Optimization unfinished")
+  else writeln("Unknown problem status")
+ end-case
+
+end-model 

@@ -1,0 +1,80 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file e6vanrent.mos
+   ``````````````````
+   Fleet planning for van rental
+   
+   A chain of stores uses a fleet of vans rented from
+   multiple rental agencies. There is a choice between rental
+   contracts of varying lengths. Which contracts should be 
+   signed each month so that the number of vans meet the 
+   requirements and there are no vans rented beyond the last month
+   while minimizing rental costs?
+   
+   The implementation uses the Mosel functions 'maxlist' and 'minlist'
+   to calculate the range of available months for each contract
+   length. Note that these are different from the operators 'max'
+   and 'min' which are used with set expressions.
+   
+   (c) 2008-2022 Fair Isaac Corporation
+       author: S. Heipcke, Mar. 2002, rev. Mar. 2022
+*******************************************************!)
+
+model "E-6 Van rental"
+ uses "mmxprs"
+
+ declarations
+  NM = 6
+  MONTHS = 1..NM                      ! Months
+  CONTR = 3..5                        ! Contract types
+
+  REQ: array(MONTHS) of integer       ! Monthly requirements
+  COST: array(CONTR) of integer       ! Cost of contract types
+  NINIT: integer                      ! Vans rented at beginning of plan
+
+  rent: array(CONTR,MONTHS) of mpvar  ! New rentals every month
+ end-declarations
+
+ initializations from 'e6vanrent.dat'
+  REQ COST NINIT
+ end-initializations
+
+! Objective: total cost
+ Cost:= sum(c in CONTR, m in MONTHS) COST(c)*rent(c,m)
+
+! Fulfill the monthly requirements
+ forall(m in MONTHS) 
+  if(m<=2, NINIT, 0) + 
+   sum(c in CONTR, n in maxlist(1,m-c+1)..minlist(m,NM-c+1)) rent(c,n) >= 
+    REQ(m)
+
+! Solve the problem
+ minimize(Cost)
+ 
+! Solution printing
+ declarations
+  NAMES: array(MONTHS) of string
+ end-declarations
+
+ initializations from 'e6vanrent.dat'
+  NAMES
+ end-initializations
+ 
+ writeln("Total cost: ", getobjval)
+ setparam("realfmt","%5g")   ! Reserve 5 char.s for display of real numbers
+ write("new rents  ")
+ forall(m in MONTHS) write(NAMES(m), "  ")
+ writeln
+ forall(c in CONTR) do
+  write(c, " months ")
+  forall(m in MONTHS) write(getsol(rent(c,m)))
+  writeln
+ end-do
+ write("Total    ")
+ forall(m in MONTHS) write(getsol(if(m<=2, NINIT, 0) + 
+  sum(c in CONTR, n in maxlist(1,m-c+1)..minlist(m,NM-c+1)) rent(c,n)))
+ writeln   
+
+end-model

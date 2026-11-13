@@ -1,0 +1,15 @@
+(!******************************************************
+   Mosel Matlab Example Problems
+   =============================
+
+   file example_m1.mos
+   `````````````````````
+   Trivial Mosel program to be executed from MATLAB.
+   
+  (c) 2014 Fair Isaac Corporation
+      author: L.Bertacco, Apr. 2014
+*******************************************************!)
+
+model "example_m1" 
+exit(10)
+end-model

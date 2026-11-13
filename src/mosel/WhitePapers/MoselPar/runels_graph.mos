@@ -1,0 +1,190 @@
+(!*******************************************************
+   Mosel Example Problems
+   ======================
+
+   file runels_graph.mos
+   `````````````````````
+   Run several instances of the model elspg.mos in
+   parallel and coordinate the solution update.
+   -- Using the 'bin' IO driver --
+   -- Graphical solution output --
+   
+   *** ATTENTION: This model will return an error if ***
+   *** no more than one Xpress licence is available. ***
+ 
+   *** This model cannot be run with a Community Licence 
+       for the provided data instance ***
+
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Nov. 2004, rev. July 2017
+  *******************************************************!)
+
+model "Els main"
+ uses "mmjobs", "mmsystem", "mmsvg"
+
+ parameters
+  DATAFILE = "els5.dat" ! "els5.dat"    !"els.dat"   !"els4.dat"
+  T = 45  !45   !15    !60
+  P = 4
+  MAXDUR = 30000                           ! Timer delay in millisec
+ end-parameters 
+ 
+ declarations
+  RM = 0..5                                ! Range of models
+  TIMES = 1..T                             ! Time periods
+  PRODUCTS = 1..P                          ! Set of products
+  solprod: array(PRODUCTS,TIMES) of real   ! Sol. values for var.s produce 
+  solsetup: array(PRODUCTS,TIMES) of real  ! Sol. values for var.s setup
+  DEMAND: array(PRODUCTS,TIMES) of integer ! Demand per period
+    
+  modELS: array(RM) of Model               ! Models
+  NEWSOL = 2                               ! Identifier for "sol. found" event
+  INITVAL = 3                              ! "Initial LP value" event class
+  NEWGAP = 4                               ! Identifier for "gapnotify" event
+  Msg: Event                               ! Messages sent by models
+  params: text                             ! Submodel runtime parameters
+  initval: array(RM) of real               
+  lastxb,lastxs,lastys,lastyb: array(RM) of real
+ end-declarations
+
+! Compile, load, and run selected submodel versions
+ AlgSel:= [2,3,4]    ![0,1,2,3,4,5]
+ res:= compile("elspg.mos")                ! Compile the submodel
+ forall(a in AlgSel) load(modELS(a), "elspg.bim")   ! Load submodels
+ forall(m in RM) modELS(m).uid:= m
+ setmodpar(params, "DATAFILE", DATAFILE)
+ setmodpar(params, "T", T); setmodpar(params, "P", P)
+                                           ! Start submodel runs
+ forall(a in AlgSel) do
+   setmodpar(params, "ALG", a); run(modELS(a), params)
+ end-do
+
+ svgaddgroup("Msg", "", SVG_GREY)
+ forall(a in AlgSel) svgaddgroup(string(a), "Model with ALG="+a)
+ xoffset:=-150.0
+ svgsetgraphlabels("Time (in sec)", "MIP gap")
+ svgsetreffreq(5)                          ! High update frequency
+ svgrefresh
+
+ objval:= MAX_REAL
+ algsol:= -1; algopt:= -1; iffirst:=true; indl:= 0.0
+ forall(m in AlgSel) do
+  lastxb(m):=0.0; lastxs(m):=0.0; lastys(m):=0.0; lastyb(m):=0.0
+ end-do
+ 
+ tid:=settimer(0,MAXDUR,false)          ! Start the timer (false=single measure)
+
+ repeat
+  repeat
+   wait(1)                             ! Wait for the next event
+   ! Closing the graphical display will interrupt the algorithm
+   if svgclosing then
+     writeln("Stopped by closing display window")
+     break 2 
+   end-if
+  until not isqueueempty
+  Msg:= getnextevent                   ! Get the event
+  if getclass(Msg)=NEWSOL then         ! Get the event class
+   mid:= Msg.fromuid                   ! ID of model sending the event
+   val:= getvalue(Msg)
+   grtime:=2*gettime
+   if lastys(mid)<>initval(mid) then
+     svgaddline(string(mid), lastxs(mid), lastys(mid), grtime, val)
+   end-if
+   svgaddpoint(string(mid), grtime, val)
+   lastxs(mid):=grtime; lastys(mid):=val
+   svgaddline(string(mid), lastxb(mid), lastyb(mid), grtime, lastyb(mid))
+   lastxb(mid):=grtime
+
+   if getvalue(Msg) < objval then      ! Value of the event (= obj. value)
+    algsol:= mid
+    objval:= val
+    writeln("Improved solution ", objval, " found by model ", algsol)
+    svgaddtext(string(algsol), xoffset, indl, "Improved solution "+ objval)
+    svgrefresh
+    indl+=10
+    forall(m in RM | m <> algsol) send(modELS(m), NEWSOL, objval)
+   else
+    writeln("Solution ", val, " found by model ", mid)
+    svgaddtext(string(mid), xoffset, indl, "Solution "+ val)
+    svgrefresh
+    indl+=10
+   end-if
+
+  elif getclass(Msg)=INITVAL then      ! Get the event class
+   mid:= Msg.fromuid                   ! ID of model sending the event
+   initval(mid):= getvalue(Msg)        ! Value of the event (= bound value)
+   lastys(mid):=initval(mid); lastyb(mid):=initval(mid)
+   grtime:=2*gettime
+   lastxb(mid):=grtime; lastxs(mid):=grtime
+   if iffirst then
+    svgsetgraphviewbox(xoffset-10,initval(mid),600,1000)
+    indl:=initval(mid)*1.01;
+    iffirst:=false
+    svgaddtext(string(mid), xoffset, indl, "Initial LP solution "+ getvalue(Msg))
+    svgrefresh
+    indl+=10
+   end-if
+   writeln("Initial LP solution ", getvalue(Msg), " from model ", mid)
+
+  elif getclass(Msg)=NEWGAP then       ! Get the event class
+   mid:= Msg.fromuid                   ! ID of model sending the event
+   val:=getvalue(Msg)                  ! Value of the event (= bound value)
+   writeln("New best bound ", getvalue(Msg), " from model ", mid)
+   grtime:=2*gettime
+   if lastys(mid)<>initval(mid) then
+     svgaddline(string(mid), lastxs(mid), lastys(mid), grtime, lastys(mid))
+   end-if
+   lastxs(mid):=grtime
+   svgaddline(string(mid), lastxb(mid), lastyb(mid), grtime, val)
+   lastxb(mid):=grtime; lastyb(mid):=val
+   svgrefresh
+
+  elif getclass(Msg)=EVENT_TIMER then  ! Handle timer events
+   svgaddtext("Msg", xoffset, indl, "Time limit reached")
+   svgrefresh
+   writeln("Time limit reached, stopping all submodels.")
+   break                               ! Exit from 'repeat' loop
+
+  elif getclass(Msg)=EVENT_END then
+    algopt:= Msg.fromuid               ! Retrieve ID of terminated model
+  end-if
+
+ until getclass(Msg)=EVENT_END         ! A model has finished
+ 
+ forall(m in RM) stop(modELS(m))       ! Stop all running models
+
+ if algsol=-1 then
+  writeln("No solution available")
+  exit(1)
+ else                     ! Retrieve the best solution from shared memory
+  initializations from "bin:shmem:sol"+algsol
+   solprod 
+   solsetup 
+  end-initializations
+  
+  initializations from DATAFILE
+   DEMAND
+  end-initializations
+  
+! Solution printing
+  writeln("Best solution found by model ", algsol) 
+  if algopt<>-1 then writeln("Optimality proven by model ", algopt); end-if 
+  writeln("Objective value: ", objval) 
+  write("Period  setup    ")
+  forall(p in PRODUCTS) write(strfmt(p,-7))
+  forall(t in TIMES) do
+   write("\n ", strfmt(t,2), strfmt(sum(p in PRODUCTS) solsetup(p,t),8), "    ")
+   forall(p in PRODUCTS) write(strfmt(solprod(p,t),3), " (",DEMAND(p,t),")")
+  end-do
+  writeln
+ end-if
+
+! Cleaning up temporary files
+ fdelete("elsp.bim")
+ forall(a in AlgSel) fdelete("shmem:sol"+a)
+
+! svgsave("runels.svg")
+ svgwaitclose
+
+end-model

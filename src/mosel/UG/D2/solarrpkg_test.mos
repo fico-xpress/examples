@@ -1,0 +1,39 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   File solarrpkg_test.mos
+   ```````````````````````
+   Using the package 'solarraypkg'
+
+   *** Compile solarraypkg.mos before running this model ****
+
+   (c) 2008 Fair Isaac Corporation 
+       author: S. Heipcke, 2005
+*******************************************************!)
+
+model "Test solarraypkg package"
+ uses "solarraypkg", "mmxprs"
+
+ declarations
+  R1=1..2
+  R2={6,7,9}
+  R3={5,-1}
+  x: array(R1,R2,R3) of mpvar
+  sol: array(R1,R2,R3) of real
+ end-declarations
+
+! Define and solve a small problem  
+ sum(i in R1, j in R2, k in R3) (i+j+2*k) * x(i,j,k) <= 20
+ forall(i in R1, j in R2, k in R3) x(i,j,k)<=1
+ maximize(sum(i in R1, j in R2, k in R3) (i+2*j+k) * x(i,j,k))
+
+! Get the solution array  
+ solarray(x,sol)
+
+! Print the solution 
+ forall(i in R1, j in R2, k in R3)
+  writeln(" (", i, ",", j, ",", k, ") ", sol(i,j,k), " ", getsol(x(i,j,k)))
+ writeln(sol)
+
+end-model

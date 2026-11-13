@@ -1,0 +1,30 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file rtparams2.mos
+   ``````````````````
+   Model with different runtime parameter types;
+   can be run as submodel from model 'runrtpartree.mos'.
+       
+   (c) 2010 Fair Isaac Corporation
+       author: S. Heipcke, May 2010
+*******************************************************!)
+
+model "Runtime parameters"
+ uses "mmjobs", "mmsystem"
+ 
+ parameters
+  LEVEL = 0
+  BRANCH = 0
+  MODCOUNT = 1
+  PARAM1 = 0
+  PARAM2 = 0.5
+  PARAM3 = ''
+  PARAM4 = false
+ end-parameters
+
+! wait(1)
+ writeln(" "*LEVEL, LEVEL, "/", BRANCH, " (", MODCOUNT, ")", ": ", PARAM1, "  ", PARAM2, "  ", PARAM3, "  ", PARAM4)
+ 
+end-model 

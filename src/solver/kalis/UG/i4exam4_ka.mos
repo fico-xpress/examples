@@ -1,0 +1,63 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file exam4.mos
+   ``````````````
+   Scheduling exams
+   (See "Applications of optimization with Xpress-MP",
+        Section 14.4 Exam schedule)
+   - Optimization and branching strategy -	
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+       Creation: 2005, rev. Mar. 2013       
+*****************************************************************!)
+
+model "I-4 Scheduling exams (CP) - 4"
+ uses "kalis"
+ 
+ declarations
+  NT: integer                         ! Number of time slots
+  EXAM: set of string                 ! Set of exams
+  TIME: set of integer                ! Set of time slots  
+  INCOMP: dynamic array(EXAM,EXAM) of integer ! Incompatibility between exams
+  
+  plan: array(EXAM) of cpvar          ! Time slot for exam
+  numslot: cpvar                      ! Number of time slots used
+ end-declarations
+
+ initializations from 'Data/i4exam2.dat'
+  INCOMP NT
+ end-initializations
+
+ finalize(EXAM)
+ TIME:= 1..NT
+ 
+ setparam("kalis_default_lb", 1); setparam("kalis_default_ub", NT)
+ forall(e in EXAM) create(plan(e))
+ 
+! Respect incompatibilities
+ forall(d,e in EXAM | exists(INCOMP(d,e)) and d<e)  plan(d) <> plan(e)
+
+! Calculate number of time slots used
+ numslot = maximum(plan)
+
+! Setting parameters of the enumeration
+ cp_set_branching(assign_var(KALIS_MAX_DEGREE, KALIS_MIN_TO_MAX))  
+
+! Solve the problem
+ if not cp_minimize(numslot) then
+  writeln("Problem is infeasible")
+  exit(1)
+ end-if   
+
+! Solution printing
+ forall(t in TIME) do
+  write("Slot ", t, ": ")
+  forall(e in EXAM | getsol(plan(e))=t) write(e," ")
+  writeln
+ end-do
+ 
+ cp_show_stats
+ 
+end-model

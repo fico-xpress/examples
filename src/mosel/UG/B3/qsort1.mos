@@ -1,0 +1,67 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file qsort1.mos 
+   ``````````````` 
+   'forward' definition of subroutines.
+ 
+   (c) 2008 Fair Isaac Corporation
+       author: Y. Colombani, 2001, rev. Sep. 2022
+*******************************************************!)
+
+model "Quick sort 1"
+
+ parameters
+  LIM=50
+ end-parameters
+
+ forward procedure startqsort(L:array(range) of integer)
+(! Equivalent form of declaration:
+ declarations 
+  procedure startqsort(L:array(range) of integer)
+ end-declarations
+!) 
+
+ declarations
+  T:array(1..LIM) of integer
+ end-declarations
+
+ forall(i in 1..LIM) T(i):=round(.5+random*LIM)
+ writeln(T)
+ startqsort(T)
+ writeln(T)
+ 
+ 
+! Swap the positions of two numbers in an array
+ procedure swap(L:array(range) of integer,i,j:integer)
+  k:=L(i)
+  L(i):=L(j)
+  L(j):=k
+ end-procedure
+
+
+! Main sorting routine
+ procedure qsort(L:array(range) of integer,s,e:integer)
+  v:=L((s+e) div 2)              ! Determine a partitioning value
+  i:=s; j:=e
+  repeat                         ! Partition the array into two subarrays
+   while(L(i)<v) i+=1
+   while(L(j)>v) j-=1
+   if i<j  then
+    swap(L,i,j)
+    i+=1; j-=1
+   end-if
+  until i>=j
+                                 ! Recursively sort the two subarrays
+  if j<e and s<j: qsort(L,s,j)
+  if i>s and i<e: qsort(L,i,e)
+ end-procedure
+
+
+! Start of the sorting process 
+ procedure startqsort(L:array(r:range) of integer)
+  qsort(L,getfirst(r),getlast(r))
+ end-procedure
+
+end-model

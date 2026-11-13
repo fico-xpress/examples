@@ -1,0 +1,62 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file folioqc.mos
+   ````````````````
+   Modeling a small QCQP problem 
+   to perform portfolio optimization.
+   -- Maximize return with limit on variance ---
+   
+  (c) 2008 Fair Isaac Corporation
+      author: S.Heipcke, July 2008
+*******************************************************!)
+
+model "Portfolio optimization with QCQP"
+ uses "mmxprs", "mmnl"
+
+ parameters
+  MAXVAL = 0.3                      ! Max. investment per share
+  MINAM = 0.5                       ! Min. investment into N.-American values
+  MAXVAR = 0.55                     ! Max. allowed variance
+ end-parameters
+
+ declarations
+  SHARES = 1..10                    ! Set of shares
+  NA: set of integer                ! Set of shares issued in N.-America
+  RET: array(SHARES) of real        ! Estimated return in investment
+  VAR: array(SHARES,SHARES) of real ! Variance/covariance matrix of
+                                    ! estimated returns
+ end-declarations
+
+ initializations from "folioqp.dat"
+  RET NA VAR
+ end-initializations
+
+ declarations
+  frac: array(SHARES) of mpvar      ! Fraction of capital used per share
+ end-declarations
+
+! Objective: total return
+ Return:= sum(s in SHARES) RET(s)*frac(s) 
+
+! Minimum amount of North-American values
+ sum(s in NA) frac(s) >= MINAM
+
+! Spend all the capital
+ sum(s in SHARES) frac(s) = 1
+ 
+! Limit variance
+ sum(s,t in SHARES) VAR(s,t)*frac(s)*frac(t) <= MAXVAR
+
+! Upper bounds on the investment per share
+ forall(s in SHARES) frac(s) <= MAXVAL
+
+! Solve the problem
+ maximize(Return)
+
+! Solution printing
+ writeln("With a max. variance of ", MAXVAR, " total return is ", getobjval)
+ forall(s in SHARES) writeln(s, ": ", getsol(frac(s))*100, "%")  
+
+end-model 

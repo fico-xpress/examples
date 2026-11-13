@@ -1,0 +1,22 @@
+#************************************
+#  MIP formulations
+# 
+#  (c) 2024 Fair Isaac Corporation
+#      author: Y. Colombani, 2003
+#************************************
+#
+# Before using this makefile remember to set the environment variable
+# XPRESSDIR to the directory where the DLL kit is installed on your computer.
+#
+
+all: indicators.exe intromip.exe soslin.exe soslinbcl.exe sosquad.exe sosquadbcl.exe gencons.exe
+
+.cpp.exe:
+	$(CC) -nologo -EHsc -Zi -MD -std:c++17 -Zc:__cplusplus "-I$(XPRESSDIR)\include" $(CFLAGS) $< "$(XPRESSDIR)\lib\xprs.lib"
+
+.cxx.exe:
+	$(CC) -nologo -EHsc -Zi -MD "-I$(XPRESSDIR)\include" $(CFLAGS) $< "$(XPRESSDIR)\lib\xprs.lib"
+
+clean:
+	del *.obj
+	del *.exe

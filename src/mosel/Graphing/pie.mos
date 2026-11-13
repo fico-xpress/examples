@@ -1,0 +1,63 @@
+(!******************************************************
+   Mosel graph examples
+   ==================== 
+
+   file pie.mos
+   ````````````
+   Drawing a pie chart.
+   
+   Uses functions from the mmsvg library to draw
+   a "User graph" in SVG format.
+   
+   (c) 2017 Fair Isaac Corporation
+       Author: S. Heipcke, Jul. 2017, rev. Sep. 2017
+*******************************************************!)
+
+model pie
+  uses "mmsvg"
+
+  declarations
+    NP=8
+    PDATA: array(RP:range) of real
+    PID: array(RP) of string
+  end-declarations
+
+  procedure drawpie(xpos, ypos: integer, rad: integer, data:array(R:range) of real,
+                    pids:array(range) of string, msg: text)
+    if sum(i in R) data(i)>1 then
+      writeln("Incorrect pie data.")
+      return
+    end-if
+
+    ttl:=0.0
+    forall(i in R) do
+      svgaddgroup(pids(i),"Pie slice "+i)
+      svgsetstyle(SVG_STROKE,SVG_GREY)
+      svgsetstyle(SVG_STROKEWIDTH,0.5)
+      svgaddpie(pids(i), xpos, ypos, rad, ttl, ttl+data(i))
+      ttl+=data(i)
+    end-do
+
+    svgaddgroup("msg", "", SVG_GREY)
+    svgaddtext(xpos, ypos+rad+20, msg)
+    svgsetstyle(svggetlastobj, SVG_TEXTANCHOR, "middle")
+
+   ! Draw the graph 
+    svgrefresh
+  end-procedure
+
+ ! Some random data and group IDs
+  PDATA::(1..8)[0.2, 0.1, 0.12, 0.05, 0.23, 0.13, 0.075, 0.095]
+  forall(i in RP) PID(i):="gp"+i
+
+ ! Configure and draw the graphic
+  svgsetgraphviewbox(0,0,200,200)
+  drawpie(100, 100, 50, PDATA, PID, "Pie chart example")
+
+ ! Optionally save graphic to a file
+  svgsave("pie.svg")
+
+ ! Wait for display window to close 
+  svgwaitclose("Close browser window to terminate model execution.", 1)
+
+end-model

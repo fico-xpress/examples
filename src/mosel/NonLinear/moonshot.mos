@@ -1,0 +1,134 @@
+(!*********************************************************************
+   Mosel NL examples
+   =================
+   file moonshot.mos
+   `````````````````
+   Minimise fuel consumption of a rocket from earth to moon.
+   Nonlinear objective and constraints
+
+   Based on AMPL model moonshot.mod
+   Source: http://www.orfe.princeton.edu/~rvdb/ampl/nlmodels/rocket/
+
+   *** This model cannot be run with a Community Licence 
+       for the provided data instance ***
+
+   (c) 2013 Fair Issac Corporation
+       author: S. Heipcke, Mar. 2013, rev. Jun. 2023
+*********************************************************************!)
+    
+model "moonshot"
+  uses "mmxnlp"
+
+  parameters
+    N = 100                        ! Number of discrete times         
+  end-parameters
+    
+  declarations
+    D = 1..2                       ! Dimensions
+    Nx: set of real                ! Discrete times for positions
+    Nv: set of real                ! Discrete times for velocity
+    Na: set of real                ! Discrete times for acceleration
+    T: real                        ! Total time
+    G: real                        ! Constant factor
+
+    MASS_Earth: real               ! Mass of Earth
+    RADIUS_Earth: real             ! Radius of Earth
+    POS_Earth: array(D) of real    ! Position(x,y) of Earth
+    MASS_Moon : real               ! Mass of Moon
+    RADIUS_Moon : real             ! Radius of Moon
+    POS_Moon : array(D) of real    ! Position(x,y) of Moon
+
+    X0: array(D) of real           ! Initial position
+    Xn: array(D) of real           ! Final position
+    V0: array(D) of real           ! Initial velocity
+    Vn: array(D) of real           ! Final velocity
+    ALPHA0: real                   ! Initial degree
+    ALPHAn: real                   ! Final degree
+  end-declarations
+
+  Nx:= union(i in 0..N) {real(i)}
+  Na:= union(i in 1..N-1) {real(i)}
+  Nv:= union(i in 1..N) {i-0.5}
+
+  initializations from "moonshot.dat"
+    T  G  MASS_Earth MASS_Moon RADIUS_Earth RADIUS_Moon POS_Earth POS_Moon
+  end-initializations
+
+! Initial and final velocity
+  ALPHA0 := 1.5*M_PI
+  ALPHAn := M_PI/2.0
+  X0(1) := POS_Earth(1) + RADIUS_Earth*cos(ALPHA0)
+  X0(2) := POS_Earth(2) + RADIUS_Earth*sin(ALPHA0)
+  Xn(1) := POS_Moon(1) + RADIUS_Moon*cos(ALPHAn)
+  Xn(2) := POS_Moon(2) + RADIUS_Moon*sin(ALPHAn)
+  V0(1) := 5*cos(ALPHA0)
+  V0(2) := 5*sin(ALPHA0)
+  Vn(1) := -5*cos(ALPHAn)
+  Vn(2) := -5*sin(ALPHAn)
+
+
+  declarations
+    x: array(D, Nx) of mpvar        ! Position
+    v: array(D, Nv) of mpvar        ! Velocity
+    a: array(D, Na) of mpvar        ! Acceleration
+    theta: array(D, Na) of mpvar    ! Thrust
+    Fuelcost: nlctr
+  end-declarations
+
+! Objective function: total fuel consumption
+  Fuelcost:= sum(d in D, i in Na) theta(d,i)^2
+
+! Setting start values for positions
+  forall(d in D, j in Nx) do
+    setinitval(x(d,j), (1-j/N)*X0(d)+(j/N)*Xn(d) )
+    x(d,j) is_free
+  end-do
+
+! Fixing start and final position and velocity
+  forall(d in D) do
+    x(d, 0) = X0(d)                 ! Initial position
+    x(d, N) = Xn(d)                 ! Final position
+    v(d, 0.5) = V0(d)               ! Initial velocity
+    v(d, N-0.5)^1 = Vn(d)           ! Final velocity
+  end-do
+
+! Velocity constraint
+  forall(d in D, j in Nv) do
+    VelDef(d,j) := N*( x(d, j+0.5) - x(d, j-0.5) ) = T*v(d,j)
+    v(d,j) is_free
+  end-do
+
+! Acceleration constraint
+  forall(d in D, j in Na) do
+    AccDef(d,j) := N*( v(d, j+0.5) - v(d, j-0.5) ) = T*a(d,j)
+    a(d,j) is_free
+    theta(d,j) is_free 
+  end-do
+
+! Force balance constraint
+  forall(d in D, j in Na)
+    Force(d,j) := a(d,j) =
+        -G*MASS_Earth*(x(d,j)-POS_Earth(d))/
+        (sum(dd in D) (x(dd,j)-POS_Earth(dd))^2)^(3/2) -
+         G*MASS_Moon*(x(d,j)-POS_Moon(d))/
+        (sum(dd in D) (x(dd,j)-POS_Moon(dd))^2)^(3/2) +
+        theta(d,j)  
+   
+! Setting up and solving the problem
+  setparam("xnlp_verbose",true)  
+  
+! In this example we will use a local solver, since it can be time consuming to solve it to global optimality 
+  setparam("xprs_nlpsolver", 1)
+
+  minimize(Fuelcost)
+
+! Solution printing
+  forall(i in Na) 
+    writeln("i=", i, ": position=(", x(1,i).sol, ",", x(2,i).sol, ")",
+            " thrust=(",theta(1,i).sol, ",", theta(2,i).sol,"), ",
+            "acceleration=(",getsol(a(1,i)), ",", getsol(a(2,i)),")" )
+ 
+  forall(i in Nv) writeln("velocity=(",getsol(v(1,i)), ",",getsol(v(2,i)),")" )
+  writeln("Fuelcost = ", getobjval, "\n")
+
+end-model

@@ -1,0 +1,57 @@
+(!*******************************************************
+  * Mosel DMP Integration Examples                      *
+  * ==============================                      *
+  *                                                     *
+  * file componentrequest.mos                           *
+  * `````````````````````````                           *
+  * Example of counting executions currently in the     *
+  * repository of an Xpress Executor component in the   *
+  * same solution.                                      *
+  *                                                     *
+  * Note: this must be run within a cloud component     *
+  * (Xpress Insight or Xpress Executor), from a         *
+  * solution that contains at least one Xpress Executor *
+  * component.                                          *
+  *                                                     *
+  * This is an example of using the 'dmp' module, but   *
+  * in real solutions you should use the 'executor'     *
+  * module to sent requests to an Xpress Executor       *
+  * component.                                          *
+  *                                                     *
+  * (c) 2018 Fair Isaac Corporation                     *
+  *     author: James Farmer, 2018                      *
+  *******************************************************!)
+model countexecutions
+  uses 'dmp','mmxml'
+  
+  declarations
+    xecomp: dmpresource
+    httpstatus: integer
+    doc: xmldoc
+    nodes: list of integer
+  end-declarations
+  
+  ! Initialize dmpresource
+  dmpinitcomp(xecomp, 'Xpress Executor')
+  if xecomp.status<>DMP_OK then
+    writeln('ERROR finding Xpress Executor component: ',xecomp.lasterror)
+    exit(1)
+  end-if
+  
+  ! Make request
+  httpstatus := dmphttpget(xecomp, '/rest/runtime/execution', 'executions.json')
+  if httpstatus<>200 then
+    if xecomp.status<>DMP_OK then
+      writeln('ERROR authorizing Xpress Executor component: ',xecomp.lasterror)
+    else
+      writeln('ERROR returned by Xpress Executor component: ',httpstatus)
+    end-if
+    exit(1)
+  end-if
+  
+  ! Use mmxml to parse response
+  jsonload(doc,'executions.json')
+  getnodes(doc,'/jsv/jsv',nodes)
+  writeln('Executions found: ',nodes.size)
+  
+end-model

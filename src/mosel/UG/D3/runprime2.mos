@@ -1,0 +1,41 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file runprime2.mos 
+   ``````````````````
+   Model handling. Compiling to memory.
+ 
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2005
+*******************************************************!)
+
+model "Run model prime (2)"
+ uses "mmjobs", "mmsystem"
+
+ declarations
+  modPrime: Model
+  event: Event
+ end-declarations
+
+                               ! Compile 'prime.mos' to memory
+ if compile("","prime.mos","shmem:bim")<>0: exit(1)
+
+ load(modPrime,"shmem:bim")    ! Load bim file from memory...
+ fdelete("shmem:bim")          ! ... and release the memory block
+
+ run(modPrime, "LIMIT=50000")  ! Start execution and
+ wait(2)                       ! wait 2 seconds for an event
+
+ if isqueueempty then          ! No event has been sent...
+  writeln("Model too slow: stopping it!")
+  stop(modPrime)               ! ... stop the model, then wait
+  wait
+ end-if
+                               ! An event is available: model finished
+ event:=getnextevent
+ writeln("Exit status: ", getvalue(event))
+ writeln("Exit code  : ", getexitcode(modPrime))
+
+ unload(modPrime)              ! Unload the submodel
+end-model 

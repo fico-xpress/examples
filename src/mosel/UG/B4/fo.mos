@@ -1,0 +1,25 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file fo.mos 
+   ``````````` 
+   Formatted output printing.
+ 
+   (c) 2008 Fair Isaac Corporation
+       author: Bob Daniel, 2002
+*******************************************************!)
+
+model FO
+ parameters
+  r = 1.0         ! A real
+  i = 0           ! An integer
+ end-parameters
+
+ writeln("i is ", i)
+ writeln("i is ", strfmt(i,6) )
+ writeln("i is ", strfmt(i,-6) )
+ writeln("r is ", r)
+ writeln("r is ", strfmt(r,6) )
+ writeln("r is ", strfmt(r,10,4) )
+end-model

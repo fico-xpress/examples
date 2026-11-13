@@ -1,0 +1,582 @@
+<examples>
+  <chapter id="book_1" title="Mining and Process Industries" directory="A_BldProc">
+    <model id="book_A_1">
+      <modFile date="Feb. 2002">a1alloy.mos</modFile>
+      <modData>a1alloy.dat</modData>
+      <modTitle>Production of alloys</modTitle>
+      <modType>Blending problem</modType>
+      <modRating>1</modRating>
+      <modFeatures> formulation of blending constraints; data with numerical indices, solution printout, if-then, getsol</modFeatures>
+    </model>
+    <model id="book_A_2">
+      <modTitle>Animal food production</modTitle>
+      <modFile date="Feb. 2002">a2food.mos</modFile>
+      <modData>a2food.dat</modData>
+      <modType>Blending problem</modType>
+      <modRating>1</modRating>
+      <modFeatures> formulation of blending constraints; data with string indices, as, formatted solution printout, use of getsol with linear expressions, strfmt</modFeatures>
+    </model>
+    <model id="book_A_3">
+      <modFile date="Feb. 2002">a3refine.mos</modFile>
+      <modData>a3refine.dat</modData>
+      <modTitle>Refinery</modTitle>
+      <modType>Blending problem</modType>
+      <modRating>2</modRating>
+      <modFeatures> formulation of blending constraints; sparse data with string indices, dynamic initialization, union of sets</modFeatures>
+    </model>
+    <model id="book_A_4">
+      <modFile date="Feb. 2002">a4sugar.mos</modFile>
+      <modData>a4sugar.dat</modData>
+      <modTitle>Cane sugar production</modTitle>
+      <modType>Minimum cost flow (in a bipartite graph)</modType>
+      <modRating>1</modRating>
+      <modFeatures>ceil, is_binary, formattext</modFeatures>
+    </model>
+    <model id="book_A_5">
+      <modFile date="Feb. 2002">a5mine.mos</modFile>
+      <modFile date="Jan. 2006">a5mine2.mos</modFile>
+      <modData>a5mine.dat</modData>
+      <modData>a5mine2.dat</modData>
+      <modTitle>Opencast mining</modTitle>
+      <modType>Minimum cost flow</modType>
+      <modRating>2</modRating>
+      <modFeatures> encoding of arcs, solving LP-relaxation only, array of set</modFeatures>
+    </model>
+    <model id="book_A_6">
+      <modFile date="Mar. 2002">a6electr.mos</modFile>
+      <modFile date="Oct. 2004">a6electrg.mos</modFile>
+      <modData>a6electr.dat</modData>
+      <modTitle>Production of electricity</modTitle>
+      <modType>Dispatch problem</modType>
+      <modRating>2</modRating>
+      <modFeatures> inline if, is_integer, looping over optimization problem solving</modFeatures>
+    </model>
+  </chapter>
+
+  <chapter id="book_2" title="Scheduling Problems" directory="B_Sched">
+    <model id="book_B_1">
+      <modFile date="Mar. 2002">b1stadium.mos</modFile>
+      <modFile date="Jan. 2006">b1stadium2.mos</modFile>
+      <modData>b1stadium.dat</modData>
+      <modData>b1stadium2.dat</modData>
+      <modTitle>Construction of a stadium</modTitle>
+      <modType>Project scheduling (Method of Potentials)</modType>
+      <modRating>3</modRating>
+      <modFeatures> 2 problems; selection with `|', sparse/dense format, naming and redefining constraints, subroutine: procedure for solution printing, forward declaration, array of set</modFeatures>
+    </model>
+    <model id="book_B_2">
+      <modFile date="Mar. 2002">b2flowshop.mos</modFile>
+      <modData>b2flowshop.dat</modData>
+      <modTitle>Flow shop scheduling</modTitle>
+      <modType>Flow shop scheduling</modType>
+      <modRating>4</modRating>
+      <modFeatures> alternative formulation using SOS1, Special Ordered Sets</modFeatures>
+    </model>
+    <model id="book_B_3">
+      <modFile date="Mar. 2002">b3jobshop.mos</modFile>
+      <modFile date="Mar. 2002">b3jobshop2.mos</modFile>
+      <modFile date="Jan. 2006">b3jobshop3.mos</modFile>
+      <modData>b3jobshop.dat</modData>
+      <modData>b3jobshop2.dat</modData>
+      <modData>b3jobshop3.dat</modData>
+      <modTitle>Job shop scheduling</modTitle>
+      <modType>Job shop scheduling</modType>
+      <modRating>3</modRating>
+      <modFeatures> formulating disjunctions (BigM); dynamic array, range, exists, forall-do, array of set, array of list</modFeatures>
+    </model>
+    <model id="book_B_4">
+      <modFile date="Mar. 2002">b4seq.mos</modFile>
+      <modData>b4seq.dat</modData>
+      <modTitle>Sequencing jobs on a bottleneck machine</modTitle>
+      <modType>Single machine scheduling</modType>
+      <modRating>3</modRating>
+      <modFeatures> 3 different objectives; subroutine: procedure for solution printing, localsetparam, if-then</modFeatures>
+    </model>
+    <model id="book_B_5">
+      <modFile date="Mar. 2002">b5paint.mos</modFile>
+      <modData>b5paint.dat</modData>
+      <modTitle>Paint production</modTitle>
+      <modType>Asymmetric Traveling Salesman Problem (TSP)</modType>
+      <modRating>3</modRating>
+      <modFeatures> solution printing, repeat-until, cast to integer, selection with `|', round</modFeatures>
+    </model>
+    <model id="book_B_6">
+      <modFile date="Mar. 2002">b6linebal.mos</modFile>
+      <modData>b6linebal.dat</modData>
+      <modTitle>Assembly line balancing</modTitle>
+      <modType>Assembly line balancing</modType>
+      <modRating>2</modRating>
+      <modFeatures> encoding of arcs, range</modFeatures>
+    </model>
+  </chapter>
+
+  <chapter id="book_3" title="Planning Problems" directory="C_ProdPlan">
+    <model id="book_C_1">
+      <modFile date="Mar. 2002">c1bike.mos</modFile>
+      <modData>c1bike.dat</modData>
+      <modTitle>Planning the production of bicycles</modTitle>
+      <modType>Production planning (single product)</modType>
+      <modRating>3</modRating>
+      <modFeatures> modeling inventory balance; inline if, forall-do</modFeatures>
+    </model>
+    <model id="book_C_2">
+      <modFile date="Mar. 2002">c2glass.mos</modFile>
+      <modData>c2glass.dat</modData>
+      <modTitle>Production of drinking glasses</modTitle>
+      <modType>Multi-item production planning</modType>
+      <modRating>2</modRating>
+      <modFeatures> modeling stock balance constraints; inline if, index value 0</modFeatures>
+    </model>
+    <model id="book_C_3">
+      <modFile date="Mar. 2002">c3toy.mos</modFile>
+      <modData>c3toy.dat</modData>
+      <modTitle>Material requirement planning</modTitle>
+      <modType>Material requirement planning (MRP)</modType>
+      <modRating>2</modRating>
+      <modFeatures> working with index (sub)sets, dynamic initialization, automatic finalization, as</modFeatures>
+    </model>
+    <model id="book_C_4">
+      <modFile date="Mar. 2002">c4compo.mos</modFile>
+      <modData>c4compo.dat</modData>
+      <modTitle>Planning the production of electronic components</modTitle>
+      <modType>Multi-item production planning</modType>
+      <modRating>2</modRating>
+      <modFeatures> modeling stock balance constraints; inline if</modFeatures>
+    </model>
+    <model id="book_C_5">
+      <modFile date="Mar. 2002">c5fiber.mos</modFile>
+      <modData>c5fiber.dat</modData>
+      <modTitle>Planning the production of fiberglass</modTitle>
+      <modType>Production planning with time-dependent production cost</modType>
+      <modRating>3</modRating>
+      <modFeatures> representation of multi-period production as flow; encoding of arcs, exists, create, isodd, getlast, inline if</modFeatures>
+    </model>
+    <model id="book_C_6">
+      <modFile date="Mar. 2002">c6assign.mos</modFile>
+      <modData>c6assign.dat</modData>
+      <modTitle>Assignment of production batches to machines</modTitle>
+      <modType>Generalized assignment problem</modType>
+      <modRating>1</modRating>
+      <modFeatures>
+  </modFeatures>
+    </model>
+  </chapter>
+
+  <chapter id="book_4" title="Loading and Cutting Problems" directory="D_LoadCut">
+    <model id="book_D_1">
+      <modFile date="Mar. 2002">d1wagon.mos</modFile>
+      <modFile date="Sep. 2007">d1wagon2.mos</modFile>
+      <modData>d1wagon.dat</modData>
+      <modTitle>Wagon load balancing</modTitle>
+      <modType>Nonpreemptive scheduling on parallel machines</modType>
+      <modRating>4</modRating>
+      <modFeatures> heuristic solution requiring sorting algorithm, formulation of maximin objective; nested subroutines: function returning heuristic solution value and sorting procedure, ceil, getsize, if-then, break, exit, all loop types (forall-do, repeat-until, while-do), setparam, cutoff value, qsort, loading a MIP start solution</modFeatures>
+    </model>
+    <model id="book_D_2">
+      <modFile date="Mar. 2002">d2ship.mos</modFile>
+      <modData>d2ship.dat</modData>
+      <modTitle>Barge loading</modTitle>
+      <modType>Knapsack problem</modType>
+      <modRating>2</modRating>
+      <modFeatures> incremental problem definition with 3 different objectives, procedure for solution printing</modFeatures>
+    </model>
+    <model id="book_D_3">
+      <modFile date="Mar. 2002">d3tanks.mos</modFile>
+      <modData>d3tanks.dat</modData>
+      <modTitle>Tank loading</modTitle>
+      <modType>Loading problem</modType>
+      <modRating>3</modRating>
+      <modFeatures> 2 objectives; data preprocessing, as, dynamic creation of variables, procedure for solution printing, if-then-else</modFeatures>
+    </model>
+    <model id="book_D_4">
+      <modFile date="Mar. 2002">d4backup.mos</modFile>
+      <modData>d4backup.dat</modData>
+      <modTitle>Backing up files</modTitle>
+      <modType>Bin-packing problem</modType>
+      <modRating>2</modRating>
+      <modFeatures> 2 versions of mathematical model, symmetry breaking; data preprocessing, ceil, range</modFeatures>
+    </model>
+    <model id="book_D_5">
+      <modFile date="Mar. 2002">d5cutsh.mos</modFile>
+      <modData>d5cutsh.dat</modData>
+      <modTitle>Cutting sheet metal</modTitle>
+      <modType>Covering problem</modType>
+      <modRating>1</modRating>
+      <modFeatures>
+  </modFeatures>
+    </model>
+    <model id="book_D_6">
+      <modFile date="Mar. 2002">d6cutbar.mos</modFile>
+      <modData>d6cutbar.dat</modData>
+      <modTitle>Cutting steel bars for desk legs</modTitle>
+        <modType>Cutting-stock problem</modType>
+      <modRating>2</modRating>
+      <modFeatures> set operation(s) on range sets, set of integer (data as set contents)</modFeatures>
+    </model>
+  </chapter> 
+
+  <chapter id="book_5" title="Ground Transport" directory="E_TransGrd">
+    <model id="book_E_1">
+      <modFile date="Mar. 2002">e1carrent.mos</modFile>
+      <modData>e1carrent.dat</modData>
+      <modTitle>Car rental</modTitle>
+      <modType>Transport problem</modType>
+      <modRating>3</modRating>
+      <modFeatures> data preprocessing, set operations, finalize, sqrt and ^2, if-then-elif</modFeatures>
+    </model>
+    <model id="book_E_2">
+      <modFile date="Mar. 2002">e2minflow.mos</modFile>
+      <modData>e2minflow.dat</modData>
+      <modTitle>Choosing the mode of transport</modTitle>
+      <modType>Minimum cost flow</modType>
+      <modRating>2</modRating>
+      <modFeatures> formulation with extra nodes for modes of transport; encoding of arcs, union of sets, nodes labeled with strings</modFeatures>
+    </model>
+    <model id="book_E_3">
+      <modFile date="Mar. 2002">e3depot.mos</modFile>
+      <modData>e3depot.dat</modData>
+      <modTitle>Depot location</modTitle>
+      <modType>Facility location problem</modType>
+      <modRating>3</modRating>
+      <modFeatures> modeling flows as fractions, definition of model cuts</modFeatures>
+    </model>
+    <model id="book_E_4">
+      <modFile date="Mar. 2002">e4deliver.mos</modFile>
+      <modData>e4deliver.dat</modData>
+      <modTitle>Heating oil delivery</modTitle>
+      <modType>Vehicle routing problem (VRP)</modType>
+      <modRating>4</modRating>
+      <modFeatures> elimination of inadmissible subtours, cuts; selection  with `|', definition of model cuts</modFeatures>
+    </model>
+    <model id="book_E_5">
+      <modFile date="Mar. 2002">e5combine.mos</modFile>
+      <modData>e5combine.dat</modData>
+      <modTitle>Combining different modes of transport</modTitle>
+      <modType>NN</modType>
+      <modRating>3</modRating>
+      <modFeatures> modeling implications, weak and strong formulation of bounding constraints; triple indices</modFeatures>
+    </model>
+    <model id="book_E_6">
+      <modFile date="Mar. 2002">e6vanrent.mos</modFile>
+      <modData>e6vanrent.dat</modData>
+      <modTitle>Fleet planning for vans</modTitle>
+      <modType>NN</modType>
+      <modRating>3</modRating>
+      <modFeatures> maxlist, minlist, max, min </modFeatures>
+    </model>
+  </chapter>
+
+  <chapter id="book_6" title="Air Transport" directory="F_TransAir">
+    <model id="book_F_1">
+      <modFile date="Mar. 2002">f1connect.mos</modFile>
+      <modData>f1connect.dat</modData>
+      <modTitle>Flight connections at a hub</modTitle>
+      <modType>Assignment problem</modType>
+      <modRating>1</modRating>
+      <modFeatures>
+  </modFeatures>
+    </model>
+    <model id="book_F_2">
+      <modFile date="Mar. 2002">f2crew.mos</modFile>
+      <modData>f2crew.dat</modData>
+      <modTitle>Composing flight crews</modTitle>
+      <modType>Bipartite matching</modType>
+      <modRating>4</modRating>
+      <modFeatures> 2 problems, data preprocessing, incremental definition of data array, encoding of arcs, logical or (cumulative version) and and, procedure for printing solution, forall-do, max, finalize</modFeatures>
+    </model>
+    <model id="book_F_3">
+      <modFile date="Mar. 2002">f3landing.mos</modFile>
+      <modData>f3landing.dat</modData>
+      <modTitle>Scheduling flight landings</modTitle>
+      <modType>Scheduling problem with time windows</modType>
+      <modRating>3</modRating>
+      <modFeatures> disjunctive constraints; calculation of specific BigM, forall-do</modFeatures>
+    </model>
+    <model id="book_F_4">
+      <modFile date="Mar. 2002">f4hub.mos</modFile>
+      <modFile date="Jul. 2002">f4hub2.mos</modFile>
+      <modFile date="Dec. 2008">f4hub3.mos</modFile>
+      <modData>f4hub.dat</modData>
+      <modTitle>Airline hub location</modTitle>
+      <modType>Hub location problem</modType>
+      <modRating>3</modRating>
+      <modFeatures> quadruple indices; improved (re)formulation (first model not usable with student version), union of index (range) sets</modFeatures>
+    </model>
+    <model id="book_F_5">
+      <modFile date="Mar. 2002">f5tour.mos</modFile>
+      <modFile date="Jun. 2002">f5tour2.mos</modFile>
+      <modData>f5tour.dat</modData>
+      <modData>f5tour23.dat</modData>
+      <modData>f5tour7.dat</modData>
+      <modTitle>Planning a flight tour</modTitle>
+      <modType>Symmetric traveling salesman problem</modType>
+      <modRating>5</modRating>
+      <modFeatures> loop over problem solving, TSP subtour elimination algorithm; procedure for generating additional constraints, recursive subroutine calls, working with sets, forall-do, repeat-until, getsize, not</modFeatures>
+    </model>
+  </chapter>
+
+  <chapter id="book_7" title="Telecommunication Problems" directory="G_Telecomm">
+    <model id="book_G_1">
+      <modFile date="Mar. 2002">g1rely.mos</modFile>
+      <modData>g1rely.dat</modData>
+      <modTitle>Network reliability</modTitle>
+      <modType>Maximum flow with unitary capacities</modType>
+      <modRating>3</modRating>
+      <modFeatures> encoding of arcs, range, exists, create, algorithm for printing paths, forall-do, while-do, round, list handling</modFeatures>
+    </model>
+    <model id="book_G_2">
+      <modFile date="Apr. 2002">g2dimens.mos</modFile>
+      <modData>g2dimens.dat</modData>
+      <modTitle>Dimensioning of a mobile phone network</modTitle>
+      <modType>NN</modType>
+      <modRating>2</modRating>
+      <modFeatures> if-then, exit</modFeatures>
+    </model>
+    <model id="book_G_3">
+      <modFile date="Apr. 2002">g3routing.mos</modFile>
+      <modData>g3routing.dat</modData>
+      <modTitle>Routing telephone calls</modTitle>
+      <modType>Multi-commodity network flow problem</modType>
+      <modRating>3</modRating>
+      <modFeatures> encoding of paths, getsize</modFeatures>
+    </model>
+    <model id="book_G_4">
+      <modFile date="Apr. 2002">g4cable.mos</modFile>
+      <modData>g4cable.dat</modData>
+      <modTitle>Construction of a cabled network</modTitle>
+      <modType>Minimum weight spanning tree problem</modType>
+      <modRating>3</modRating>
+      <modFeatures> formulation of constraints to exclude subcycles</modFeatures>
+    </model>
+    <model id="book_G_5">
+      <modFile date="Apr. 2002">g5satell.mos</modFile>
+      <modData>g5satell.dat</modData>
+      <modTitle>Scheduling of telecommunications via satellite</modTitle>
+      <modType>Preemptive open shop scheduling</modType>
+      <modRating>5</modRating>
+      <modFeatures> data preprocessing, algorithm for preemptive scheduling that involves looping over optimization, ``Gantt chart'' printing</modFeatures>
+    </model>
+    <model id="book_G_6">
+      <modFile date="Apr. 2002">g6transmit.mos</modFile>
+      <modData>g6transmit.dat</modData>
+      <modTitle>Location of GSM transmitters</modTitle>
+      <modType>Covering problem</modType>
+      <modRating>1</modRating>
+      <modFeatures> modeling an equivalence; sparse data format</modFeatures>
+    </model>
+  </chapter>
+
+  <chapter id="book_8" title="Economics and Finance" directory="H_EconFin">
+    <model id="book_H_1">
+      <modFile date="Mar. 2002">h1loan.mos</modFile>
+      <modData>h1loan.dat</modData>
+      <modTitle>Choice of loans</modTitle>
+      <modType>NN</modType>
+      <modRating>1</modRating>
+      <modFeatures> calculation of net present value</modFeatures>
+    </model>
+    <model id="book_H_2">
+      <modFile date="Mar. 2002">h2publ.mos</modFile>
+      <modData>h2publ.dat</modData>
+      <modTitle>Publicity campaign</modTitle>
+      <modType>NN</modType>
+      <modRating>1</modRating>
+      <modFeatures>forall-do</modFeatures>
+    </model>
+    <model id="book_H_3">
+      <modFile date="Mar. 2002">h3portf.mos</modFile>
+      <modData>h3portf.dat</modData>
+      <modTitle>Portfolio selection</modTitle>
+      <modType>NN</modType>
+      <modRating>2</modRating>
+      <modFeatures> sets of integers, second formulation with semi-continuous, parameters</modFeatures>
+    </model>
+    <model id="book_H_4">
+      <modFile date="Mar. 2002">h4retire.mos</modFile>
+      <modData>h4retire.dat</modData>
+      <modTitle>Financing an early retirement scheme</modTitle>
+      <modType>NN</modType>
+      <modRating>2</modRating>
+      <modFeatures> inline if, selection with `|'</modFeatures>
+    </model>
+    <model id="book_H_5">
+      <modFile date="Mar. 2002">h5budget.mos</modFile>
+      <modData>h5budget.dat</modData>
+      <modTitle>Family budget</modTitle>
+      <modType>NN</modType>
+      <modRating>2</modRating>
+      <modFeatures> formulation of monthly balance constraints including different payment frequencies; as, mod, inline if, selection with `|'</modFeatures>
+    </model>
+    <model id="book_H_6">
+      <modFile date="Mar. 2002">h6expand.mos</modFile>
+      <modData>h6expand.dat</modData>
+      <modTitle>Choice of expansion projects</modTitle>
+      <modType>NN</modType>
+      <modRating>2</modRating>
+      <modFeatures> experiment with solutions: solve LP problem explicitly, ``round'' some almost integer variable and re-solve</modFeatures>
+    </model>
+    <model id="book_H_7">
+      <modFile date="Aug. 2002">h7qportf.mos</modFile>
+      <modData>h7qportf.dat</modData>
+      <modTitle>Mean variance portfolio selection</modTitle>
+      <modType>Quadratic Programming problem</modType>
+      <modRating>3</modRating>
+      <modFeatures> parameters, forall-do, min, max, loop over problem solving</modFeatures>
+    </model>
+  </chapter>
+
+  <chapter id="book_9" title="Timetabling and Personnel Planning" directory="I_TimePers">
+    <model id="book_I_1">
+      <modFile date="Mar. 2002">i1assign.mos</modFile>
+      <modData>i1assign.dat</modData>
+      <modTitle>Assigning personnel to machines</modTitle>
+        <modType>Assignment problem</modType> 
+      <modRating>4</modRating> 
+      <modFeatures> formulation of maximin objective; heuristic solution + 2 different problems (incremental definition) solved, working with sets, while-do, forall-do</modFeatures>
+    </model>
+    <model id="book_I_2">
+      <modFile date="Mar. 2002">i2nurse.mos</modFile>
+      <modData>i2nurse.dat</modData>
+      <modTitle>Scheduling nurses</modTitle>
+        <modType>NN</modType>
+      <modRating>3</modRating>
+      <modFeatures> 2 problems, using mod to formulate cyclic schedules; forall-do, set of integer, getact</modFeatures>
+    </model>
+    <model id="book_I_3">
+      <modFile date="Mar. 2002">i3school.mos</modFile>
+      <modData>i3school.dat</modData>
+      <modTitle>Establishing a college timetable</modTitle>
+      <modType>NN</modType>
+      <modRating>3</modRating>
+      <modFeatures> many specific constraints, tricky (pseudo) objective function</modFeatures>
+    </model>
+    <model id="book_I_4">
+      <modFile date="Mar. 2002">i4exam.mos</modFile>
+      <modData>i4exam.dat</modData>
+      <modTitle>Exam schedule</modTitle>
+      <modType>NN</modType>
+      <modRating>2</modRating>
+      <modFeatures> symmetry breaking, no objective</modFeatures>
+    </model>
+    <model id="book_I_5">
+      <modFile date="Mar. 2002">i5pplan.mos</modFile>
+      <modData>i5pplan.dat</modData>
+      <modTitle>Production planning with personnel assignment</modTitle>
+      <modType>NN</modType>
+      <modRating>3</modRating>
+      <modFeatures> 2 problems, defined incrementally with partial re-definition of constraints (named constraints), exists, create, dynamic array</modFeatures>
+    </model>
+    <model id="book_I_6">
+      <modFile date="Mar. 2002">i6build.mos</modFile>
+      <modData>i6build.dat</modData>
+      <modTitle>Planning the personnel at a construction site</modTitle>
+      <modType>NN</modType>
+      <modRating>2</modRating>
+      <modFeatures> formulation of balance constraints using inline if</modFeatures>
+    </model>
+  </chapter>
+
+  <chapter id="book_10" title="Local Authorities and Public Services" directory="J_Service">
+    <model id="book_J_1">
+      <modFile date="Mar. 2002">j1water.mos</modFile>
+      <modFile date="Jan. 2006">j1water2.mos</modFile>
+      <modData>j1water.dat</modData>
+      <modData>j1water2.dat</modData>
+      <modTitle>Water conveyance / water supply management</modTitle>
+      <modType>Maximum flow problem</modType>
+      <modRating>2</modRating>
+      <modFeatures> encoding of arcs, selection with `|', record data structure</modFeatures>
+    </model>
+    <model id="book_J_2">
+      <modFile date="Mar. 2002">j2bigbro.mos</modFile>
+      <modData>j2bigbro.dat</modData>
+      <modTitle>CCTV surveillance</modTitle>
+      <modType>Maximum vertex cover problem</modType>
+      <modRating>2</modRating>
+      <modFeatures> encoding of network, exists</modFeatures>
+    </model>
+    <model id="book_J_3">
+      <modFile date="Apr. 2002">j3elect.mos</modFile>
+      <modFile date="Apr. 2002">j3elect_calc.mos</modFile>
+      <modData>j3elect.dat</modData>
+      <modTitle>Rigging elections</modTitle>
+      <modType>Partitioning problem</modType>
+      <modRating>4</modRating>
+      <modFeatures> algorithm for data preprocessing; file inclusion, 3 nested/recursive procedures, working with sets, if-then, forall-do, exists, finalize </modFeatures>
+    </model>
+    <model id="book_J_4">
+      <modFile date="Mar. 2002">j4grit.mos</modFile>
+      <modFile date="Jan. 2006">j4grit2.mos</modFile>
+      <modData>j4grit.dat</modData>
+      <modTitle>Gritting roads</modTitle>
+      <modType>Directed Chinese postman problem</modType>
+      <modRating>4</modRating>
+      <modFeatures> algorithm for finding Eulerian path/graph for printing; encoding of arcs, dynamic array, exists, 2 functions implementing Eulerian circuit algorithm, round, getsize, break, while-do, if-then-else, list handling</modFeatures>
+    </model>
+    <model id="book_J_5">
+      <modFile date="Mar. 2002">j5tax.mos</modFile>
+      <modData>j5tax.dat</modData>
+      <modTitle>Location of income tax offices</modTitle>
+      <modType>p-median problem</modType>
+      <modRating>4</modRating>
+      <modFeatures> modeling an implication, all-pairs shortest path algorithm (Floyd-Warshall); dynamic array, exists, procedure for shortest path algorithm, forall-do, if-then, selection with `|'</modFeatures>
+    </model>
+    <model id="book_J_6">
+      <modFile date="Mar. 2002">j6hospit.mos</modFile>
+      <modData>j6hospit.dat</modData>
+      <modTitle>Efficiency of hospitals</modTitle>
+      <modType>Data Envelopment Analysis (DEA)</modType>
+      <modRating>3</modRating>
+      <modFeatures> description of DEA method; loop over problem solving with complete re-definition of problem every time, naming and declaring constraints</modFeatures>
+    </model>
+  </chapter>
+
+  <chapter id="book_Intro" title="Introductory examples" directory="Intro">
+    <model id="book_Intro_approx">
+      <modFile date="Sep. 2006">approx.mos</modFile>
+      <modFile date="Jul. 2021">approx2.mos</modFile>
+      <modTitle>Approximation</modTitle>
+      <modType>Piecewise linear approximation</modType>
+      <modRating>2</modRating>
+      <modFeatures> SOS-2, Special Ordered Sets, piecewise linear approximation of a nonlinear function, pwlin</modFeatures>
+    </model>
+    <model id="book_Intro_burg">
+      <modFile date="Jul. 2002">burglar1.mos</modFile>
+      <modFile date="Aug. 2002">burglar2.mos</modFile>
+      <modFile date="Jul. 2002">burglari.mos</modFile>
+      <modFile date="Jul. 2006">burglar_rec.mos</modFile>
+      <modData>burglar.dat</modData>
+      <modData>burglar2.dat</modData>
+      <modData>burglar_rec.dat</modData>
+      <modTitle>Burglar</modTitle>
+      <modType>Knapsack problem</modType>
+      <modRating>1</modRating>
+      <modFeatures> simple MIP model, data input from text data file, array initialization, numerical indices, string indices, record data structure</modFeatures>
+    </model>
+    <model id="book_Intro_chess">
+      <modFile date="Jul. 2002">chess.mos</modFile>
+      <modFile date="Jul. 2002">chess2.mos</modFile>
+      <modTitle>Chess</modTitle>
+      <modType>Production planning</modType>
+      <modRating>1</modRating>
+      <modFeatures> simple LP model, solution output, primal solution values, slack values, activity values, dual solution values</modFeatures>
+    </model>
+    <model id="book_Intro_pbrai">
+      <modFile date="Sep. 2006">pricebrai.mos</modFile>
+      <modFile date="Jul. 2021">pricebrai2.mos</modFile>
+      <modTitle>All item discount pricing</modTitle>
+      <modType>Piecewise linear function</modType>
+      <modRating>3</modRating>
+      <modFeatures> SOS-1, Special Ordered Sets, piecewise linear function, approximation of non-continuous function, step function, pwlin </modFeatures>
+    </model>
+    <model id="book_Intro_pbrinc">
+      <modFile date="Sep. 2006">pricebrinc.mos</modFile>
+      <modFile date="Sep. 2006">pricebrinc2.mos</modFile>
+      <modFile date="Jul. 2021">pricebrinc3.mos</modFile>
+      <modTitle>Incremental pricebreaks</modTitle>
+      <modType>Piecewise linear function</modType>
+      <modRating>3</modRating>
+      <modFeatures> SOS-2, Special Ordered Sets, piecewise linear function, step function,  </modFeatures>
+    </model>
+  </chapter>  
+</examples>

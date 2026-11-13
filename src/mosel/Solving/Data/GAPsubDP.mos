@@ -1,0 +1,243 @@
+(!************************************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file GAPsubDP.mos
+   `````````````````   
+   DESCRIPTION:  Dynamic Programming algorithm for Knapsack Problem to
+                 be used with Branch-and-Price for Generalized Assignment
+                 Problem (GAP)
+   DIFFICULTY:   5
+   FEATURES:     mmjobs, Mosel records.   
+
+   *** Not intended to be run standalone - run from GAPbp3.mos ***
+   
+   (c) 2008 Fair Isaac Corporation
+       author: Hernan Wurgaft, 2007
+*************************************************************************!)
+
+model GAPSubDP
+ uses "mmjobs" 
+
+ parameters
+   Machine = 3
+   TOL = 0.00001
+   NM=1
+   NP=1
+ end-parameters
+ 
+ forward procedure solve_knap_DP
+ forward procedure return_resultDP
+ forward procedure process_solutionDP
+ forward procedure new_nodeDP
+
+ declarations                         
+   EVENT_GEN_INI_COLS=2     ! Event codes sent to submodels
+   EVENT_GEN_COLS=3
+   EVENT_STOP_SUBMOD=5
+   EVENT_NEW_NODE=9
+  
+   EVENT_SOLVED=6           ! Event codes sent by submodels
+   EVENT_FAILED=7
+   EVENT_READY=8
+   EVENT_INFEAS=11
+ end-declarations                     
+
+ send(EVENT_READY,0)        ! Model is ready (= running)
+   
+ declarations   
+   MACH = 1..NM                         ! Set of machines
+   PRODS = 1..NP                        ! Set of production batches
+   CAP: array(MACH) of integer          ! Machine capacities
+   DUR: array(MACH,PRODS) of integer    ! Production durations
+   PROFIT: array(MACH,PRODS) of integer ! Production profit
+   sol_use: array(PRODS) of integer     ! Array used to return solution to
+                                        ! main problem              
+  sol_Profit: real                      ! Value of objective subproblem        
+  Price_convex: array(MACH) of real     ! Dual prices received from main
+  Price_assign: array(PRODS) of real
+     
+  ! Data structure to fix variables that is passed from main problem
+  !*****************************************************************
+  branchvartype=
+    record
+      m:integer
+      p:integer
+    end-record
+  
+  Fixed=
+    record
+      var:    branchvartype
+      to_zero:boolean
+    end-record
+
+  fixed_vars: array(1..NP) of Fixed
+  Nfixed: integer
+  KSIZE: integer            ! Knapsack capacity after fixing node variables
+ end-declarations
+
+ 
+ ! Read Problem data
+ initializations from "bin:shmem:data"
+   DUR
+   CAP
+   PROFIT
+ end-initializations
+  
+ KSIZE:=CAP(Machine)
+    
+ declarations
+   EXCLUDE: set of integer
+   FIXEDTO1: set of integer
+   VALUE: array(PRODS) of real
+   ACTIVE: array(PRODS) of integer
+   kost: array(0..NP,0..KSIZE) of real
+   best: array(0..NP,0..KSIZE) of boolean
+   kobj: real
+ end-declarations
+ 
+ EXCLUDE:={}
+ FIXEDTO1:={}
+ 
+ !**************** Process event messages from main model *********************
+ repeat
+   wait
+   ev:= getnextevent
+   event:= getclass(ev)
+   case event of
+    EVENT_GEN_INI_COLS: 
+      solve_knap_DP
+
+    EVENT_GEN_COLS:do
+      initializations from "bin:shmem:Price"
+        Price_assign
+        Price_convex
+      end-initializations
+      solve_knap_DP
+    end-do  
+
+    EVENT_NEW_NODE:
+      new_nodeDP
+
+    EVENT_STOP_SUBMOD:
+      break
+  end-case
+  
+ until false
+ 
+!************************************************* 
+!**************PROCEDURES************************
+!****************************************************
+procedure solve_knap_DP
+(! Dynamic Programming algorithm to solve Knapsack defined by parameters
+    VALUE, DUR(Machine), and KSIZE!)      
+  forall(p in PRODS) VALUE(p):=PROFIT(Machine,p) - Price_assign(p)
+  
+  k:=0
+  forall(j in 1..(NP-getsize(EXCLUDE))) do
+    repeat
+      k+=1
+    until k not in EXCLUDE 
+    ACTIVE(j):=k 
+  end-do
+ 
+  forall(i in 1..NP-getsize(EXCLUDE),w in 0..KSIZE) best(i,w):=false
+  forall(w in 0..KSIZE) kost(0,w):=0
+
+  forall(i in 1..NP-getsize(EXCLUDE) ) do
+    kost(i,0):=0
+    forall(w in 1..KSIZE) do 
+      if DUR(Machine,(ACTIVE(i)))<=w then 
+        if VALUE(ACTIVE(i))+kost(i-1,w-DUR(Machine,ACTIVE(i)))>kost(i-1,w) then
+          kost(i,w):= VALUE(ACTIVE(i))+kost(i-1,w-DUR(Machine,ACTIVE(i)))
+          best(i,w):=true
+        else
+          kost(i,w):= kost(i-1,w)
+        end-if
+      else
+        kost(i,w):=kost(i-1,w)
+      end-if 
+    end-do
+  end-do
+
+  kobj:=kost(NP-getsize(EXCLUDE),KSIZE)-Price_convex(Machine)
+  forall(i in FIXEDTO1) kobj+=VALUE(i)
+
+  return_resultDP
+end-procedure
+
+!******************************************************************
+procedure return_resultDP
+ ! Send message to main problem with status of solution after solving knapsack 
+  if (kobj > TOL) then
+    send(EVENT_SOLVED,kobj)
+    process_solutionDP
+  else 
+    send(EVENT_FAILED,kobj)                    !No improved solution found 
+  end-if 
+end-procedure
+
+!******************************************************************
+procedure process_solutionDP
+! Passes knapsack solution defining a column to main problem   
+  forall(p in PRODS)    sol_use(p):=0
+  forall(p in FIXEDTO1) sol_use(p):=1
+ 
+  i:=NP-getsize(EXCLUDE)
+  k:=KSIZE
+
+  repeat
+    if best(i,k) then
+      sol_use(ACTIVE(i)):=1
+      k:=k-DUR(Machine,(ACTIVE(i)))
+    end-if
+    i+=-1  
+  until i=0
+  
+  sol_Profit:=kobj
+ 
+  initializations to "mempipe:noindex,sol"
+    Machine
+    sol_use
+    sol_Profit
+  end-initializations
+end-procedure
+
+
+!****************************************************************** 
+procedure new_nodeDP
+! Updates knapsack capacity KSIZE and sets EXCLUDE and FIXEDTO1 when a new 
+! branch-and-bound node started 
+ 
+  initializations from "bin:shmem:fixed"
+    Nfixed
+    fixed_vars
+  end-initializations
+  
+  KSIZE:=CAP(Machine)
+  EXCLUDE:={}
+  FIXEDTO1:={}
+       
+  forall(f in 1..Nfixed) do
+    case fixed_vars(f).to_zero of
+      false: do
+        if fixed_vars(f).var.m = Machine then
+          FIXEDTO1+={fixed_vars(f).var.p}
+          KSIZE-=DUR(Machine,fixed_vars(f).var.p)
+        else
+          EXCLUDE+={fixed_vars(f).var.p}
+        end-if
+      end-do
+
+      true:do
+        if fixed_vars(f).var.m=Machine then
+          EXCLUDE+={fixed_vars(f).var.p}
+        end-if
+      end-do
+    end-case
+  end-do
+  EXCLUDE:=EXCLUDE+FIXEDTO1
+end-procedure
+
+
+end-model

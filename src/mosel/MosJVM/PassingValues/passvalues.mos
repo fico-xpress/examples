@@ -1,0 +1,35 @@
+(!*******************************************************
+   file passvalues.mos
+   ```````````````````
+   a model that demonstrates passing values from Mosel to a Java method
+
+   This example requires an installation of Java, see
+   the manual 'mosjvm Module for Mosel' for
+   compatible versions and setup instructions.
+   
+   The compiled PassValues.class file must be in the current working
+   directory.
+
+   (c) 2016 Fair Isaac Corporation
+       author: J. Farmer, 2016
+  *******************************************************!)
+
+
+model myModel
+  uses 'mosjvm'
+  
+  declarations
+    classAndMethodName = "PassValues.repeatValue"
+    valueToRepeat = "hello "
+    numRepetitions = 3
+  end-declarations
+  
+  ! Abort model if we encounter a Java exception
+  setparam('jvmabortonexception',true)
+  
+  ! Tell Java to look for classes in work directory
+  setparam('jvmclasspath',getparam('workdir'))
+
+  ! PassValues.repeatValue(string A, int N) is a Java function that returns string A repeated N times
+  writeln('Repeated string: ', jvmcallstr( classAndMethodName, valueToRepeat, numRepetitions ))
+end-model

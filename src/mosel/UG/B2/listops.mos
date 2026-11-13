@@ -1,0 +1,27 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file listops.mos 
+   ```````````````` 
+   List operations.
+ 
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Nov. 2006
+*******************************************************!)
+
+model "List operations"
+
+ declarations
+  L,M: list of integer
+ end-declarations
+ 
+ L:= [1,2,3] + [4,5]; writeln("L (1): ", L) 
+ L+= [6,7,8]; writeln("L (2): ", L) 
+ L-= [1,2,3]; writeln("L (3): ", L) 
+
+ M:= sum(l in L) [l*2]; writeln("M: ", M)
+ 
+ writeln("L and M are different: ", L<>M)
+ 
+end-model

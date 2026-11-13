@@ -1,0 +1,181 @@
+(!*********************************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file facilityloc.mos
+   ````````````````````
+   TYPE:         Facility location problem
+   DIFFICULTY:   3
+   FEATURES:     MIP problem, graphical solution representation,
+                 re-solving with modified bounds, data input from file,
+                 dynamic arrays for data and decision variables, use of
+                 'exists', model cuts
+   DESCRIPTION:  There are a set of depot locations and a set of clients.
+                 The cost of opening each depot, the depot capacities, and 
+                 the demand of each client is given. For all possible 
+                 delivery routes the unit shipping cost is given.
+                 We wish to supply all the clients at the least cost.
+                 The model is re-solved several times to study the effects 
+                 of forcing some depots open. 
+   FURTHER INFO: Similar problem:
+                 `Applications of optimization with Xpress-MP', 
+                 Section 10.3 `Depot location'
+   
+   (c) 2008 Fair Isaac Corporation 
+       author: S. Heipcke, Feb. 2004, rev. Nov. 2017
+**********************************************************************!)
+
+model "Facility location"
+
+ uses "mmxprs"
+ uses "mmsvg" 
+
+ forward procedure print_sol
+ forward procedure draw_sol
+
+ declarations 
+  Depots: set of string                  ! Set of Depots
+  Clients: set of string                 ! Set of Clients
+ 
+  COPEN: array(Depots) of real           ! Cost of opening depot
+  CSHIP: dynamic array(Depots, Clients) of real  ! Cost of shipping 
+  DEM: array(Clients) of real            ! Demand of Clients
+  CAP: array(Depots) of real             ! Capacity of depots
+  X,Y: array(Sites:set of string) of integer ! x-y-coordinates for graph drawing
+ end-declarations
+
+ initializations from 'facilityloc.dat'
+  [X,Y] as 'POS'
+  COPEN CAP CSHIP DEM 
+ end-initializations 
+
+! Finalize index sets (= their contents cannot be modified any more)
+ finalize(Depots); finalize(Clients)
+
+ declarations 
+  ship: dynamic array(Depots, Clients) of mpvar  ! Amount to be shipped from 
+                                         ! depot d to client c
+  open: array(Depots) of mpvar           ! 1, if depot d is open, 0 otherwise
+ end-declarations
+
+! Create variables for possible routes
+ forall(d in Depots, c in Clients | exists(CSHIP(d,c)) ) create(ship(d,c))
+
+! Objective: minimize total cost
+ MinCost:= 
+  sum(d in Depots, c in Clients | exists(CSHIP(d,c))) CSHIP(d,c) * ship(d,c) +
+                                         ! Shipping cost
+  sum(d in Depots) COPEN(d) * open(d)    ! Depot open cost
+
+! Capacity constraint at each depot
+ forall(d in Depots) 
+  Capacity(d):= sum(c in Clients) ship(d,c) <= CAP(d) * open(d)
+ 
+! Demand requirements at each client
+ forall (c in Clients) Demand(c):= sum(d in Depots) ship(d,c) >= DEM(c)
+ 
+! Additional constraints: 
+! Force 'open(d)' to 1 if there is any shipping from d
+! (disaggregated form of 'Capacity' constraints)
+(!
+ declarations
+  Force: dynamic array(Depots, Clients) of linctr
+ end-declarations
+
+ forall (d in Depots, c in Clients | exists(CSHIP(d,c))) do
+  Force(d,c):= CAP(d) * open(d) >= ship(d,c)
+  setmodcut(Force(d,c))
+ end-do
+!)
+
+! 'open' variables are binary
+ forall(d in Depots) open(d) is_binary
+
+! Setting parameters for Xpress Optimizer
+! setparam("xprs_verbose",true)          ! Display Optimizer log
+! setparam("xprs_presolve",0)            ! Switch presolve off
+
+! Solve the problem
+ minimize(MinCost)
+ writeln("CASE 1: Optimal Solution")
+ print_sol
+ draw_sol
+   
+! What if Depot 1 has to be open?
+ writeln("\nCASE 2: Depot 1 is forced open ")
+ Open1:= open("DEP1")=1 
+ minimize(MinCost)
+ print_sol
+ draw_sol
+     
+! What if Depot 2 has to be open?
+ writeln("\nCASE 3: Depot 2 is forced open ")
+ Open1:= open("DEP2")=1
+ minimize(MinCost)
+ print_sol
+ draw_sol  
+  
+! What if both 1 & 2 have to be open?
+ writeln("\nCASE 4: Depots 1 & 2 are forced open ")
+ Open2:= open("DEP1")=1
+ minimize(MinCost)
+ print_sol
+ draw_sol    
+ 
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+!-----------------------------------------------------------------
+
+! Print the current solution
+ procedure print_sol
+  writeln("Total cost: $", getobjval)
+  write("Open depots:")
+  forall(d in Depots) write(if(getsol(open(d))=1, " "+d, "") )
+  writeln
+ 
+  writeln("Shipping details: ")
+  forall(d in Depots, c in Clients) do
+   if (getsol(ship(d,c))<>0)
+    then writeln(getsol(ship(d,c))," units shipped from depot ",d," to client ",c,".")
+   end-if
+  end-do
+
+end-procedure
+
+!-----------------------------------------------------------------
+
+! Draw the current solution
+ procedure draw_sol
+  svgerase
+    
+  svgsetgraphviewbox(0,0,125,110)
+  svgsetgraphscale(2)
+
+  svgaddgroup("ClientGraph", "Clients", SVG_BLACK)
+  forall(c in Clients) do
+   svgaddpoint(X(c), Y(c))
+   svgaddtext(X(c), Y(c)+1, c)
+  end-do
+  svgaddtext(5,5, "Total cost: $"+ getobjval)
+
+  ct:=0
+  forall(d in Depots) 
+   if(getsol(open(d))=1) then
+    svgaddgroup("DepotGraph"+d, d)
+    svgsetstyle(SVG_FILL, SVG_CURRENT)
+    svgaddcircle(X(d), Y(d), 1)
+    forall(c in Clients) do
+     if (getsol(ship(d,c))<>0) then 
+      svgaddarrow(X(d), Y(d), X(c), Y(c))
+     end-if
+    end-do 
+    ct+=1
+    ct:=ct MOD 7
+   end-if
+  
+  svgrefresh
+
+  ! Uncomment to pause at every iteration:          
+  svgpause
+ end-procedure
+ 
+end-model

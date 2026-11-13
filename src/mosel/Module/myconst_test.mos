@@ -1,0 +1,22 @@
+(!******************************************************
+   Mosel NI Examples
+   =================
+
+   File myconst_test.mos
+   `````````````````````
+   Using module myconstants
+
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2002
+*******************************************************!)
+
+model "Test myconstants module"
+
+ uses "myconstants"
+
+ writeln(MYCST_LINE)
+ writeln("BigM value: ",MYCST_BIGM,", tolerance value: ",MYCST_TOL)
+ writeln("Boolean flags: ",MYCST_FLAG," ",MYCST_NOFLAG)
+ writeln(MYCST_LINE)
+ 
+end-model

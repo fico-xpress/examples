@@ -1,0 +1,71 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file g4cable.mos
+   ````````````````
+   Connecting terminals through cables
+
+   A university wants to connect 6 terminals located in
+   different campus buildings. These terminals will be
+   connected via underground cables. The connection cost
+   is proportional to the distance between the terminals.
+   Which connections should be installed to minimize total
+   cost?
+
+   Simple constraints defining the number of total connections
+   and that each terminal must be connected to another
+   terminal could result in a sub cycle leading to an infeasible
+   solution. Each node is assigned a level value that is used in
+   the formulation of additional constraints to exclude the
+   creation of sub cycles.
+
+   (c) 2008-2022 Fair Isaac Corporation
+       author: S. Heipcke, Apr. 2002, rev. Mar. 2022
+*******************************************************!)
+
+model "G-4 Cabled network"
+ uses "mmxprs"
+
+ declarations
+  NTERM = 6
+  TERMINALS = 1..NTERM                  ! Set of terminals to connect
+
+  DIST: array(TERMINALS,TERMINALS) of integer     ! Distance between terminals
+
+  ifconnect: array(TERMINALS,TERMINALS) of mpvar  ! 1 if direct connection
+                                        ! between terminals, 0 otherwise
+  level: array(TERMINALS) of mpvar      ! level value of nodes
+ end-declarations
+
+ initializations from 'g4cable.dat'
+  DIST
+ end-initializations
+
+! Objective: length of cable used
+ Length:= sum(s,t in TERMINALS | s<>t) DIST(s,t)*ifconnect(s,t)
+
+! Number of connections
+ sum(s,t in TERMINALS | s<>t) ifconnect(s,t) = NTERM - 1 
+
+! Avoid subcycle
+ forall(s,t in TERMINALS | s<>t) 
+  level(t) >= level(s) + 1 - NTERM + NTERM*ifconnect(s,t)
+
+! Direct all connections towards the root (node 1)
+ forall(s in 2..NTERM) sum(t in TERMINALS | s<>t) ifconnect(s,t) = 1
+
+ forall(s,t in TERMINALS | s<>t) ifconnect(s,t) is_binary
+
+! Solve the problem
+ minimize(Length)
+ 
+! Solution printing
+ writeln("Cable length: ", getobjval)
+
+ write("Connections:")
+ forall(s,t in TERMINALS | s<>t and getsol(ifconnect(s,t))>0)
+  write(" ", s, "-", t) 
+ writeln
+  
+end-model

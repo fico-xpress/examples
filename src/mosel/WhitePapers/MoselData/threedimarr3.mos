@@ -1,0 +1,43 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file threedimarr3.mos
+   `````````````````````
+   Reading 3-dimensional arrays.
+   - Using 'initializations from' with Excel -
+       
+   (c) 2010 Fair Isaac Corporation
+       author: S. Heipcke, July 2010, rev. Apr. 2014
+*******************************************************!)
+
+model "ThreeDimArr (Excel)"
+ uses "mmsheet", "mmodbc"
+
+ declarations
+  I: range
+  J: set of string
+  K = 1..5	              ! The last index set must be defined in the model	
+  A,B: dynamic array(I,J,K) of real
+ end-declarations
+
+ initializations from 'mmsheet.excel:partndx;threedim.xls'
+  A as 'Tab_23'
+ end-initializations
+
+ writeln("A: ")
+ forall(i in I, j in J, k in K | exists(A(i,j,k)))
+  writeln("A(", i, ",", j, ",", k, "): ", A(i,j,k))
+
+ (!
+ initializations from 'mmodbc.odbc:debug;partndx;threedim.xls'
+  B as 'Tab23odbc'
+ end-initializations
+
+ writeln("B: ")
+ forall(i in I, j in J, k in K | exists(B(i,j,k)))
+  writeln("B(", i, ",", j, ",", k, "): ", B(i,j,k))
+!)
+end-model
+
+

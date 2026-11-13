@@ -1,0 +1,36 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file testsubev.mos
+   ````````````````
+   Simple model printing some output
+   and sending a user event.
+
+   *** Not intended to be run standalone - run from runsubevnt2.mos ***
+       
+   (c) 2011 Fair Isaac Corporation
+       author: S. Heipcke, Apr. 2011
+*******************************************************!)
+
+model "Test submodel (Event)"
+ uses "mmjobs"
+
+ declarations
+  SUBMODREADY = 2                  ! User event code
+ end-declarations
+
+ send(SUBMODREADY, 0)              ! Send "submodel ready" event
+
+! Uncomment one of the following lines to redirect output to a file
+! fopen("testout.txt", F_OUTPUT+F_APPEND) ! Output to file (in append mode)
+! fopen("tee:testout.txt&", F_OUTPUT)     ! Output to file and on screen
+! fopen("null:", F_OUTPUT)                ! Disable all output
+ 
+ forall(i in 10..20) write(i^2, " ")
+ writeln
+
+! Uncomment if output is redirected
+! fclose(F_OUTPUT)
+
+end-model 

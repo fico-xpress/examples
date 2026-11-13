@@ -1,0 +1,91 @@
+(!******************************************************
+   CP Example Problems
+   ===================
+
+   file renewb2.mos
+   ````````````````
+   Production/consumption of a non-renewable resource.
+   - Formulation with producer_consumer constraint -
+   
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+       Creation: 2007, rev. Mar. 2013        
+*******************************************************!)
+
+model "Non-renewable resource"
+ uses "kalis"
+
+ setparam("KALIS_DEFAULT_LB", 0)
+
+ declarations   
+  FIRST = {'P1','P2'}
+  ENDFIRST = {'EndP1', 'EndP2'}
+  FINAL = {'P3','P4','P5'}
+  JOBS = FIRST+ENDFIRST+FINAL
+  PCJOBS = ENDFIRST+FINAL
+
+  MIND,MAXD: array(JOBS) of integer  ! Limits on job durations
+  RESAMT: array(JOBS) of integer  ! Resource use/production
+  HORIZON: integer                ! Time horizon
+  PROFIT: array(FINAL) of real    ! Profit from production
+  COST: array(JOBS) of real       ! Cost of production
+  CAP: integer                    ! Available resource quantity
+
+  totalProfit: cpfloatvar
+  fstart,fdur,fcomp: array(FIRST) of cpvar! Start, duration & completion of jobs
+  start,dur,comp: array(PCJOBS) of cpvar  ! Start, duration & completion of jobs
+  produce,consume: array(PCJOBS) of cpvar ! Production/consumption per time unit
+  psize,csize: array(PCJOBS) of cpvar     ! Cumulated production/consumption
+ end-declarations
+ 
+ initializations from 'Data/renewb.dat'
+  [MIND,MAXD] as 'DUR' RESAMT HORIZON PROFIT COST CAP
+ end-initializations
+
+! Setting up the tasks
+ forall(j in PCJOBS) do
+  setname(start(j), j)
+  setdomain(dur(j), MIND(j), MAXD(j)) 
+  setdomain(comp(j), 0, HORIZON) 
+  start(j) + dur(j) = comp(j)
+ end-do 
+ forall(j in FIRST) do
+  setname(fstart(j), j)
+  setdomain(fdur(j), MIND(j), MAXD(j)) 
+  setdomain(fcomp(j), 0, HORIZON) 
+  fstart(j) + fdur(j) = fcomp(j)
+ end-do 
+
+! Production tasks
+ forall(j in ENDFIRST) do
+  produce(j) = RESAMT(j)
+  consume(j) = 0
+ end-do 
+ forall(j in FIRST) fcomp(j) = comp("End"+j)
+
+! Consumer tasks
+ forall(j in FINAL) do
+  consume(j) = RESAMT(j)
+  produce(j) = 0
+ end-do 
+
+! Resource constraint
+ producer_consumer(start, comp, dur, produce, psize, consume, csize)
+
+! Objective function: total profit  
+ totalProfit = sum(j in FINAL) PROFIT(j)*dur(j) -
+               sum(j in FIRST) COST(j)*fdur(j)
+
+ if not cp_maximize(totalProfit) then
+  exit(1)
+ end-if
+
+ writeln("Total profit: ", getsol(totalProfit))
+ writeln("Job\tStart\tEnd\tDuration")
+ forall(j in FIRST) 
+  writeln(j, "\t ", getsol(fstart(j)), "\t ", getsol(fcomp(j)),
+          "\t ", getsol(fdur(j)))
+ forall(j in PCJOBS) 
+  writeln(j, "\t ", getsol(start(j)), "\t ", getsol(comp(j)),
+          "\t ", getsol(dur(j)))
+ 
+end-model

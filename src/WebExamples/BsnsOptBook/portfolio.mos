@@ -1,0 +1,323 @@
+(!*********************************************************************
+   Mosel Example Problems
+   ======================
+
+   file portfolio.mos
+   ``````````````````  
+   Multi-stage Stochastic Portfolio Investment Model (DEQ) with Dynamic VSS
+   -- Computing the EEV for a multi-stage stochastic problem --
+   
+     Example discussed in section 11.3.2.1 of
+     J. Kallrath: Business Optimization Using Mathematical Programming -
+     An Introduction with Case Studies and Solutions in Various Algebraic 
+     Modeling Languages. 2nd edition, Springer Nature, Cham, 2021 
+
+   author: S. Heipcke, October 2020
+
+   based on the GAMS implementation in Portfolio.gms
+     by J.Kallrath and T.Lohmann 2011
+
+   The model implements three alternatives to compute the EEV or 
+   generalized quantities for a multi-stage problem. 
+   It reproduces the results for EEV, EEV^, EDEV and VSSD derived 
+   in: "Case study. The investor's problem" in Escudero et al. (2009, p.57)
+
+   1) EEV(t) problem: Fix previous stages, i.e. the money available =
+                     investment of previous period x yield of current period.
+                     In this approach all decision variables up to stage t-1
+                     are fixed to the solution of the "Expected Value Problem".
+                     This can easily lead to infeasibilities.
+
+                     EEV1 = -1.51408 ( = RP )
+                     EEV2 = -1.9631
+                     EEV3 is infeasible
+                     EEV4 is infeasible
+
+   2) EEVhat(t) problem: In this approach we fix all variables to zero, which
+                     were zero in the "Expected Value Problem" up to stage t-1.
+                     Here we solve stochastic problems.
+
+                     EEV^1 = -1.51408 ( = RP )
+                     EEV^2 = -1.9631
+                     EEV^3 = -2.29698
+                     EEV^4 = -3.787919375
+
+   3) EDEV(t) problem: The dynamic approach in which we solve many
+                     deterministic, very small problems. Here, we need
+                     to solve parts of the tree.
+
+                     EDEV1 =  4.74
+                     EDEV2 =  1.40235
+                     EDEV3 = -1.7235
+                     EDEV4 = -3.78792
+
+   (c) Copyright 2020 Fair Isaac Corporation
+  
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+*********************************************************************!)
+
+model 'portfolio'
+  uses "mmxprs", "mmjobs", "mmsystem"
+
+  declarations
+    I: set of string              ! Investments
+    T: set of string              ! Stages
+    TL: list of string            ! (Ordered) list of stages
+    S: range                      ! Scenarios
+    H,HC: array(S,S,T) of boolean ! scenario-scenario-stage mapping 
+    P: array(S) of real           ! Scenario probability
+    RET: dynamic array(S,I,T) of real ! Return of investment i at begin of stage t in scenario s
+    RExpanded: array(S,I,T) of real
+    BDGT: real                    ! Budget
+    CAP: real                     ! Capital target 
+
+    Solx: dynamic array(S,I,T) of real  ! Solution values for variables x
+    RP: real                      ! Objective value of recourse problem
+    EV,EEVT: real                 ! Objective value of expected value problem
+    WS: real                      ! Wait-and-see solution value
+    EEV: array(T) of real         ! EEV  in stage t
+    EEVhat: array(T) of real      ! EEV^ in stage t
+    EDEV: array(T) of real        ! EDEV value of the dynamic EEV in stage t 
+
+    DEQmodel, DETmodel: Model     ! Submodels
+    ev: Event                     ! Event messages from submodels
+  end-declarations
+
+!**** Submodel run with some error handling
+  function solvesubprob(m: Model, mname: text, params: text):boolean
+    returned:=true
+    writeln("Solving ", mname, ", ", params)
+    run(m, params)
+    wait
+    ev:=getnextevent
+    if ev.class<>EVENT_END then 
+      writeln("Problem during execution of ", mname)
+      exit(2)
+    elif getexitcode(m) <> 0 then
+      writeln("  No solution for ", mname)
+      returned:=false
+    else
+      writeln("  ", mname, " solved")
+    end-if
+  end-function
+
+!**** Solve the recourse problem (RP), if successful retrieve data + result ****
+  if compile("g","portfolio_deq.mos") <> 0 then 
+    writeln("Compilation of DEQ submodel failed.")
+    exit(1)
+  end-if
+  load(DEQmodel, "portfolio_deq.bim")
+
+  ! Run the submodel and retrieve results if the returned status is okay
+  if not solvesubprob(DEQmodel, "DEQ submodel", "OUTFILE=shmem:res,DISPLAY=false") then 
+    exit(1)
+  end-if  
+
+  initializations from "shmem:res"
+    I T TL S RET RExpanded P BDGT CAP H HC 
+    RP as "Wealth"       ! Objective function value of the recourse problem
+  end-initializations
+  fdelete("shmem:res")
+  writeln("**** Recourse problem (RP) solution: ", RP)
+
+!******** Solve the Wait-and-see problem ********
+  declarations
+    RWS: array(I,T) of real       ! Expected value of investment i in stage t
+    XWS: array(I,T) of real       ! Amount invested into i in stage t
+    WealthSol: array(S) of real   ! Wealth obtained for scenario s 
+  end-declarations
+
+  if compile("g","portfolio_det.mos") <> 0 then 
+    writeln("Compilation of DET submodel failed.")
+    exit(1)
+  end-if
+  load(DETmodel, "portfolio_det.bim")
+
+  forall(s in S) do
+    forall(i in I, t in T) RWS(i,t) := sum(rs in S | HC(rs,s,t)) RET(rs,i,t)
+    initializations to "shmem:ret"
+      RWS as "RET" 
+    end-initializations
+
+   ! Run the submodel and retrieve results if the returned status is okay
+    if not solvesubprob(DETmodel, "DET submodel for scenario "+s, 
+      "OUTFILE=shmem:res,LOADR=true,VALR=shmem:ret,DISPLAY=false") then
+      exit(0)
+    end-if
+
+    initializations from "shmem:res"
+      XWS as "Solx" 
+      WS as "Wealth"    
+    end-initializations
+    fdelete("shmem:res")
+    fdelete("shmem:ret")
+    writeln("  Solution: ", WS, " x=", XWS)
+    WealthSol(s):=WS
+  end-do
+
+ ! Compute the Wait-and-See value
+  WS := sum(s in S) P(s)*WealthSol(s)
+  writeln("**** Wait-and-see problem (WS) solution: ", WS)
+
+!******** EV problem ********
+  declarations
+    REV: array(I,T) of real       ! Expected value of investment i in stage t
+    XEV: array(I,T) of real       ! Amount invested into i in stage t
+  end-declarations
+   
+  forall(i in I, t in T) REV(i,t) := sum(s in S) P(s)*sum(rs in S | HC(rs,s,t)) RET(rs,i,t) 
+  initializations to "shmem:ret"
+    REV as "RET" 
+  end-initializations
+
+ ! Run the submodel and retrieve results if the returned status is okay
+  if not solvesubprob(DETmodel, "DET submodel for EV problem", 
+    "OUTFILE=shmem:res,LOADR=true,VALR=shmem:ret,DISPLAY=false") then
+    exit(1)
+  end-if
+
+  initializations from "shmem:res"
+    XEV as "Solx" 
+    EV as "Wealth"    
+  end-initializations
+  fdelete("shmem:res")
+  fdelete("shmem:ret")
+  writeln("**** EV problem solution: ", EV, " x=", XEV)
+
+!******** EEV(t) problem ********
+  forall(t in T) EEV(t):= -INFINITY; EEV('today'):= RP
+
+  reset(Solx)
+  forall(tt in 2..TL.size) do
+    forall(s in S,i in I) Solx(s,i,TL(tt-1)):=XEV(i,TL(tt-1))
+    initializations to "shmem:solx"
+      Solx 
+    end-initializations
+   
+   ! Run the submodel and retrieve results if the returned status is okay
+    if solvesubprob(DEQmodel, "DEQ submodel for EEV("+tt+") problem ", 
+      "OUTFILE=shmem:res,LOADX=true,SOLX=shmem:solx,DISPLAY=false") then
+
+      initializations from "shmem:res"
+        EEVT as "Wealth"    
+      end-initializations
+      EEV(TL(tt)):= EEVT
+      writeln("  Solution: ", EEV(TL(tt)))
+    end-if
+    fdelete("shmem:res")
+    fdelete("shmem:solx")
+    if EEV(TL(tt))=-INFINITY then break; end-if
+  end-do
+  writeln("**** EEV(t) problem solutions: ", EEV)
+   
+!******** EEVhat(t) problem ********
+   forall(t in T) EEVhat(t):= -INFINITY; EEVhat('today'):= RP
+
+  reset(Solx)
+  forall(tt in 2..TL.size) do
+    forall(s in S,i in I | XEV(i,TL(tt-1))=0) Solx(s,i,TL(tt-1)):=0
+    initializations to "shmem:solx"
+      Solx 
+    end-initializations
+
+   ! Run the submodel and retrieve results if the returned status is okay
+    if solvesubprob(DEQmodel, "DEQ submodel for EEVhat("+tt+") problem ", 
+      "OUTFILE=shmem:res,LOADX=true,SOLX=shmem:solx,DISPLAY=false") then
+
+      initializations from "shmem:res"
+        EEVT as "Wealth"    
+      end-initializations
+      EEVhat(TL(tt)):= EEVT
+      writeln("  Solution: ", EEVhat(TL(tt)))
+    end-if
+    fdelete("shmem:res")
+    fdelete("shmem:solx")
+    if EEVhat(TL(tt))=-INFINITY then break; end-if
+   end-do
+   writeln("**** EEVhat(t) problem solutions: ", EEVhat)
+
+!******** EDEV(t) problem: Forming groups out of representative scenarios ********
+  declarations
+    XDyn: dynamic array(I,T) of real ! Solution values for variables x  
+    ActS: set of integer     ! Active scenarios (corresponds to scenario groups)
+    EndS: set of integer     ! Leaves of the actual scenario group
+    T1: array(T) of boolean  ! Actual fixations
+    T2: array(T) of boolean  ! Free stages (initially all is free)
+    PSum: real               ! Sum of probabilities of scenarios in a scenario group
+    Wealthst: array(S,T) of real    ! Wealth (obj. value) of scenario s in stage t
+  end-declarations
+ ! Initialize flags
+  forall(t in T) T1(t):=false
+  forall(t in T) T2(t):=true
+  reset(Solx)
+
+ ! Loop over all stages
+  forall(tt in TL) do
+    T2(tt):=false
+   ! Solve separate problems for all active (scenario) nodes
+    EDEV(tt):= 0
+    ActS:= union(rs in S | or(s in S) HC(rs,s,tt)) {rs}
+    forall(acts in ActS) do
+     ! Fix x for the deterministic model with the data from the previous solve
+      reset(XDyn)
+      forall(i in I, t in T | T1(t)) XDyn(i,t):= Solx(acts,i,t) 
+
+     ! Determine all scenarios belonging to the current active scenario 'acts'
+      EndS:= union(s in S | HC(acts,s,tt)) {s} 
+
+     ! Calculate the estimated values for the next stages and fill the previous stages
+      PSum:= sum(s in EndS) P(s) 
+      forall(i in I,t in T | T2(t))
+        REV(i,t):= sum(rs in S,s in EndS | HC(rs,s,t)) P(s)/PSum*RET(rs,i,t) 
+      forall(i in I,t in T | T1(t)) REV(i,t):= RExpanded(acts,i,t) 
+      forall(i in I) REV(i,tt):= RET(acts,i,tt) 
+    
+      initializations to "shmem:ret"
+        REV as "RET" 
+        evaluation of array(i in I, t in T | exists(XDyn(i,t))) XDyn(i,t) as "Solx" 
+      end-initializations
+
+     ! Execute the deterministic model with the new data
+      if not solvesubprob(DETmodel, "DET submodel for DEV problem "+tt+"_"+acts, 
+          "OUTFILE=shmem:res,LOADR=true,VALR=shmem:ret,LOADX=true,SOLX=shmem:ret,DISPLAY=false") then
+        exit(1)
+      end-if
+
+     ! Save the solution of the current run
+      initializations from "shmem:res"
+        XDyn as "Solx" 
+        EEVT as "Wealth"    
+      end-initializations
+      fdelete("shmem:res")
+      fdelete("shmem:ret")
+      forall(s in EndS,i in I) Solx(s,i,tt):= XDyn(i,tt).sol
+      EDEV(tt) += EEVT*PSum
+      Wealthst(acts,tt):= EEVT
+      writeln("  Solution: ", EEVT)
+    end-do
+
+   ! Update flag T1 (fix solution values for current stage)
+    T1(tt):= true 
+  end-do
+
+  writeln("**** EDEV problem solutions: ", EDEV)
+
+!******** Dynamic value of stochastic solution ********
+  declarations
+    VSSD: array(T) of real  ! Dynamic value of the stochastic solution for each time period t in the last stage
+  end-declarations
+
+  forall(t in T) VSSD(t):= maxlist(0, RP-EDEV(t))  ! VSSD has to be non-negative
+  writeln("**** VSSD values: ", VSSD)
+end-model

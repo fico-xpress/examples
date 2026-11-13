@@ -1,0 +1,71 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file runburglar8sdc.mos 
+   ```````````````````````
+   Distributed computing: 
+   Running a model on a remote Mosel instance.
+   - Data exchange with Java host program 
+   - via the java: and jraw: I/O drivers  
+
+   (c) 2022 Fair Isaac Corporation
+       author: S. Heipcke, Jan. 2022
+*******************************************************!)
+
+model "Run model burglar8sdc remotely"
+ uses "mmjobs", "mmsystem"
+
+ parameters
+  VDATA = ''; WDATA = ''         ! Location of input data
+  SOL = ''                       ! Location for solution data output
+  OBJVAL = ''                    ! Location for objective value output
+  WMAX = ''                      ! Location of maximum weight allowed
+ end-parameters
+
+ declarations
+  moselInst: Mosel
+  modBurg: Model
+  wmax: integer
+  objval: real
+ end-declarations
+                               ! Compile submodel locally
+ if compile("burglar8sdc.mos")<>0 then exit(1); end-if
+
+                               ! Start a remote Mosel instance: 
+                               ! "" means the node running this model
+ if connect(moselInst, "")<>0 then exit(2); end-if
+
+                               ! Load bim file into remote instance
+ load(moselInst, modBurg, "rmt:burglar8sdc.bim")
+
+                               ! Disable submodel output
+! setdefstream(modBurg,"","null:","null:")
+
+! Retrieve a scalar value from Java memory via 'jraw'
+ initializations from "jraw:"
+  wmax as WMAX
+ end-initializations
+
+                               ! Start execution and
+ run(modBurg, "VDATA='rmt:"+VDATA+"',WDATA='rmt:"+WDATA+"',SOL='rmt:"+SOL+"',"+
+  "WTMAX="+wmax+",OBJVAL='bin:rmt:shmem:objval'")
+ wait                          ! ... wait for an event
+ if getclass(getnextevent) <> EVENT_END then
+  writeln("Problem with submodel run")
+  exit(1)
+ else
+  writeln("Submodel run terminated.")
+
+ ! Retrieve a scalar value from the submodel and copy it to Java memory
+  initializations from "bin:shmem:objval"
+   objval
+  end-initializations
+
+  initializations to "jraw:"
+   objval as OBJVAL
+  end-initializations
+ end-if 
+
+ unload(modBurg)              ! Unload the submodel
+end-model 

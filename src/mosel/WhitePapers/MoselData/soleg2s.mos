@@ -1,0 +1,62 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file soleg2.mos
+   ```````````````
+   Writing out solution values to
+   a spreadsheet or database via ODBC.
+   - Using SQL commands -
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2006, rev. Aug. 2023
+*******************************************************!)
+
+model "Solution values output (2)"
+ uses "mmxprs", "mmodbc"
+ options keepassert
+
+ parameters
+                                 ! Use SQLite database `soleg' via ODBC
+!  CNCT = 'DSN=sqlite;DATABASE=soleg.sqlite'
+                                 ! Use SQLite database `soleg' directly
+  CNCT = 'soleg.sqlite'
+ end-parameters
+ 
+ declarations
+  R = 1..3
+  S = 1..2
+  SOL: array(R,S) of real        ! Array for solution values
+  x: array(R,S) of mpvar         ! Decision variables
+ end-declarations
+
+! Define and solve the problem
+ forall(i in R) sum(j in S) x(i,j) <= 4
+ forall(j in S) sum(i in R) x(i,j) <= 6
+ maximise( sum(i in R, j in S) (i*j)*x(i,j) )
+
+! Get solution values from LP into the array SOL
+ forall(i in R, j in S) SOL(i,j) := getsol(x(i,j)) 
+
+ setparam("SQLdebug", true)
+
+! Data output using SQL statements 
+ SQLconnect(CNCT)
+ assert(getparam("SQLsuccess"))
+ SQLexecute("delete from MyOut2")
+ SQLexecute("insert into MyOut2 (First, Second, Solution) values (?,?,?)", SOL)
+
+! Alternatively (witout copy to intermediate data structure SOL):
+! SQLexecute("insert into MyOut2 (First, Second, Solution) values (?,?,?)",
+!  array(i in R, j in S | getsol(x(i,j))<>0) getsol(x(i,j)))
+
+! Alternatively after the first model run (for databases only):
+! SQLupdate("select First, Second, Solution from MyOut2", SOL)
+! or:
+! SQLexecute("update MyOut2 set Solution=?3 where First=?1 and Second=?2", SOL)
+
+ assert(getparam("SQLsuccess"))
+
+ SQLdisconnect
+
+end-model

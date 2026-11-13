@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<model-companion xmlns="http://www.fico.com/xpress/optimization-modeler/model-companion" version="3.0">
+
+  <attachment-config>
+    <attachment-tags>
+      <attachment-tag name="resultgraph" usage="single-file">
+        <description>Graph output by running the model.</description>
+      </attachment-tag>
+    </attachment-tags>
+  </attachment-config>
+
+  <client>
+    <view-group title="Main">
+      <vdl-view title="Input data" default="true" path="transportdata.vdl"/>
+      <vdl-view title="Customer selection" default="false" path="transportcustsel.vdl"/>
+      <vdl-view title="Transportation plan" default="false" path="transportres.vdl"/>
+      <vdl-view title="Result comparison" default="false" path="transportressum.vdl"/>
+    </view-group>
+  </client>
+</model-companion>

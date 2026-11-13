@@ -1,0 +1,177 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file binpacking_table_constraint.mos
+   ````````````````````````````````````
+   Bin-packing problem : 
+    5 types of components: {glass, plastic, steel, wood, copper}
+    3 types of bins: {red, blue, green} with capacities red: 5, blue: 5, green: 6
+    Constraints:
+    - red can contain glass, cooper, wood
+    - blue can contain glass, steel, cooper
+    - green can contain plastic, copper, wood
+    - wood requires plastic; 
+    - glass exclusive with copper;
+    - red contains at most 1 wood component
+    - green contains at most 2 wood components
+   Given a component supply of 
+    12 of glass, 10 of plastic, 8 of steel, 12 of wood, 8 of copper 
+   find the minimum number of bins to satisfy it.   
+
+  *** This model cannot be run with a Community Licence 
+      for the provided data instance ***
+
+   (c) 2018 Artelys S.A. and Fair Isaac Corporation
+       Creation: Dec. 2018
+*****************************************************************!)
+model "table_constraint example"
+ uses "kalis"
+ 
+ parameters
+  N = 30           ! Max number of bins
+  MAX_TIME = 15    ! Max time allowed to solver 
+ end-parameters
+
+ setparam("KALIS_MAX_COMPUTATION_TIME",MAX_TIME)
+
+ forward procedure print_sol
+
+ declarations 
+   ! *** Data ***
+   MATERIAL = 1..5 ! Corresponds to ["Glass","Plastic","Steel","Wood","Copper"] 
+   INITIAL_SUPPLY : array(MATERIAL) of integer
+   BINTYPE = 0..3  ! Corresponds to ["Unassigned", "Red", "Blue", "Green"]
+   BINS = 1..N                                ! Set of bins
+   CAPACITY : array(BINTYPE) of integer       ! Capacity per type
+   WEIGHT : array(BINTYPE) of integer         ! Weights for bin type selection
+   
+   ! *** Decision variables ***
+   var_bin : array(BINS) of cpvar             ! Bin usage
+   var_type : array(BINS) of cpvar            ! Bin type
+   var_capa : array(BINS) of cpvar            ! Bin capacity
+   var_qty_material : array(BINS,MATERIAL) of cpvar ! Qty per material in bins
+   objective : cpvar
+
+   strategy : cpbranching                     ! Branching strategy
+   
+   ! Configuration of the table_constraint
+   var_table : array(BINS) of cpvarlist       ! Assignment variables per bin
+   list_valid_tuple : set of list of integer  ! Permissible tuples
+ end-declarations
+ 
+ ! Initialisation of the data arrays
+ INITIAL_SUPPLY::(1..5)[12,10,8,12,8]
+ CAPACITY::(0..3)[0,5,5,6]
+ WEIGHT::(0..3)[0,1,1,1]
+ 
+! Define the cpvar and their domains  
+ forall(i in BINS) do 
+   setname(var_bin(i), "use of bin (" + i + ")")
+   setdomain(var_bin(i),0,1)
+   
+   setname(var_type(i), "type of bin (" + i + ")")
+   setdomain(var_type(i),BINTYPE)
+   
+   setname(var_capa(i), "capacity of bin (" + i + ")")
+   var_capa(i) = element(CAPACITY,var_type(i))
+   forall(m in MATERIAL) do 
+     setname(var_qty_material(i,m),  
+       "Quantity of material (" + m + ") in bin (" + i + ")")
+     setdomain(var_qty_material(i,m),0,max(c in BINTYPE) CAPACITY(c))
+   end-do
+ end-do
+ 
+ ! Capacity constraint 
+ forall(i in BINS) do 
+   sum(m in MATERIAL) var_qty_material(i,m) <= var_capa(i)
+   var_bin(i) = element(WEIGHT,var_type(i))
+ end-do
+ 
+ ! Satisfy of the supply constraint
+ forall(m in MATERIAL) 
+   sum(i in BINS) var_qty_material(i,m) = INITIAL_SUPPLY(m)
+
+ ! Define a list of valid tuples 
+ maxcap:= max(c in BINTYPE) CAPACITY(c)
+ forall(type in BINTYPE, qmat_1,qmat_2,qmat_3,
+        qmat_4,qmat_5 in 0..maxcap) do
+   ! red can contain glass, cooper, wood and at most 1 wood component
+   if type = 1 and 
+      qmat_2 = 0 and qmat_3 = 0 and qmat_4 <= 1 then
+     list_valid_tuple += {[type, qmat_1, qmat_2,qmat_3,qmat_4,qmat_5]}
+   ! blue can contain glass, steel, cooper
+   elif type = 2 and qmat_2 = 0 and qmat_4 = 0 then
+     list_valid_tuple += {[type, qmat_1, qmat_2,qmat_3,qmat_4,qmat_5]}
+   ! green can contain plastic, copper, wood and at most 2 wood components
+   elif type = 3 and
+        qmat_1 = 0 and qmat_3 = 0 and qmat_4 <= 2 then
+     list_valid_tuple += {[type, qmat_1, qmat_2,qmat_3,qmat_4,qmat_5]}
+   ! unassigned
+   elif type = 0 and 
+        qmat_1 = 0 and qmat_2 = 0 and qmat_3 = 0 and qmat_4 = 0 and qmat_5 = 0 then
+      list_valid_tuple += {[type, qmat_1, qmat_2,qmat_3,qmat_4,qmat_5]}
+   end-if
+  
+   ! wood requires plastic; 
+   if qmat_4 >= 1 and qmat_2 >= 1 then
+     list_valid_tuple += {[type, qmat_1, qmat_2,qmat_3,qmat_4,qmat_5]}
+   end-if
+  
+   ! glass exclusive with copper; 
+   if qmat_1 = 0 or qmat_5 = 0 then
+     list_valid_tuple += {[type, qmat_1, qmat_2,qmat_3,qmat_4,qmat_5]}
+   end-if
+   ! copper excludes plastic.
+   if qmat_5 = 0 or qmat_2 = 0 then
+     list_valid_tuple += {[type, qmat_1, qmat_2,qmat_3,qmat_4,qmat_5]}
+   end-if
+ end-do
+
+ ! Definition of table constraint
+ forall(i in BINS) do 
+  var_table(i) += var_type(i) 
+  forall(m in MATERIAL) var_table(i) += var_qty_material(i,m);
+  table_constraint(var_table(i), list_valid_tuple)
+ end-do
+
+! Define the objective
+ setname(objective,"total number of bins")
+ setdomain(objective,0,N)
+ objective = sum(i in BINS) var_bin(i)
+
+! Propagate the constraints
+ if not cp_propagate then
+   writeln("Problem is infeasible")
+   exit(1)
+ end-if
+
+! Define a branching strategy
+ strategy := assign_var(KALIS_MAX_DEGREE,KALIS_MAX_TO_MIN)
+ cp_set_branching(strategy)
+
+! And solve the problem
+ if not cp_minimize(objective) then
+   writeln("Problem is infeasible")
+   exit(1)
+ end-if
+
+! Display solution and solver stats
+ print_sol
+ cp_show_stats
+
+! **** Solution display ****
+ procedure print_sol
+   forall(i in BINS | getsol(var_type(i)) > 0) do
+      writeln("Bin ",i, " chosen : type=", getsol(var_type(i)), 
+        "; capa=", getsol(var_capa(i)),
+        "; Glass=", getsol(var_qty_material(i,1)),
+        "; Plastic=", getsol(var_qty_material(i,2)),
+        "; Steel=", getsol(var_qty_material(i,3)),
+        "; Wood=", getsol(var_qty_material(i,4)),
+        "; Copper=", getsol(var_qty_material(i,5)))
+   end-do
+ end-procedure
+
+end-model
+

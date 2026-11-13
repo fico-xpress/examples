@@ -1,0 +1,32 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file arrayinit.mos 
+   ``````````````````
+   Array initialization from a text file.
+ 
+   (c) 2010 Fair Isaac Corporation
+       author: S. Heipcke, Jul. 2010
+*******************************************************!)
+model "Initializing arrays"
+
+ declarations
+  A: array(1..2,1..3) of real          ! Can use dense format
+  B: array(R:range,T:range) of real    ! Requires sparse format
+  D: dynamic array(set of string, range) of real   ! Requires sparse format
+  S: set of string
+  M: dynamic array(S) of integer       ! Requires sparse format
+  N: dynamic array(S) of string        ! Requires sparse format
+ end-declarations
+ 
+ initializations from "arrayinit.dat"
+  A  B           
+  D as "SomeName"                      ! Data label different from model name
+  D as "SomeName2"                     ! Add some data to 'D'
+  [M,N] as "MNData"                    ! 2 arrays read from the same table
+ end-initializations 
+ 
+ writeln("A:", A, " B:", B, "\nD:", D, "\nM:", M, "\nN:", N)
+
+end-model 

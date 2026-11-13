@@ -1,0 +1,28 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================  
+ 
+   file meminitio.mos 
+   `````````````````` 
+   I/O driver version of 'meminit.mos'
+    
+   (c) 2008 Fair Isaac Corporation  
+       author: S. Heipcke, 2005
+*******************************************************!)
+
+model "Test initialization in memory (I/O)"
+ parameters
+  MEMDAT=''              ! Data block in memory
+ end-parameters
+
+ declarations
+  a:array(1..20) of integer
+ end-declarations
+
+ initializations from "raw:"
+  a as MEMDAT
+ end-initializations
+
+ writeln("a=", a)
+ 
+end-model

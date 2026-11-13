@@ -1,0 +1,21 @@
+# A simple data file
+# to initialise 2 tables and a set
+
+# The sizes of the first table:
+4 4
+# Then the values:
+01 02 03 04
+11 12 13 14
+21 22 23 24
+31 32 33 34
+
+# The second array is dynamic and indexed by 2 sets of strings
+# Entries are separated by the symbol `|'. The end is marked
+# with an empty line
+v1 | x1 | 10
+v2 | x2 | 20
+v3 | x3 | 30
+
+# The elements of a set of strings. The end is marked with a dot:
+Pomegue Rateneau
+Degaby Planier .

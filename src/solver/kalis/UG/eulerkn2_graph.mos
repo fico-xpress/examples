@@ -1,0 +1,136 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file eulerkn2_graph.mos
+   ```````````````````````
+   Euler knight problem.
+   Finding a tour on a chess-board for a knight figure, 
+   such that the knight moves through every cell exactly 
+   once and returns to its origin.
+   - Alternative implementation using subtour elimination -
+   - Graphical solution representation -
+
+   *** This model cannot be run with a Community Licence 
+       for the default data instance ***
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+       Creation: 2005, rev. Sep. 2017       
+*****************************************************************!)
+
+model "Euler Knight Moves"
+ uses "kalis", "mmsvg"
+
+ parameters
+  S = 8                                   ! Number of rows/columns
+  NBSOL = 5                               ! Number of solutions sought 
+ end-parameters
+ 
+ forward procedure calculate_successors(p: integer)
+ forward procedure print_solution(sol: integer)
+ forward procedure draw_solution(sol: integer)
+
+ N:= S * S                                ! Total number of cells
+ setparam("KALIS_DEFAULT_LB", 0)
+ setparam("KALIS_DEFAULT_UB", N)
+
+ declarations
+  PATH = 0..N-1                           ! Cells on the chessboard
+  succ: array(PATH) of cpvar              ! Successor of cell p
+  y: array(PATH) of cpvar                 ! Position of p in the tour
+ end-declarations
+
+ forall(p in PATH) y(p) >= 1
+
+! Calculate set of possible successors
+ forall(p in PATH) calculate_successors(p)
+
+! Each cell is visited once
+ all_different(succ, KALIS_GEN_ARC_CONSISTENCY)
+
+! Exclude subtours
+ forall(p in PATH, q in 1..N-1 | p<>q) 
+  implies(succ(p) = q, y(q) = y(p) + 1)
+
+! Search for up to NBSOL solutions
+ solct:= 0; svgrefresh
+ while (solct<NBSOL and not svgclosing and cp_find_next_sol) do
+  solct+=1
+  cp_show_stats
+  print_solution(solct)
+  draw_solution(solct)
+ end-do
+
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+
+! **** Calculate possible successors ****
+ procedure calculate_successors(p: integer)
+  declarations
+   SuccSet: set of integer                ! Set of successors
+  end-declarations
+
+  xp := p div S
+  yp := p mod S
+    
+  forall(q in PATH) do
+   xq := q div S
+   yq := q mod S
+   delta_x := abs(xp-xq)
+   delta_y := abs(yp-yq)  
+   if (delta_x<=2) and (delta_y<=2) and (delta_x+delta_y=3) then
+    SuccSet +={q}
+   end-if
+  end-do
+ 
+  setdomain(succ(p), SuccSet)
+ end-procedure
+
+!****************************************************************
+! **** Solution printing ****
+ procedure print_solution(sol: integer)
+  writeln("Solution ", sol, ":")
+  thispos:=0
+  nextpos:=getval(succ(0))
+  ct:=1
+  while (nextpos<>0) do
+   write(thispos, if(ct mod 10 = 0, "\n ", ""), " -> ") 
+   val:=getval(succ(thispos))
+   thispos:=nextpos
+   nextpos:=getval(succ(thispos))
+   ct+=1
+  end-do
+  writeln("0")
+ end-procedure
+ 
+! **** Solution drawing ****
+ procedure draw_solution(sol: integer)
+  svgerase                       ! Clean up previous solution
+  
+  ! Draw the board
+  svgaddgroup("B", "Board")
+  forall(i in 1..S+1) svgaddline(i-0.5, 0.5, i-0.5, S+0.5)
+  forall(i in 1..S+1) svgaddline(0.5, i-0.5, S+0.5, i-0.5)
+  
+  ! Draw the knight's tour
+  svgaddgroup("Sol", "Knight tour", SVG_ORANGE)  
+  svgsetstyle(SVG_STROKEWIDTH,2)
+  thispos:=0
+  nextpos:=getval(succ(0))
+  while (nextpos<>0) do
+   svgaddarrow(1+ thispos div S, 1+ thispos mod S,
+               1+ nextpos div S, 1+ nextpos mod S)
+   val:=getval(succ(thispos))
+   thispos:=nextpos
+   nextpos:=getval(succ(thispos))
+  end-do
+
+  svgsetgraphscale(50)
+
+  svgsave("eulerkn.svg")
+  svgrefresh
+ ! Uncomment to pause at every iteration to view the solution:         
+  if sol<NBSOL then svgpause; end-if
+
+ end-procedure
+
+end-model

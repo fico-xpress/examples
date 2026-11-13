@@ -1,0 +1,202 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file xmlrefexpl.mos
+   ```````````````````
+   Example for mmxml ref man.
+
+   Working with a personnel database of the format:
+     <personnelList> 
+       <employee id=""> 
+         <startDate>
+         <name>
+         <address> 
+         <language>
+       </employee>
+     </personnelList> 
+   
+  (c) 2012 Fair Isaac Corporation
+      author: S.Heipcke, Sep. 2012
+*******************************************************!)
+
+model "xmlref examples"
+  uses "mmxml"
+
+  declarations
+    DB: xmldoc
+    NodeList, Employees, AllEmployees: list of integer
+    Root, Pers: integer
+    NodeNames: set of string
+  end-declarations
+  
+! Reading data from an XML file
+  load(DB, "refexample.xml")
+
+! Set indentation mode for XML output (default after load: MANUAL)
+  setindentmode(DB, XML_AUTO)
+
+
+! 'getnode' / 'getnodes'
+! Get the first element that is not a comment or a processing instruction
+  Root:= getnode(DB,"*")     ! Same as: getnode(DB,0,"*")
+
+! Get the name of the employee with attribute id="T345"
+  writeln("**** id='T345': ", getvalue(DB, getnode(DB,
+    "personnelList/region/employee[@id='T345']/name") ))
+
+! Get the 'region' node with id=EMEA 
+  EMEA:= getnode(DB, "personnelList/region[@id='EMEA']")
+
+ ! Check for employee record (node) for 'Sam' under 'EMEA'
+  if getnode(DB, EMEA, "employee/name[string()='Sam']/..")<0 then
+    writeln("No employee called 'Sam' in EMEA")
+  end-if  
+
+! List all employees
+  writeln("**** All employees:")
+  getnodes(DB, "personnelList/region/employee", AllEmployees)
+  forall(p in AllEmployees)
+    writeln(textfmt(getvalue(DB, getnode(DB, p, "name")), -10),  
+            " (ID: ", getattr(DB,p,"id"), 
+	    ") region: ", getattr(DB, getparent(DB, p), "id"))
+
+! Get all employees in the Americas 
+  getnodes(DB, "personnelList/region[@id='AM']/employee", Employees)
+  writeln("**** Americas employees:")
+  forall(p in Employees) save(DB, p, "")
+
+! All employees who started before 2005
+  getnodes(DB, "personnelList/region/employee/startDate[number()<2005]/..",
+    Employees)
+  writeln("**** Started before 2005:")
+  forall(p in Employees) save(DB, p, "")
+
+! All employees whose names start with "J"
+  writeln("**** Names starting with 'J':")
+  forall(n in AllEmployees) do
+    getnodes(DB, n, "./name[starts-with(string(),'J')]/..", Employees)
+    forall(p in Employees) save(DB, p, "")
+  end-do
+
+! Employees speaking at least 3 languages (=have a third "language" entry)
+  getnodes(DB, 
+    "personnelList/region/employee/language[position()=3]/..",
+    Employees)
+  writeln("**** Speaking at least 3 languages:")
+  forall(p in Employees) save(DB, p, "")
+
+
+! 'testattr' / 'delattr'
+! Switch part-time workers to full-time (delete attribute "parttime")
+  getnodes(DB, "personnelList/region/employee[@parttime]", Employees)
+  writeln("**** Number of part-time workers: ", Employees.size)
+  forall(p in AllEmployees | testattr(DB, p, "parttime")) do
+    writeln(getvalue(DB, getnode(DB, p, "name")))
+    delattr(DB, p, "parttime")
+  end-do
+
+! 'addnode'
+! Add a node to the end of the APAC region personnel list 
+  APAC:= getnode(DB, "personnelList/region[@id='APAC']")
+ ! Append a new node to 'APAC' and set its attribute 'id': 
+  NewPers:= addnode(DB, APAC, XML_LASTCHILD, XML_ELT, "employee")
+  setattr(DB, NewPers, "id", "T432")
+ ! Create a comment: 
+  n:= addnode(DB, NewPers, XML_COM, "This is a new employee")
+ ! Add 2 nodes containing the specified text (nodes):
+  n:= addnode(DB, NewPers, XML_ELT, "startDate", text(2012))
+  n:= addnode(DB, NewPers, XML_ELT, "name", "Tim")
+ ! Add an empty node, then set its contents:
+  n:= addnode(DB, NewPers, XML_ELT, "address")
+  setvalue(DB, n, "Sydney")
+ ! Add an empty node, then create its contents as a text node:
+  n:= addnode(DB, NewPers, XML_ELT, "language")
+  n:= addnode(DB, n, XML_TXT, "English")
+  
+  writeln("**** Newly added person:")
+  save(DB, NewPers, "")
+!  save(DB, APAC, "")
+
+
+! 'getfirstchild' / 'getlastchild' / 'getnext'
+  writeln("**** APAC employees:")
+  Pers:= getfirstchild(DB, APAC)
+  LastPers:= getlastchild(DB, APAC)
+  while(Pers>-1) do
+    if getname(DB, Pers)="employee" then
+      write(" ", getattr(DB,Pers,"id"), ":", getvalue(DB, getnode(DB, Pers, "name")))
+    end-if
+    if Pers=LastPers then writeln; end-if
+    Pers:= getnext(DB, Pers)  
+  end-do
+
+! 'copy' / 'delnode' / 'setvalue'
+! Employee Lisa moves to Delhi:
+ ! Retrieve employee record (node) for 'Lisa'
+  Pers:= getnode(DB, "personnelList/region/employee/name[string()='Lisa']/..")
+ ! Copy node, then delete in original location
+  NewPers:= copynode(DB, Pers, DB, APAC, XML_LASTCHILD)
+  delnode(DB, Pers)
+ ! Update the 'address' information
+  setvalue(DB, getnode(DB, NewPers, "address"), "Delhi")
+  writeln("**** After moving:")
+  save(DB, NewPers, "")
+  
+
+! Spacing: * add line in between regions; 
+!          * display three consecutive tags within 'employee' on a single line
+! Originally read data has spacing information, newly defined entries all
+! need to be set manually -> we redefine spaces for every tag 
+
+! New line without indentation for Root
+  setvspace(DB, Root, 1)
+
+! Add extra line in between regions, keeping original indentation
+  getnodes(DB, "personnelList/region", NodeList)
+  forall(r in NodeList) setvspace(DB, r, 2)
+
+! Spacing/indentation for 'employee' tag
+  getnodes(DB, "personnelList/region/employee", Employees)
+  forall(p in Employees) do
+    setvspace(DB, p, 1); sethspace(DB, p, 4)
+
+  ! Within 'employee', display up to three consecutive tags on a single line
+    getnodes(DB, p, "child::node()[position() mod 3=1]", NodeList)
+    forall(r in NodeList) do
+      setvspace(DB, r, 1); sethspace(DB, r, 6)
+    end-do  
+    getnodes(DB, p, "child::node()[position() mod 3<>1]", NodeList)
+    forall(r in NodeList) do
+      setvspace(DB, r, 0); sethspace(DB, r, 1)
+    end-do  
+
+  end-do  
+
+! First 'language' starts on a new line and others are printed on the same line
+  getnodes(DB, 
+    "personnelList/region/employee/language[position()>=2]", NodeList)
+  forall(r in NodeList) do
+    setvspace(DB, r, 0); sethspace(DB, r, 1)
+  end-do  
+  getnodes(DB, 
+    "personnelList/region/employee/language[position()=1]", NodeList)
+  forall(r in NodeList) do
+    setvspace(DB, r, 1); sethspace(DB, r, 6)
+  end-do  
+
+  writeln("**** Manual formatting:")
+! Set indentation mode to 'manual' to see our own formatting
+  setindentmode(DB, XML_MANUAL)
+
+!  save(DB, NewPers, "")
+  save(DB, "")
+
+! 'getname'
+! Collect the names of all element nodes occurring in a document:
+  getnodes(DB, "/descendant-or-self::node()", NodeList)
+  NodeNames:= union(r in NodeList | gettype(DB,r)=XML_ELT) {getname(DB,r)}
+  writeln("**** Names of element nodes: ", NodeNames)
+
+ 
+end-model

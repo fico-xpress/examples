@@ -1,0 +1,67 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file readdataerr.mos
+   ````````````````````
+   Reading data with custom I/O error handling.
+   
+   (c) 2011 Fair Isaac Corporation
+       author: S.Heipcke, Mar. 2011, rev. May 2015
+*******************************************************!)
+
+model "IO error handling"
+ uses "mmsystem"
+
+ declarations
+  REGION: set of string                 ! Set of customer regions
+  PLANT: set of string                  ! Set of plants
+  DEMAND: array(REGION) of real         ! Demand at regions
+  TRANSCAP,DISTANCE: dynamic array(PLANT,REGION) of real   ! Route data
+  FUELCOST: real                        ! Fuel cost per unit distance
+ end-declarations
+
+ public declarations
+  errtxt: text                          ! Text used as file to log errors
+ end-declarations
+ 
+ DATAFILE:= 'transprt.dat'
+
+! Check whether the file we want to access exists
+ if bittest(getfstat(DATAFILE),SYS_TYP)<>SYS_REG then
+  writeln("File '", DATAFILE, "' does not exist or is not a regular file")
+  exit(1)
+ end-if
+
+ setparam("ioctrl", true)               ! Application handles I/O errors
+ fopen("text:errtxt", F_ERROR)          ! Redirect error stream to a file (text)
+ setparam("readcnt", true)              ! Enable per label counting
+
+ initializations from DATAFILE
+  DEMAND
+  [DISTANCE,TRANSCAP] as 'ROUTE'
+  FUELCOST
+ end-initializations
+
+ fclose(F_ERROR)                        ! Stop error redirection
+ setparam("ioctrl", false)              ! Revert to default I/O handling
+ setparam("readcnt", false) 
+
+ if getparam("iostatus") <>0 then       ! Something has gone wrong in last I/O
+  writeln("I/O error reading file '", DATAFILE, "': ", errtxt)
+                                        ! Display the working directory
+  writeln("Working directory: ", getparam("workdir"))
+                                        ! Display total entries read
+  writeln("Total number of entries read: ", getparam("nbread"))
+                                        ! Check no. of entries read per label
+  forall(s in ["DEMAND","ROUTE","FUELCOST"])
+   if getreadcnt(s)=0 then
+    writeln("No entries read for label '", s, "'.")
+   else
+    writeln(getreadcnt(s), " entries read for label '", s, "'.")
+   end-if  
+
+ end-if
+ 
+
+end-model

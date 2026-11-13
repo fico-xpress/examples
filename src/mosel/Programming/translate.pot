@@ -1,0 +1,56 @@
+# Created by Mosel v3.13.0 from 'translate.mos'
+# Domain name: translate
+
+msgid "This is the %s day of the week\n"
+msgstr ""
+
+msgid "Today is %s\n"
+msgstr ""
+
+msgid "fifth"
+msgstr ""
+
+msgid "first"
+msgstr ""
+
+msgid "fourth"
+msgstr ""
+
+msgid "friday"
+msgstr ""
+
+msgid "monday"
+msgstr ""
+
+msgid "no"
+msgstr ""
+
+msgid "saturday"
+msgstr ""
+
+msgid "second"
+msgstr ""
+
+msgid "seventh"
+msgstr ""
+
+msgid "sixth"
+msgstr ""
+
+msgid "sunday"
+msgstr ""
+
+msgid "third"
+msgstr ""
+
+msgid "thursday"
+msgstr ""
+
+msgid "tuesday"
+msgstr ""
+
+msgid "wednesday"
+msgstr ""
+
+msgid "yes"
+msgstr ""

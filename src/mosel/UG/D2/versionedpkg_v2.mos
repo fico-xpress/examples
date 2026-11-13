@@ -1,0 +1,37 @@
+(!******************************************
+   Mosel Example Problems
+   ======================
+
+   File versionedpkg_v2.mos
+   ````````````````````````
+   Example package with versioning annotations.
+   -- Second version --
+
+   Compile into versionpkg.bim via:
+     mosel comp versionedpkg_v2.mos -o versionedpkg.bim
+
+   Then run versionpkg_test.mos (with or without recompilation)
+
+   (c) 2023 Fair Isaac Corporation
+       author: S. Heipcke, Jun. 2023
+*******************************************!)
+package versionedpkg
+ version 2.0
+!@mc.version.compatible 1.0.0
+
+!@mc.version.since 2.0
+ public procedure myproc2
+  writeln("Output from proc2")
+ end-procedure
+
+!@mc.version.since 2.0
+ public procedure myoldproc
+  writeln("This subroutine is deprecated with v3.0.1")
+ end-procedure
+
+!@mc.version.since 1.0.0
+ public procedure showpkgver
+   writeln("Using version ", getparam("model_version"), " of package 'versionedpkg'.")
+ end-procedure
+ 
+end-package

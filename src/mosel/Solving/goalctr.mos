@@ -1,0 +1,167 @@
+(!*******************************************************
+  * Mosel Example Problems                              *
+  * ======================                              *
+  *                                                     *
+  * file goalctr.mos                                    *
+  * ````````````````                                    *
+  * Example for the use of the Mosel language           *
+  * (Pre-emptive and Archimedian goal programming       *
+  *  using constraints)                                 *
+  *                                                     *
+  * (c) 2008 Fair Isaac Corporation                     *
+  *     author: S. Heipcke, 2001, rev. Sep. 2022        *
+  *******************************************************!)
+
+model GoalCtr                       ! Start a new model
+uses "mmxprs"                       ! Load the optimizer library
+uses "mmsystem"
+
+forward procedure preemptive        ! Declare some procedures that are
+forward procedure archimedian       ! defined later
+
+declarations
+ NGOALS=3                           ! Number of goals
+ GOALS=1..NGOALS
+ x,y: mpvar                         ! Variables
+ dev: array(1..2*NGOALS) of mpvar   ! Deviation from goals
+ MinDev: linctr                     ! Objective function
+ Goal: array(GOALS) of linctr       ! Goal constraints
+end-declarations
+ 
+ Limit:= 100*x + 60*y <= 600        ! Define a constraint
+ 
+! Define the goal constraints
+ Goal(1):=  7*x + 3*y >= 40
+ Goal(2):= 10*x + 5*y = 60
+ Goal(3):=  5*x + 4*y >= 35
+
+                                    ! Some declarations for a nice printout
+declarations
+ STypes={CT_GEQ, CT_LEQ, CT_EQ}
+ ATypes: array(STypes) of string
+end-declarations
+ 
+ ATypes(CT_GEQ):= ">="; ATypes(CT_LEQ):= "<="; ATypes(CT_EQ):= "="
+  
+ preemptive                         ! Pre-emptive goal programming
+ archimedian                        ! Archimedian goal programming
+
+!***********************************************************************
+
+procedure printsol
+ 
+  forall(g in GOALS)
+    if(dev(2*g).sol>0) then
+      writeln(" Goal(",g,") deviation from target: -", dev(2*g).sol)
+    elif(dev(2*g-1).sol>0) then
+      writeln(" Goal(",g,") deviation from target: +", dev(2*g-1).sol) 
+    end-if
+ 
+end-procedure
+
+!***********************************************************************
+
+procedure preemptive
+
+  writeln("Pre-emptive:")
+
+(! 
+  Add successively the goals to the problem and solve it, until all
+  goals have been added or a goal cannot be satisfied. This assumes that
+  the goals are given ordered by priority.
+!)
+
+! Remove (=hide) goal constraint from the problem
+  forall(i in GOALS) Goal(i).hidden:=true
+
+  i:=0
+  while (i<NGOALS) do
+    i+=1
+    Goal(i).hidden:=false           ! Add (=unhide) the next goal
+    case Goal(i).type of            ! Add deviation variable(s)
+     CT_GEQ: do
+               Deviation:= dev(2*i)
+               MinDev += Deviation 
+             end-do
+     CT_LEQ: do
+               Deviation:= -dev(2*i-1)
+               MinDev += dev(2*i-1) 
+             end-do
+     CT_EQ : do
+               Deviation:= dev(2*i) - dev(2*i-1)
+               MinDev += dev(2*i) + dev(2*i-1) 
+             end-do
+     else    writeln("Wrong constraint type")
+             break
+    end-case  
+    Goal(i)+= Deviation
+   
+    minimize(MinDev)                ! Solve the LP-problem
+    writeln(" Solution(", i,"): x: ", x.sol, ", y: ", y.sol)
+
+    Goal(i)-= Deviation             ! Remove deviation variable(s) from goal
+    if(getobjval>0) then
+      writeln("Cannot satisfy goal ",i)
+      break
+    end-if  
+  end-do
+
+                                    ! Solution printout 
+  writeln(" Goal", textfmt("Target",11), textfmt("Value",7))
+  forall(g in 1..i) 
+    writeln(formattext("%4d %3s %5g %7g", g, ATypes(Goal(g).type), 
+      -Goal(g).coeff, Goal(g).act-dev(2*g).sol+dev(2*g-1).sol)) 
+
+  printsol
+  
+end-procedure
+
+!***********************************************************************
+
+procedure archimedian
+
+  writeln("\nArchimedian:")
+
+  declarations
+    Penalty: array(GOALS) of real   ! Penalties for goal constraints 
+  end-declarations
+
+  Penalty:: [8, 3, 1]
+
+  MinDev:=0                         ! Re-initialize objective function
+
+! Define the objective as weighted sum of the deviation variables  
+  forall(g in GOALS) do
+    case Goal(g).type of            ! Add deviation variable(s)
+     CT_GEQ: do
+               Deviation:= dev(2*g)
+               MinDev += Penalty(g)*Deviation 
+             end-do
+     CT_LEQ: do
+               Deviation:= -dev(2*g-1)
+               MinDev += Penalty(g)*dev(2*g-1) 
+             end-do
+     CT_EQ : do
+               Deviation:= dev(2*g) - dev(2*g-1)
+               MinDev += Penalty(g)*(dev(2*g) + dev(2*g-1)) 
+             end-do
+     else    writeln("Wrong constraint type")
+             break
+    end-case  
+    Goal(g)+= Deviation
+  end-do
+    
+  minimize(MinDev)                  ! Solve the LP-problem
+  writeln(" Solution: x: ", x.sol, ", y: ", y.sol)
+
+                                    ! Solution printout 
+  writeln(" Goal", textfmt("Target",11), textfmt("Value",7), textfmt("Penalty",9))
+  forall(g in GOALS) 
+    writeln(formattext("%4d %3s %5g %7g %7g", g, ATypes(Goal(g).type), 
+      -Goal(g).coeff, Goal(g).act-dev(2*g).sol+dev(2*g-1).sol, Penalty(g)))
+
+  printsol
+
+end-procedure
+  
+end-model

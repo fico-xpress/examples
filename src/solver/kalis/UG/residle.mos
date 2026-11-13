@@ -1,0 +1,67 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file residle.mos
+   ````````````````
+   Preemptive scheduling.
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+       Creation: 2008, rev. Apr. 2022        
+*****************************************************************!)
+model "Preemption"
+ uses "kalis", "mmsystem"
+ 
+ setparam("KALIS_DEFAULT_LB", 0)
+
+ forward procedure print_solution
+
+ declarations
+  aprofile,bprofile: list of integer
+  a,b: cptask
+  res: cpresource
+ end-declarations 
+ 
+! Define a discrete resource
+ set_resource_attributes(res, KALIS_DISCRETE_RESOURCE, 3)
+
+! Create a 'hole' in the availability of the resource:
+! Uncomment one of the following two lines to compare their effect
+! setcapacity(res, 1, 2, 0);  setcapacity(res, 7, 8, 0)
+ setidletimes(res, (1..2)+(7..8))
+
+! Define two tasks (a: constant resource use, b: resource profile) 
+ a.duration >= 4
+ a.name:= "task_a"
+ aprofile:= [1,1,1,1]
+ 
+ b.duration >= 8
+ b.name:= "task_b"
+ bprofile:= [1,1,1,2,2,2,1,1]
+ 
+! Resource usage constraints 
+ requires(a, resusage(res,aprofile))
+ requires(b, resusage(res,bprofile)) 
+
+ cp_set_solution_callback(->print_solution)   
+
+! Solve the problem 
+ if cp_schedule(getmakespan)<>0 then
+  cp_show_sol
+ else
+  writeln("No solution") 
+ end-if
+
+! ****************************************************************
+
+ procedure print_solution    
+  writeln("Solution: ", getsol(getmakespan))
+  writeln("Schedule: a: ", getsol(getstart(a)), "-", getsol(getend(a))-1,  
+          ", b: ", getsol(getstart(b)), "-", getsol(getend(b))-1)
+  writeln("Resource usage:")
+  forall(t in 0..getsol(getmakespan)-1)
+   writeln(formattext("%5d: Cap: %d, a:%d, b:%d", t, getcapacity(res,t), 
+           getrequirement(a, res, t), getrequirement(b, res, t)) )
+ end-procedure
+
+end-model

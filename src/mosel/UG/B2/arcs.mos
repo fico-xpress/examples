@@ -1,0 +1,33 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file arcs.mos
+   `````````````
+   Working with records: definition of a network.
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Nov. 2006
+*******************************************************!)
+
+model "Arcs"
+
+ declarations
+  NODES: set of string                  ! Set of nodes
+  ARC: array(ARCSET:range) of record    ! Arcs:
+   Source,Sink: string                  !   Source and sink of arc
+   Cost: real                           !   Cost coefficient
+  end-record 
+ end-declarations
+
+ initializations from 'arcs.dat'
+  ARC
+ end-initializations
+
+! Calculate the set of nodes
+ NODES:=union(a in ARCSET) {ARC(a).Source, ARC(a).Sink}
+ writeln(NODES)
+
+ writeln("Average arc cost: ", sum(a in ARCSET) ARC(a).Cost / getsize(ARCSET) )
+
+end-model 

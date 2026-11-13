@@ -1,0 +1,118 @@
+(!******************************************************
+   Mosel Example Programs
+   ======================
+
+   file readjson.mos
+   `````````````````
+   Alternative JSON reading methods, working with
+   * an xmldoc structure, or 
+   * specific user-defined record structures, or
+   * union-based types defined by the package json.mos 
+
+   -- Note: The package 'json' (file json.mos)  
+      needs to be compiled before executing this model --
+
+   (c) 2022 Fair Isaac Corporation
+       author: S.Heipcke, Mar 2022, rev. Dec. 2022
+*******************************************************!)
+model "Read book examples from JSON"
+ uses "mmxml", "mmsystem", "mmhttp"
+ uses ":json.bim"
+! Uncomment the following line in place of the previous if you see the 
+! compilation error message "Package ':json.bim' not found"
+!  uses "json"     
+
+ FNAME:="bookexamplesl.json"
+
+!**** Using mmxml functionality to read the JSON file into an xmldoc structure
+ declarations
+   exampleDB,newdoc: xmldoc
+   dirs,expls,files: list of integer
+ end-declarations
+
+ writeln("****Reading JSON into xmldoc structure****")
+ jsonload(exampleDB,FNAME)
+ save(exampleDB,"")   ! Display in XML format to visualize xmldoc representation
+ root:=getnode(exampleDB,"*")
+ if root>0 and getattr(exampleDB,root,"jst")="arr" then
+   getnodes(exampleDB, "jsv/jsv[@jst='obj']", dirs)
+   forall(d in dirs) do
+     writeln(getvalue(exampleDB,getnode(exampleDB,d,"directory")), " - ", 
+       getvalue(exampleDB,getnode(exampleDB,d,"title")) )
+     getnodes(exampleDB, d, "models/jsv[@jst='obj']", expls)
+     forall(m in expls)
+       if getnode(exampleDB,m,"modFile")>0 then 
+         writeln(" "*10, getvalue(exampleDB,getnode(exampleDB,m,"modTitle")),
+           ": ", getvalue(exampleDB,getnode(exampleDB,m,"modFile")) )
+       else
+         getnodes(exampleDB,m,"modFileL/jsv",files)
+         writeln(" "*10, getvalue(exampleDB,getnode(exampleDB,m,"modTitle")),
+           ": ", union(f in files) [getvalue(exampleDB,f)] )
+       end-if
+   end-do
+   asproc(copynode(exampleDB, getnode(exampleDB,"jsv/jsv[1]/models/jsv[1]"), 
+     newdoc,0,XML_FIRSTCHILD))
+   write("First example: "); jsonsave(newdoc,"")
+   asproc(copynode(exampleDB, getnode(exampleDB,"jsv/jsv[2]"), 
+     newdoc,0,XML_FIRSTCHILD))
+   write("Second directory: "); jsonsave(newdoc,"")
+ end-if
+
+!**** User type definitions of specific record structures for reading
+!**** the JSON file via jsonread of mmhttp    
+ public declarations
+   expl=public record
+     id,modTitle,modType,modFeatures: text
+     modFileL,modDataL: list of text
+     modFile,modData: text
+     modRating:integer
+   end-record
+   chap=public record
+     id,title,directory: text
+     models: list of expl
+   end-record 
+   examples: list of chap
+ end-declarations
+
+ writeln("\n****Reading JSON into record structures via jsonread****")
+ setparam("ioctrl",true)
+ jsonread(FNAME,examples)
+ setparam("ioctrl",false)
+
+ if getparam("iostatus")=0 then
+   forall(dir in examples) do
+     writeln(dir.directory, " - ", dir.title)
+     forall(j in dir.models)
+       writeln(" "*10, j.modTitle,": ", 
+         if(j.modFile<>"", j.modFile, text(j.modFileL)) )
+   end-do
+   writeln("First example: ", jsontext(examples(1).models(1)))
+   writeln("Second directory: ", jsontext(examples(2), HTTP_SKIP_EMPTYCOL+HTTP_INDENT))
+ end-if
+
+!**** Reading JSON file into generic structures based on union types defined
+!**** by the package 'json'
+ declarations
+  expldb: jval
+ end-declarations
+
+ writeln("\n****Reading JSON into union type structures****")
+ if loadjson(FNAME,expldb)=0 and expldb is jarr then
+   forall(i in expldb.jarr.range)
+     with dir=expldb.jarr(i).jobj do
+       writeln(dir("directory")," - ", dir("title"))
+       with modexpl=dir("models").jarr do
+         forall(j in modexpl.range)
+	   with ex=modexpl(j).jobj do
+             writeln(" "*10, ex("modTitle"),": ", 	      
+               if(isdefined(ex("modFile")), text(ex("modFile")), text(ex("modFileL"))))
+	   end-do
+       end-do
+     end-do
+   writeln("First example: ", jsontext(expldb.jarr(1).jobj("models").jarr(1)))
+   writeln("Models in second directory: ")
+   setparam("jcolmaxw",35)      ! Max. column width for table format display
+   displaytable(expldb.jarr(2).jobj("models").jarr, ["id","modTitle","modType"])
+ end-if
+
+end-model 

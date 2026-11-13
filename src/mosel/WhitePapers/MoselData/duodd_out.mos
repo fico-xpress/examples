@@ -1,0 +1,35 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file duodd_out.mos 
+   `````````````````` 
+   Writing data to a simple CSV format file using the 
+   diskdata functionality.
+ 
+   (c) 2020 Fair Isaac Corporation
+       author: S. Heipcke, Apr. 2020
+*******************************************************!)
+
+model "Duo output (diskdata)"
+ uses "mmetc"
+
+ declarations
+  A: array(-1..1,5..7) of real
+ end-declarations
+
+ A :: [ 2,  4,  6,
+       12, 14, 16,
+       22, 24, 26]
+
+! **** Creating a new file ****
+
+! Using the diskdata driver
+ initializations to "mmetc.diskdata:"
+  A as 'csv,fsep=|;anewfile.csv'
+ end-initializations
+
+! Using the diskdata subroutine
+ diskdata(ETC_OUT+ETC_CSV, 'anothernewfile.csv', A)
+
+end-model

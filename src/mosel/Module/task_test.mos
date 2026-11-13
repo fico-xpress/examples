@@ -1,0 +1,74 @@
+(!******************************************************
+   Mosel NI Examples
+   =================
+
+   File task_test.mos
+   ``````````````````
+   Using module task
+
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2002
+*******************************************************!)
+
+model "Test task module"
+
+ uses "task"
+
+ declarations
+  R:set of integer
+  t:dynamic array(R) of task
+  s:task
+ end-declarations
+
+! Initializing a task
+ s:=task("zero",1,TASK_FLAG,3)
+
+! Accessing a module parameter
+ if(getparam("tasknamelength")<10) then
+  setparam("tasknamelength",20)
+ end-if 
+
+! Reading from file 
+ initializations from "task_test.dat"
+  t
+ end-initializations
+
+! Reassigning the same task:
+ t(1):=task("one",1,TASK_FLAG,3)
+ t(1):=task("two",1,TASK_FLAG,3)
+
+! Other task constructors:
+ t(3):=task("three",getparam("taskmaxtime"))
+ t(7):=task(7)
+ t(6):=task("six")
+ t(9):=task(3,TASK_NOFLAG,9)
+
+! Writing out to file 
+ initializations to "task_test.dat"
+  t as 't2'
+ end-initializations 
+
+! Printout
+ writeln("s:",s)
+ writeln("t:",t)
+
+! Accessing detailed task information
+ forall(i in R)
+  writeln(i," Task ",strfmt(t(i).name,-5),": duration:", t(i).duration, 
+          ", flag:", t(i).aflag, ", due date:", t(i).duedate )
+ t(7).name:="seven"
+ t(6).duration:=4.3
+ t(9).aflag:=true
+ t(7).duedate:=10         
+ writeln("t:",t)
+
+! Comparison between tasks
+ if(t(1)<>s) then
+  writeln("Tasks are different.")
+ end-if
+ t(0):=task("zero",1,TASK_FLAG,3)
+ if(t(0)=s) then
+  writeln("Tasks are the same.")
+ end-if
+ 
+end-model  

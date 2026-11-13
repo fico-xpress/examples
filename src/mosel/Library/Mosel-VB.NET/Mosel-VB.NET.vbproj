@@ -1,0 +1,27 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>optimizer.vb.net</RootNamespace>
+    <StartupObject>optimizer.vb.net.frmMain</StartupObject>
+    <UseWindowsForms>true</UseWindowsForms>
+    <NoWarn>$(NoWarn);WFO1000</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="../Models/**">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <LinkBase>Models</LinkBase>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Import Include="System.Data" />
+    <Import Include="System.Drawing" />
+    <Import Include="System.Windows.Forms" />
+    <Import Include="Microsoft.VisualBasic" />
+    <PackageReference Include="FICO.Xpress.XPRMdn" Version="5.6.1" />  <!-- Compatible with Mosel .NET 5.6.1 and later -->
+  </ItemGroup>
+
+</Project>

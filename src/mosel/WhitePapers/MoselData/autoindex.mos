@@ -1,0 +1,106 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file autoindex.mos
+   ``````````````````
+   Auto-indexation feature for various methods of 
+   data input from spreadsheets or databases.
+   
+   (c) 2020 Fair Isaac Corporation
+       author: S. Heipcke, Apr. 2020, rev. Aug. 2023
+*******************************************************!)
+model "autoindex"
+ uses "mmsheet", "mmetc", "mmodbc"
+ options keepassert
+
+ parameters
+  CSTR = "mmsheet.csv:adt.csv"
+!  CSTR = "mmsheet.xls:adt.xls"
+!  CSTR = "mmsheet.xlsx:adt.xlsx"
+!  CSTR = "mmsheet.excel:adt.xls"
+ end-parameters
+
+! **** Reading from spreadsheet files ****
+ procedure readsht
+  declarations
+    A,A2,B,C,B2,C2: dynamic array(range) of integer
+  end-declarations
+
+  initialisations from CSTR
+    A as 'autondx;[a:a]'                ! All data in column A
+    A2 as 'autondx=-3;[a:a]'            ! Use start value -3 for indexation
+    [B,C] as 'autondx=0;[a:b]'          ! Populating 2 arrays 
+    [B2,C2] as 'autondx;[b:b](#1,#1)'   ! Selecting twice the same column
+  end-initialisations
+  writeln("SHT: A=", A)
+  writeln("SHT: A2=", A2)
+  writeln("SHT: B=", B, " C=", C)
+  writeln("SHT: B2=", B2, " C2=", C2)
+ end-procedure
+
+! **** Reading from CSV-format files via 'diskdata' functionality ****
+ procedure readdd
+  declarations
+    A,A2,B,C,B2,C2: dynamic array(range) of integer
+  end-declarations
+
+  initialisations from 'mmetc.diskdata:'
+    A as 'csv(1),autondx;adt.csv'      ! Selecting the first column
+    A2 as 'csv(1),autondx=-3;adt.csv'  ! Use start value -3 for indexation
+    [B,C] as 'csv,autondx;adt.csv'     ! Populating 2 arrays 
+  end-initialisations
+  writeln("DD: A=", A)                 ! Output: [(1,10),(2,20),(3,30)]
+  writeln("DD: A2=", A2) 
+  writeln("DD: B=", B, " C=", C)
+  diskdata(ETC_IN+ETC_CSV+ETC_AUTONDX,'adt.csv',[B2,C2])
+  writeln("DD: B2=", B2, " C2=", C2)
+ end-procedure
+
+! **** Reading from SQLite database via SQL commands ****
+ procedure readsql
+  declarations
+    A,A2,B,C: dynamic array(range) of integer
+  end-declarations
+
+  SQLconnect("adt.sqlite")
+  assert(getparam("SQLsuccess"))
+  setparam("SQLautondx",true); 
+  SQLexecute("select (Col1) from MyTable", A)  ! Selecting a single column
+  setparam("SQLfirstndx",-3)            ! Use start value -3 for indexation
+  SQLexecute("select (Col1) from MyTable", A2)
+  setparam("SQLfirstndx",0)
+  SQLexecute("select * from MyTable",[B,C])    ! Populating 2 arrays 
+  SQLdisconnect
+  writeln("SQL: A=", A)
+  writeln("SQL: A2=", A2)
+  writeln("SQL: B=", B, " C=", C)
+ end-procedure
+
+(!
+! **** Creating a database via SQL commands ****
+ procedure createdb
+  declarations
+    A:array(integer) of integer
+  end-declarations
+ 
+  A::([10,20,30])[40,50,60]
+  SQLconnect("adt.sqlite")
+  assert(getparam("SQLsuccess"))
+  SQLexecute("drop table if exists MyTable")
+  SQLexecute("create table MyTable (Col1 integer, Col2 integer)")
+  assert(getparam("SQLsuccess"))
+  SQLexecute("insert into MyTable (Col1,Col2) values (?,?)", A)
+  assert(getparam("SQLsuccess"))
+  SQLdisconnect
+ end-procedure
+!)
+ 
+! ******** Read input data from the different sources ********
+ readsht
+ readdd
+ readsql
+
+end-model
+
+

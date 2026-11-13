@@ -1,0 +1,30 @@
+(!*******************************************************
+  * Mosel Example Problems                              *
+  * ======================                              *
+  *                                                     *
+  * file chess2.mos                                     *
+  * ```````````````                                     *
+  * Example for the use of the Mosel language           *
+  * (Small LP-problem from XPRESS-MP User Guide)        *
+  *                                                     *
+  * (c) 2008 Fair Isaac Corporation                     *
+  *     author: S. Heipcke, 2001                        *
+  *******************************************************!)
+
+model 'Chess Problem'
+
+uses "mmxprs"                     ! Load the optimizer library
+
+declarations
+ xs: mpvar                        ! Number of small chess sets to make
+ xl: mpvar                        ! Number of large chess sets to make
+end-declarations
+
+ Profit:= 5*xs + 20*xl            ! Objective: maximize total profit
+
+ mc_time:= 3*xs + 2*xl <= 400     ! Limit on available machine time
+ wood:=      xs + 3*xl <= 200     ! Limit on available wood
+
+ maximize(Profit)                 ! Solve the LP-problem
+
+end-model

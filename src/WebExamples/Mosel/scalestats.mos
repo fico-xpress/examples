@@ -1,0 +1,133 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file scalestats.mos 
+   ```````````````````
+   Retrieving ranging information with graphical display.
+ 
+   (c) 2020 Fair Isaac Corporation
+       author: Z.Csizmadia, S.Heipcke Nov 2020
+*******************************************************!)
+model "test_scaleinfo"
+ uses "mmxprs", "mmsystem", "mmsvg"
+ parameters
+   N = 30000          ! Number of variables
+   M = 1000           ! Number of constraints
+   L = 5              ! Limit value for display (must be in [5,...,20])
+   SEL = 1+2+4        ! 1 - matrix coefficients, 2 - RHS, 4 - objective
+ end-parameters
+
+ declarations
+   J = 1..N
+   I = 1..M
+   x,y: mpvar
+   vars: dynamic array(J) of mpvar
+   Rows: dynamic array(I) of linctr
+   Buckets: set of integer
+   Scaling: dynamic array(Buckets) of integer
+   starttime: real
+   procedure drawrange(CB: array(integer) of integer, limit: integer, fname: string)
+ end-declarations
+
+ starttime:= gettime
+ setparam("xprs_matrixtol", 0.0)
+
+! Constraint with coefficients in 'middle' buckets
+ 0.1 * x + y <= 6
+
+! Constraints with extremely small and extremely large coefficients
+ 10^(-21) * x + 10 ^ 21 * y <= 6
+ 10^(-101) * x + 10 ^ 110 * y <= 6
+
+! Generate further variables and constraints
+ forall(j in J) create(vars(j))
+ forall(i in I) do
+   Rows(i):= sum(j in J) i*j*vars(j) <= i
+   sum(j in J) 1.0/(i*j) * vars(j) <= 1 / i
+ end-do
+ 
+ writeln("Building time: ", gettime-starttime)
+
+ setparam("xprs_verbose", true)
+ starttime:= gettime
+ loadprob(5)
+ writeln("Loading time: ", gettime-starttime)
+
+ starttime:= gettime
+! SEL: range coeff selection: 1 - matrix coefficients, 2 - RHS, 4 - objective
+ getscale(SEL, Scaling)
+
+ writeln("Scale check time: ", gettime-starttime)
+
+ forall (b in Buckets | exists(Scaling(b)))
+   if (b > 20) then
+     writeln( "[10^20, inf[ ", Scaling(b) )
+   elif (b <= -19) then
+     writeln( "[0, 10^(-20)[ ", Scaling(b) )
+   else
+     writeln( "[", 10^(b-1), ", ", 10^b, "[ ", Scaling(b) )
+   end-if
+
+ drawrange(Scaling, L, "coefrng.svg")
+
+!**********************************
+ !@doc.descr Configure and draw the range graphic
+ !@doc.param CB the array of scaling bucket values
+ !@doc.param limit value range to be displayed (value between 5 and 20)
+ procedure drawrange(CB: array(DR:set of integer) of integer, limit: integer, fname: string)
+  declarations
+    CR: range
+    pids: array(CR) of string
+    ypos: dynamic array(CR) of real
+  end-declarations
+
+  LIM:=if(limit>20, 20, if(limit<5,5,limit)); TOFFSET:=10/LIM
+  LFAC:=255/LIM; SCALE:= 5; YFAC:=minlist(2,15/LIM)
+  MAXV:= maxlist(max(b in DR) CB(b),
+    sum(i in DR | exists(CB(i)) and i>=LIM) CB(i),
+    sum(i in DR | exists(CB(i)) and i<=-LIM) CB(i) )
+  XFAC:= 150/MAXV; ct:=0  
+  forall(b in -LIM..LIM, ct as counter) do 
+    pids(b):="g"+b
+    col:=svgcolor(round(abs(b)*LFAC),0,round(255-(abs(b)*LFAC)))
+    ypos(b):=ct*5*YFAC
+    if b = LIM then
+      intervtxt:="[10E,"+(LIM-1)+" inf["
+      totb:=sum(i in DR | exists(CB(i)) and i>=LIM) CB(i)
+    elif b = -LIM then
+      intervtxt:="[0, 10E-"+LIM+"["
+      totb:=sum(i in DR | exists(CB(i)) and i<=-LIM) CB(i)
+    else
+      intervtxt:="[10E"+(b-1)+ ", 10E"+b+"["
+      totb:=CB(b)
+    end-if    
+    svgaddgroup(pids(b), intervtxt, col)
+    svgsetstyle(SVG_FILL, SVG_CURRENT)
+    svgsetstyle(SVG_STROKE, col)
+    svgsetstyle(SVG_FONTSIZE, 4*SCALE*minlist(1.25,YFAC))
+    svgaddtext(0, ypos(b)+TOFFSET, intervtxt)   !text("10E")+b)
+    if totb>0 then
+      svgaddrectangle(40, ypos(b), totb*XFAC, 4*YFAC)
+      svgaddtext(40+totb*XFAC+2,ypos(b)+TOFFSET,text(totb))
+    end-if
+  end-do
+  svgaddgroup("msg", "", SVG_BLACK)
+  svgsetstyle(SVG_FONTSIZE, 7*SCALE*minlist(1.25,YFAC))
+  svgaddtext(0,150+20,"Coefficient ranges")
+  XRANGE:=220; YRANGE:=150+32
+  svgsetgraphviewbox(0,0,XRANGE,YRANGE)
+  svgsetgraphscale(SCALE)
+  svgsetgraphsize(XRANGE*SCALE,YRANGE*SCALE)
+
+ ! Draw the graph 
+  svgrefresh
+
+ ! Optionally save graphic to a file
+  if fname<>"" then svgsave(fname); end-if
+
+ ! Wait for display window to close 
+  svgwaitclose("Close browser window to terminate model execution.", 1)
+
+ end-procedure
+end-model

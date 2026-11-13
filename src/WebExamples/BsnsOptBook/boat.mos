@@ -1,0 +1,87 @@
+(!*********************************************************************
+   Mosel Example Problems
+   ======================
+
+   file boat.mos
+   `````````````
+   Boat problem 
+   
+     Example solution for exercise 3.3 in section 3.7 of
+     J. Kallrath: Business Optimization Using Mathematical Programming -
+     An Introduction with Case Studies and Solutions in Various Algebraic 
+     Modeling Languages. 2nd edition, Springer Nature, Cham, 2021 
+
+   author: S. Heipcke, June 2018
+
+   (c) Copyright 2020 Fair Isaac Corporation
+  
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+*********************************************************************!)
+
+model 'boat'
+  uses "mmxprs", "mmsvg"
+
+  declarations
+    p,s: mpvar                      ! Numbers of premier and standard boats
+  end-declarations
+
+ ! Objective function: total revenue
+  Rev:= 800*p+600*s
+ 
+ ! The total number of boats is limited
+  p+s <= 350
+
+ ! Limited maintenance capacity
+  4*p+3*s <= 1400
+
+ ! Fewer Premier boats than Standard
+  p >= s
+
+ ! At most 200 premier boats
+  p <= 200
+
+  maximise(Rev)
+  writeln("Solution: Revenue=", getobjval)
+  writeln("Premier boats:", p.sol, "  Standard boats:", s.sol)
+  writeln("  Reduced cost: Premier:", p.rcost, "  Standard:", s.rcost)
+
+ ! Graphical representation of the solution
+  
+  svgsetgraphviewbox(0,0,380,380)
+  svgsetgraphlabels("Standard boats", "Premier boats")
+  svgaddgroup("CtrGraph", "Constraints")
+  svgaddgroup("ObjGraph", "Objective")
+  svgsetstyle(SVG_STROKEDASH, "1,1")
+  svgaddgroup("SolGraph", "Optimal solution")
+  svgsetstyle(SVG_STROKEWIDTH, "5")
+  
+  svgaddline("CtrGraph", 350, 0, 0, 350)
+  svgaddarrow("CtrGraph", 335, 15, 325, 5)
+  svgaddline("CtrGraph", 0, 1400/3, 1400/4, 0)
+  svgaddline("CtrGraph", 0, 0, 350, 350)
+  svgaddarrow("CtrGraph", 340, 340, 330, 350)
+  svgaddline("CtrGraph", 0, 200, 350, 200)
+  svgaddarrow("CtrGraph", 340, 200, 340, 185)
+
+  forall(v in [500,1000,1500,2000,2500,3000]) do
+    svgaddline("ObjGraph", 0, v/8, v/6, 0)
+    svgaddtext("ObjGraph", 0, v/8, "Obj="+(v*100))
+  end-do
+
+  svgaddpoint("SolGraph", s.sol, p.sol)
+
+  svgsave("boat.svg")
+  svgrefresh
+  svgwaitclose("Close browser window to terminate model execution.", 1)
+end-model

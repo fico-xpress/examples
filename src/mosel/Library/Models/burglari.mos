@@ -1,0 +1,41 @@
+(!*******************************************************
+  * Mosel Example Problems                              *
+  * ======================                              *
+  *                                                     *
+  * file burglari.mos                                   *
+  * `````````````````                                   *
+  * Example for the use of the Mosel language           *
+  * (Burglar problem from the XPRESS-MP Tutorial)       *
+  *                                                     *
+  * (c) 2008 Fair Isaac Corporation                     *
+  *     author: S. Heipcke, 2001                        *
+  *******************************************************!)
+
+model 'Burglar Problem' version 1.0.0
+
+public declarations
+ ITEMS = {"camera", "necklace", "vase", "picture", "tv", "video",
+         "chest", "brick"}
+ VALUE: array (ITEMS) of real           ! Value of items
+ WEIGHT: array (ITEMS) of real          ! Weight of items
+ WTMAX: real                            ! Max weight allowed for haul
+ x: array(ITEMS) of mpvar               ! 1 if we take item i; 0 otherwise
+end-declarations
+
+ VALUE("camera")  := 15;  WEIGHT("camera")  :=  2
+ VALUE("necklace"):=100;  WEIGHT("necklace"):= 20
+ VALUE("vase")    := 90;  WEIGHT("vase")    := 20
+ VALUE("picture") := 60;  WEIGHT("picture") := 30
+ VALUE("tv")      := 40;  WEIGHT("tv")      := 40
+ VALUE("video")   := 15;  WEIGHT("video")   := 30
+ VALUE("chest")   := 10;  WEIGHT("chest")   := 60
+ VALUE("brick")   :=  1;  WEIGHT("brick")   := 10
+
+ WTMAX  := 102
+
+ MaxVal:= sum(i in ITEMS) VALUE(i)*x(i)             ! Maximize the value
+ WtMax:=  sum(i in ITEMS) WEIGHT(i)*x(i) <= WTMAX   ! Weight restriction
+
+ forall(i in ITEMS) x(i) is_binary      ! All x are 0/1
+
+end-model

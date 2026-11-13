@@ -1,0 +1,244 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file multitab4.mos
+   ``````````````````
+   Reading an array from several data tables.
+   Output parts of an array into several tables.
+   - Using 'initializations' and OCI statements -
+       
+   (c) 2012 Fair Isaac Corporation
+       author: S. Heipcke, Dec. 2012, rev. Aug. 2023
+*******************************************************!)
+
+model "Multiple data sources (OCI)"
+ uses "mmoci", "mmsystem"
+ options keepassert
+
+ parameters
+  DB="myname/mypassword@dbname"     ! Login to Oracle database (not provided)
+  CNCT="mmoci.oci:debug;"+DB
+ end-parameters
+
+ declarations
+  CUST: set of integer
+  PERIOD: range
+  INCOME1,INCOME2,INCOME3: dynamic array(CUST,PERIOD) of real
+ end-declarations
+
+
+! **** Using SQL statements ****
+
+ setparam("OCIdebug",true)
+ OCIlogon(DB)
+ assert(getparam("OCIsuccess"))
+ writeln("Connection number: ",getparam("OCIconnection"))
+
+! Method 1: Data in columns, with CUST index value included
+
+ OCIexecute("select CUST,PERIOD,INCOME from COLDAT1", INCOME1)
+ OCIexecute("select CUST,PERIOD,INCOME from COLDAT2", INCOME1)
+ OCIexecute("select CUST,PERIOD,INCOME from COLDAT3", INCOME1)
+ writeln("1: ", INCOME1)
+ 
+! Method 2: Data in columns, without CUST index value
+
+ procedure readcol(cust:integer, table:string)
+  declarations
+   TEMP: array(PERIOD) of real
+  end-declarations
+  
+  OCIexecute("select PERIOD,INCOME from "+table, TEMP)
+  forall(p in PERIOD) INCOME2(cust,p):=TEMP(p)
+ end-procedure
+ 
+ forall(c in CUST) readcol(c, "COLDAT"+c+"A") 
+ writeln("2: ", INCOME2)
+ 
+! Method 3: Data in rows, without CUST index value
+ procedure readrow(cust:integer, table:string)
+  declarations
+   TEMP: array(1..2,PERIOD) of real
+  end-declarations
+
+  OCIexecute("select * from "+table, TEMP)
+  forall(p in PERIOD) INCOME3(cust,p):=TEMP(2,p)
+ end-procedure
+
+ finalize(PERIOD)                 ! The index sets must be known+fixed
+ setparam("ocindxcol",false)      ! Data specified in dense format (no indices)
+ forall(c in CUST) readrow(c, "ROWDAT"+c) 
+ setparam("ocindxcol",true)
+
+ writeln("3: ", INCOME3)
+
+! ******** Output an array into several tables ********
+(!
+! Method 1: Data in columns, with CUST index value included
+ forall(i in 1..3) do
+  OCIexecute("drop table COLDATOUT" + i)
+  OCIexecute("create table COLDATOUT"+i+" (CUST integer, PERIOD integer, INCOME float)")
+  assert(getparam("OCIsuccess"))
+  OCIexecute("insert into COLDATOUT"+c+" (CUST,PERIOD,INCOME) values (:1, :2, :3)", 
+   array(c1=c,p in PERIOD) INCOME1(c1,p))
+  assert(getparam("OCIsuccess"))
+ end-do
+
+! Method 2: Data in columns, without CUST index value
+ forall(i in 1..3) do
+  OCIexecute("drop table COLDATOUT" + i)
+  OCIexecute("create table COLDATOUT"+i+" (CUST integer, PERIOD integer, INCOME float)")
+  assert(getparam("OCIsuccess"))
+  OCIexecute("drop table COLDATOUT" + i + "A")
+  OCIexecute("create table COLDATOUT"+i+"A (CUST integer, PERIOD integer, INCOME float)")
+  assert(getparam("OCIsuccess"))
+  OCIexecute("insert into COLDATOUT"+c+"A (CUST,PERIOD,INCOME) values (:1, :2)", 
+   array(p in PERIOD) INCOME1(c,p))
+  assert(getparam("OCIsuccess"))
+ end-do
+!)
+
+ OCIlogoff
+
+! **** Using 'initializations from' ****
+
+! Method 1: Data in columns, with CUST index value included
+ initializations from CNCT
+  INCOME1 as 'COLDAT1'
+  INCOME1 as 'COLDAT2'
+  INCOME1 as 'COLDAT3'
+ end-initializations
+
+ writeln("1: ", INCOME1)
+ 
+! Method 2: Data in columns, without CUST index value
+
+ procedure readcol2(cust:integer, table:string)
+  declarations
+   TEMP: array(PERIOD) of real
+  end-declarations
+ 
+  initializations from CNCT
+   TEMP as table
+  end-initializations
+  forall(p in PERIOD) INCOME2(cust,p):=TEMP(p)
+ end-procedure
+ 
+ forall(c in CUST) readcol2(c, "COLDAT"+c+"A") 
+ writeln("2: ", INCOME2)
+ 
+! Method 3: Data in rows, without CUST index value
+
+ procedure readrow2(cust:integer, table:string)
+  declarations
+   TEMP: array(1..2,PERIOD) of real
+  end-declarations
+
+  initializations from CNCT
+   TEMP as 'noindex;'+table
+  end-initializations
+  forall(p in PERIOD) INCOME3(cust,p):=TEMP(2,p)
+ end-procedure
+ 
+ finalize(PERIOD)                       ! The index sets must be known+fixed
+ forall(c in CUST) readrow2(c, "ROWDAT"+c) 
+ writeln("3: ", INCOME3)
+ 
+end-model
+
+**************************************************
+
+
+! Creation of data tables in an Oracle database:
+
+ declarations
+  tsucc: array ({false,true}) of string
+  INCOME,INCOME1T,INCOME2T,INCOME3T: dynamic array(CUST,PERIOD) of real
+ end-declarations
+
+ tsucc(false):="failed"; tsucc(true):="succeeded"
+
+ initializations from "multitab.dat"
+  INCOME1T as "COLDAT1"
+  INCOME2T as "COLDAT2"
+  INCOME3T as "COLDAT3"
+ end-initializations
+
+ initializations from "multitab.dat"
+  INCOME as "COLDAT1"
+  INCOME as "COLDAT2"
+  INCOME as "COLDAT3"
+ end-initializations
+
+ setparam("OCIdebug",true)
+ OCIlogon(DB)
+ assert(getparam("OCIsuccess"))
+ writeln("Connection number: ",getparam("OCIconnection"))
+
+ forall(i in 1..3) OCIexecute("drop table COLDAT" + i)
+
+ OCIexecute("create table COLDAT1 (CUST integer, PERIOD integer, INCOME float)")
+ writeln(" - Create COLDAT1 (",tsucc(getparam("OCIsuccess")),")")
+ OCIexecute("insert into COLDAT1 (CUST, PERIOD, INCOME) values (:1, :2, :3)", INCOME1T)
+ writeln(" - Insert values into COLDAT1 (",tsucc(getparam("OCIsuccess")),",",
+        getparam("OCIrowcnt"),'/',getparam("OCIrowxfr")," rows)")
+ 
+ OCIexecute("create table COLDAT2 (CUST integer, PERIOD integer, INCOME float)")
+ writeln(" - Create COLDAT2 (",tsucc(getparam("OCIsuccess")),")")
+ OCIexecute("insert into COLDAT2 (CUST, PERIOD, INCOME) values (:1, :2, :3)", INCOME2T)
+ writeln(" - Insert values into COLDAT2 (",tsucc(getparam("OCIsuccess")),",",
+        getparam("OCIrowcnt"),'/',getparam("OCIrowxfr")," rows)")
+ 
+  OCIexecute("create table COLDAT3 (CUST integer, PERIOD integer, INCOME float)")
+ writeln(" - Create COLDAT3 (",tsucc(getparam("OCIsuccess")),")")
+ OCIexecute("insert into COLDAT3 (CUST, PERIOD, INCOME) values (:1, :2, :3)", INCOME3T)
+ writeln(" - Insert values into COLDAT3 (",tsucc(getparam("OCIsuccess")),",",
+        getparam("OCIrowcnt"),'/',getparam("OCIrowxfr")," rows)")
+
+ forall(i in 1..3) do
+   OCIexecute("drop table COLDAT" + i + "A")
+   OCIexecute("create table COLDAT" + i + "A (PERIOD integer, INCOME float)")
+   writeln(" - Create COLDAT" + i + "A (",tsucc(getparam("OCIsuccess")),")")
+   OCIexecute("insert into COLDAT" + i + "A (PERIOD, INCOME) values (:1, :2)",
+              array(p in PERIOD) INCOME(i,p))
+   writeln(" - Insert values into COLDAT" + i + 
+           " (",tsucc(getparam("OCIsuccess")),",",
+           getparam("OCIrowcnt"),'/',getparam("OCIrowxfr")," rows)")
+ end-do
+ 
+ procedure writerow(cust:integer, table:string)
+   declarations
+    tname: text
+    tlist,tlist2: list of real
+   end-declarations
+
+   OCIexecute("drop table " + table)
+   OCIexecute("create table " + table + " (F1 float, F2 float, F3 float, F4 float, F5 float)")
+   writeln(" - Create " + table + "(",tsucc(getparam("OCIsuccess")),")")
+
+   tname:= "F1"
+   forall(p in PERIOD | p>1) tname += ", F" + p
+   vname:= ":1"
+   forall(p in PERIOD | p>1) vname += ", :" + p
+   forall(p in PERIOD ) tlist+=[real(p)]
+   OCIexecute("insert into " + table + "(" + tname + ") values (" + vname +")",
+    tlist)
+   writeln(" - Insert values into " + table +  
+           " (",tsucc(getparam("OCIsuccess")),",",
+           getparam("OCIrowcnt"),'/',getparam("OCIrowxfr")," rows)")
+   forall(p in PERIOD ) tlist2+=[INCOME(cust,p)]
+   OCIexecute("insert into " + table + "(" + tname + ") values (" + vname +")",
+    tlist2)
+   writeln(" - Insert values into " + table +  
+           " (",tsucc(getparam("OCIsuccess")),",",
+           getparam("OCIrowcnt"),'/',getparam("OCIrowxfr")," rows)")
+
+ end-procedure
+ 
+ setparam("ocindxcol",false)      ! Data specified in dense format (no indices)
+ forall(c in CUST) writerow(c, "ROWDAT" + c)
+ setparam("ocindxcol",true)
+
+
+ OCIlogoff

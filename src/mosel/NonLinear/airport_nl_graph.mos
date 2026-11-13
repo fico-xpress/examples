@@ -1,0 +1,77 @@
+(!*********************************************************************
+   Mosel NL examples
+   =================
+   file airport_nl_graph.mos
+   `````````````````````````
+   Locate N airports each within a specified distance of a 
+   city centre, and minimise the sum of square of the distances 
+   between all the airports.
+
+   QCQP problem.
+  
+   Based on AMPL model airport.mod by Hande Y. Benson
+   Source: http://www.orfe.princeton.edu/~rvdb/ampl/nlmodels/cute/ 
+   Reference: 
+   Rodrigo de Barros Nabholz & Maria Aparecida Diniz Ehrhardt
+   November 1994, DMA - IMECC- UNICAMP.
+
+   - XNLP version, graph drawing -
+   
+   (c) 2008 Fair Issac Corporation
+       author: S. Heipcke, May 2008, rev. Sep. 2017
+*********************************************************************!)
+
+model "airport"
+ uses "mmxnlp", "mmsvg"
+
+ declarations
+  RN: range                      ! Set of airports
+  R: array(RN) of real           ! Square of max. distance to given location
+  CX,CY: array(RN) of real       ! Target location for each point
+  x,y: array(RN) of mpvar        ! x-/y-coordinates to determine
+ end-declarations
+
+ initialisations from "airport.dat"
+  CY  CX  R
+ end-initialisations
+
+! Set bounds on variables
+ forall(i in RN) do
+  -10<=x(i); x(i)<=10
+  -10<=y(i); y(i)<=10
+ end-do
+
+! Objective: minimise the total squared distance between all points
+ TotDist:= sum(i,j in RN | i<j) ((x(i)-x(j))^2+(y(i)-y(j))^2)
+
+! Constraints: all points within given distance of their target location
+ forall(i in RN) 
+  LimDist(i):= (x(i)-CX(i))^2+(y(i)-CY(i))^2 <= R(i)
+
+ setparam("XPRS_verbose", true);
+ minimise(TotDist);
+
+ writeln("Solution: ", getobjval);
+ forall(i in RN) writeln(i, ": ", getsol(x(i)), ", ", getsol(y(i)))
+
+! **** Display the solution as user graph ****
+ 
+! Scale the size of the displayed graph
+ svgsetgraphscale(50)
+ svgsetgraphpointsize(3)
+ svgsetgraphstyle(SVG_STROKEWIDTH,3)
+
+! Draw the target locations
+ svgaddgroup("T", "Target area", SVG_SILVER)
+ svgsetstyle(SVG_FILL,SVG_CURRENT)
+ forall(i in RN) svgaddellipse(CX(i), CY(i), sqrt(R(i)), sqrt(R(i)))
+
+! Draw the solution points
+ svgaddgroup("S", "Solution", SVG_BLUE)
+ forall(i in RN) svgaddpoint(x(i).sol, y(i).sol)
+ 
+ svgsave("airport.svg")
+ svgrefresh
+ svgwaitclose("Close browser window to terminate model execution.", 1)
+
+end-model

@@ -1,0 +1,61 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file chessrng.mos
+   `````````````````
+   Display ranging information for variables and
+   constraints in a MIP problem.
+
+   * Solve the MIP problem
+   * Fix all discrete variables to their solution values
+   * Re-solve the remaining LP problem
+   * Retrieve solution information for sensitivity analysis
+
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2007, rev. Sep. 2022
+*******************************************************!)
+
+model "Chess (ranges)"
+ uses "mmxprs"
+
+ public declarations
+  R = 1..2                               ! Index range
+  DUR, WOOD, PROFIT: array(R) of real    ! Coefficients
+  x: array(R) of mpvar                   ! Array of variables
+  ifusesoft: mpvar                       ! Whether soft wood is used
+  MTime, Wood: linctr                    ! Constraints
+ end-declarations
+
+ DUR   :: [3, 2]                         ! Initialize data arrays
+ WOOD  :: [1, 3]
+ PROFIT:: [5, 20]
+
+ Wood:= sum(i in R) WOOD(i)*x(i) <= 200  ! Limit on raw material
+                                         ! Add. capacity if using soft wood
+ MTime:= sum(i in R) DUR(i)*x(i) <= 160 + 40*ifusesoft
+ ifusesoft is_binary
+
+ Profit:= sum(i in R) PROFIT(i)*x(i)
+
+ setparam("realfmt","%.4g")              ! Set real number display format
+
+ maximize(Profit)                        ! Solve the full MIP problem
+ writeln("Solution: ", getobjval)
+
+ fixmipentities                          ! Fix discrete variables
+ maximize(XPRS_LIN, Profit)              ! Solve reduced problem as LP
+
+ write("Objective sensitivity: ")
+ writeln(getsensrng(XPRS_DN, Profit), " - ", getsensrng(XPRS_UP, Profit))
+
+ writeln("Ctr: \tRHS DN, RHS UP")
+ CtrSet:= {MTime, Wood}
+ forall(c in CtrSet)
+  writeln(" ", getname(c), ": \t", getsensrng(XPRS_DN,c),
+                      ", ", getsensrng(XPRS_UP,c))
+ writeln("Var: \tObj DN, Obj UP")
+ forall(i in R)
+  writeln(" x(", i, "): \t", getsensrng(XPRS_DN,x(i)),
+                    ", ", getsensrng(XPRS_UP,x(i)))
+end-model

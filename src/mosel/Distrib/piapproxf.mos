@@ -1,0 +1,109 @@
+(!*******************************************************
+   Mosel Example Problems
+   ======================
+
+   file piapproxf.mos
+   ``````````````````
+   Approximating the value of pi by integrating the
+   function 1/(1+x^2) over the interval [0,1].
+   The integral is approximated by dividing the interval [0,1]
+   into N subintervals and calculating the sum of their areas.
+
+   - Using findxsrvs to search for available servers -
+
+   integral 0 to 1  1/(1+x^2)dx
+   = arctan(1)-arctan(0)
+   = arctan(1)
+   = pi/4
+
+   (c) 2010 Fair Isaac Corporation
+       author: S. Heipcke, June 2010, rev. Nov. 2018
+  *******************************************************!)
+
+model "approximating pi"
+ uses "mmjobs"
+
+ parameters
+  N = 1000000                  ! Number of intervals
+  K = 20                       ! Number of submodels to run
+  NUM = 0                      ! 0 in main model, else >=1
+ end-parameters
+
+ if N<1 then exit(1); end-if
+
+ declarations
+  A = 1..K
+  B: range
+  modPar: array(A) of Model
+  moselInst: array(B) of Mosel
+  NODES: array(B) of string
+
+  h: real
+  M: integer
+
+  NEWSUM = 2
+  ev: Event
+  hosts:set of string
+ end-declarations
+
+! Start child nodes
+ if NUM=0 then
+  findxsrvs(1,10,hosts)     ! Try to find additional hosts on the local network
+  NODELIST:=[""]
+  forall(i in hosts) NODELIST+=[i]
+
+  forall(n in NODELIST, ct as counter) NODES(ct):=n
+  M:= getsize(B)
+
+  forall(i in B) do
+    create(moselInst(i))
+    if connect(moselInst(i), NODES(i))<>0 then
+      exit(2)
+    elif compile(moselInst(i),"","rmt:piapproxf.mos","piapproxf.bim")<>0 then
+      exit(3)
+    end-if
+  end-do
+
+  forall(j in A) do
+    load(moselInst(j mod M + 1), modPar(j), "piapproxf.bim")
+                                   ! Start remote model execution
+    run(modPar(j), "NUM="+j+",N="+N)
+  end-do
+
+ else
+ ! Calculate a part of pi
+   h:=1/N
+   i:=NUM
+   while(i <= N) do
+     x:=h*(i-0.5)
+     pisum+= 4/(1+x^2)
+     i+=K
+   end-do
+   mypi:=h*pisum
+
+   writeln(NUM, "(", getparam("NODENUMBER"), ",", getparam("JOBID"), "): ", 
+     strfmt(mypi,20,19))
+ end-if
+
+ if NUM>0 then
+ ! Return the solution value
+   send(NEWSUM, mypi)
+ else
+ ! Add up values for parts returned by child models
+   modct:=0
+   while (modct<K) do
+     wait
+     ev:=getnextevent
+     if getclass(ev)=NEWSUM then
+       mypi+=getvalue(ev)
+       modct+=1
+     end-if
+   end-do
+
+ ! Solution output
+   writeln("pi approximation: ", strfmt(mypi,20,19))
+   writeln("pi (built-in):    ", strfmt(M_PI,20,19))
+   writeln("difference   :    ", strfmt(abs(mypi-M_PI),20,19))
+ end-if
+
+end-model

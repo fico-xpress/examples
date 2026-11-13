@@ -1,0 +1,25 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file data_out.mos 
+   ````````````````` 
+   Mosel model defining a data array 
+   (to be read from the calling application
+    after the model execution).
+ 
+   (c) 2008 Fair Isaac Corporation
+       author: S.Heipcke, Oct. 2006, rev. June 2018
+*******************************************************!)
+
+model "Data output"
+
+ public declarations
+  A: array(-1..1,5..7) of real
+ end-declarations
+
+ A :: [ 2,  4,  6,
+       12, 14, 16,
+       22, 24, 26]
+
+end-model

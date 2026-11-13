@@ -1,0 +1,127 @@
+(!*********************************************************************
+   Mosel NL examples
+   =================
+   file portfoliorisk.mos
+   ``````````````````````
+   Portfolio optimization with parameterized risk/return measures
+   Quadratic constraints / objective.
+
+   (c) 2013 Fair Isaac Corporation
+       author: S. Heipcke, Mar. 2013, rev. Jun. 2023
+*********************************************************************!)
+    
+model "portfoliorisk"
+  uses "mmxnlp", "mmsystem"
+
+  parameters
+    MAXFRAC = 1.0                         ! Max. fraction per asset: in ]0,1]
+  end-parameters	
+
+  declarations
+    YEARS : range                         ! Set of time periods 
+    ASSETS: set of string                 ! Set of assets
+    RET: array(YEARS, ASSETS) of real     ! Return of an asset per year
+    LAMBDA: list of real                  ! Ordered list of risk aversion values
+    NYEARS: integer                       ! Size of set YEARS
+    NASSETS: integer                      ! Size of set ASSETS
+    Mean: array(ASSETS) of real           ! Average reward of an asset
+    Sdev: array(ASSETS) of real           ! Standard deviation of an asset
+    Risk: array(YEARS, ASSETS) of real    ! Risk measure
+    Var:  array(ASSETS, ASSETS) of real   ! Variance/covariance matrix
+    Corr:  array(ASSETS, ASSETS) of real  ! Correlation coefficient
+  
+    frac: array(ASSETS) of mpvar          ! Investment fraction of an asset
+    totalreturn: mpvar                    ! Expected return
+    totalrisk: mpvar                      ! Risk measure (total variance)
+    TotalCorr: nlctr                      ! Total correlation
+    ObjDef: nlctr                         ! Objective function
+  end-declarations
+
+! Read data from file
+  initializations from 'portfoliorisk.dat'
+    RET  LAMBDA
+  end-initializations
+
+  finalize(YEARS); finalize(ASSETS)
+  NYEARS:= YEARS.size
+  NASSETS:= ASSETS.size
+
+! Calculate derived data
+  ! Mean return
+  forall(a in ASSETS) Mean(a):= sum(y in YEARS) RET(y,a)/NYEARS
+  ! Risk measure
+  forall(y in YEARS, a in ASSETS) Risk(y, a):= RET(y,a) - Mean(a)
+  ! Standard deviation        
+  forall(a in ASSETS) 
+    Sdev(a):= sqrt(sum(y in YEARS) Risk(y,a)^2)/NYEARS
+  ! Variance/Covariance
+  forall(a1, a2 in ASSETS) 
+    Var(a1,a2):= (sum(y in YEARS) Risk(y,a1)*Risk(y,a2))/NYEARS
+  ! Correlation coefficient (normalized covariance)
+  forall(a1, a2 in ASSETS) 
+    Corr(a1,a2):= Var(a1,a2)/sqrt(Var(a1,a1)*Var(a2,a2))
+
+  writeln("NASSETS=", NASSETS)
+  writeln("NYEARS=", NYEARS) 
+  forall(a in ASSETS)
+    writeln(strfmt(a,-11), ": Mean=", Mean(a), ", StdDev=", Sdev(a))
+
+! State variable bounds and initial values
+  forall (a in ASSETS) do
+    0 <= frac(a); frac(a) <= MAXFRAC  ! Spend between 0% and MAXFRAC% per asset
+    setinitval(frac(a),1.0/NASSETS)
+  end-do  
+
+! Auxiliary variables for the definition of the objective function
+  totalreturn = sum(a in ASSETS) Mean(a)*frac(a)
+  totalreturn is_free
+  totalrisk = (sum(y in YEARS) (sum(a in ASSETS) Risk(y,a)*frac(a))^2)/NYEARS
+  totalrisk is_free
+  TotalCorr := sum(a1,a2 in ASSETS) Corr(a1,a2)*frac(a1)*frac(a2)
+
+! Spend all the capital
+  SpendAll:= sum(a in ASSETS) frac(a) = 1
+
+!  setparam("xnlp_verbose", true)
+  
+! In this example we will use a local solver, since it can be time consuming to solve it to global optimality 
+  setparam("xprs_nlpsolver", 1)
+  setparam("xnlp_solver", 0)     ! Solver choice: Xpress NonLinear (SLP)
+
+! Objective 1: Maximize a combination of "return - weighted risk"
+  writeln("Objective 1:")
+  forall(l in LAMBDA) do
+    ObjDef:= totalreturn - l*totalrisk
+    maximize(ObjDef)
+
+    writeln(" lambda =", strfmt(l,4), ": Mean yield = ", totalreturn.sol, 
+            ", StdDev = ", sum(a in ASSETS) Sdev(a)*100.0*getsol(frac(a)),
+            ", Obj = ", getobjval, ", Corr = ", TotalCorr.sol)
+    write(" "*13)
+    forall(a in ASSETS | frac(a).sol>0.001)
+      write("  ", a, ":", strfmt(frac(a).sol,5,3), "%")
+    writeln
+  end-do
+
+! Objective 2: Minimize total (co)variance with parameterized return target
+  writeln("Objective 2:")
+  ObjDef:=  sum(a1, a2 in ASSETS) Var(a1,a2)*frac(a1)*frac(a2)
+  FAC:=50
+  RRANGE:= ceil(min(a in ASSETS) FAC*Mean(a))..floor(max(a in ASSETS) FAC*Mean(a))
+  forall(r in RRANGE) do
+    ReturnTarget:= totalreturn >= r/FAC
+    minimize(ObjDef)
+    if getprobstat=XPRS_OPT then
+      writeln(" r = ", strfmt(r/FAC,4), ": Mean yield = ", totalreturn.sol, 
+              ", StdDev = ", sum(a in ASSETS) Sdev(a)*100.0*getsol(frac(a)),
+              ", Variance = ", getobjval, ", Corr = ", TotalCorr.sol)
+      write(" "*13)
+      forall(a in ASSETS | frac(a).sol>0.001)
+        write("  ", a, ":", strfmt(frac(a).sol,5,3), "%")
+      writeln
+    else
+      writeln(" r = ", strfmt(r/FAC,4), ": Infeasible")
+    end-if  
+  end-do
+
+end-model

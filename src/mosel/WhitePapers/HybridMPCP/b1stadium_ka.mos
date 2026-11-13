@@ -1,0 +1,59 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file b1stadium_ka.mos
+   `````````````````````
+   Construction of a stadium
+   (See "Applications of optimization with Xpress-MP",
+        Section 7.1 Construction of a stadium)
+
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, March 2005, rev. Dec. 2010
+*****************************************************************!)
+model "B-1 Stadium construction (CP)"
+ uses "kalis"
+ 
+ declarations
+  N = 19                              ! Number of tasks in the project 
+                                      ! (last = fictitious end task)
+  TASKS = 1..N
+  ARC: dynamic array(range,range) of integer  ! Matrix of the adjacency graph 
+  DUR: array(TASKS) of integer        ! Duration of tasks
+  HORIZON : integer                   ! Time horizon 
+
+  start: array(TASKS) of cpvar        ! Start dates of tasks
+  bestend: integer
+ end-declarations
+
+ initializations from 'Data/b1stadium.dat'
+  DUR ARC
+ end-initializations
+
+ HORIZON:= sum(j in TASKS) DUR(j)
+
+ forall(j in TASKS) do
+  0 <= start(j); start(j) <= HORIZON
+ end-do
+
+! Task i precedes task j
+ forall(i, j in TASKS | exists(ARC(i, j))) do
+  Prec(i,j):= start(i) + DUR(i) <= start(j)
+  if not cp_post(Prec(i,j)) then
+   writeln("Posting precedence ", i, "-", j, " failed")
+   exit(1)
+  end-if
+ end-do
+
+! Since there are no side-constraints, the earliest possible completion
+! time is the earliest start of the fictitiuous task N
+ bestend:= getlb(start(N))
+ start(N) <= bestend
+ writeln("Earliest possible completion time: ", bestend)
+
+! For tasks on the critical path the start/completion times have been fixed
+! by setting the bound on the last task. For all other tasks the range of
+! possible start/completion times gets displayed.
+ forall(j in TASKS) writeln(j, ": ", start(j))
+
+end-model

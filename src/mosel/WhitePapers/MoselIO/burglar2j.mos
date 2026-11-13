@@ -1,0 +1,75 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file burglar2j.mos
+   ``````````````````
+   Data read from JSON file.
+   
+   (c) 2014 Fair Isaac Corporation
+       author: S. Heipcke, Sep. 2014
+*******************************************************!)
+
+model "Burglar2 JSON"
+ uses "mmxprs", "mmxml"
+ 
+ declarations
+  WTMAX = 102                    ! Maximum weight allowed
+  ITEMS: set of string           ! Index set for items
+  VALUE: array(ITEMS) of real    ! Value of items
+  WEIGHT: array(ITEMS) of real   ! Weight of items
+  
+  BurgData, ResData: xmldoc      ! XML document
+  Root, Node: integer            ! XML nodes
+  NodeList: list of integer
+ end-declarations
+
+! Reading data from a JSON file
+ jsonload(BurgData, "burglar.json")
+
+! Retrieve all 'Item' nodes 
+ getnodes(BurgData, "jsv/Item/jsv", NodeList) 
+ 
+! Retrieve 'Value' and 'Weight' information 
+ forall(i in NodeList) do
+   VALUE(getstrvalue(BurgData, getnode(BurgData,i,"Name"))):=
+     getrealvalue(BurgData, getnode(BurgData, i, "Value") )
+   WEIGHT(getstrvalue(BurgData, getnode(BurgData,i,"Name"))):=
+     getrealvalue(BurgData, getnode(BurgData, i, "Weight") )
+ end-do
+ 
+ declarations
+  take: array(ITEMS) of mpvar    ! 1 if we take item i; 0 otherwise
+ end-declarations
+
+! Objective: maximize total value
+ MaxVal:= sum(i in ITEMS) VALUE(i)*take(i) 
+
+! Weight restriction
+ sum(i in ITEMS) WEIGHT(i)*take(i) <= WTMAX
+
+! All variables are 0/1
+ forall(i in ITEMS) take(i) is_binary  
+
+ maximize(MaxVal)                 ! Solve the MIP-problem
+
+! Solution output
+ forall(i in ITEMS) SOLTAKE(i):= getsol(take(i))
+
+ writeln("Solution:\n Objective: ", getobjval)
+ writeln(SOLTAKE)
+
+! Create solution representation in JSON format
+ Root:=addnode(ResData, 0, XML_ELT, "jsv")         ! Create root node "jsv"
+ Node:=addnode(ResData, Root, "Objective", getobjval) ! Add a node to root
+ Node:=addnode(ResData, Root, XML_ELT, "Items")    ! Add a node to root
+ forall(i in ITEMS)
+   n:=addnode(ResData, Node, i, SOLTAKE(i))        ! Add a node to "Items"
+
+ setindentmode(ResData, XML_NONE)      ! Output file without whitespace
+ jsonsave(ResData, "burglarout.json")  ! Save solution to JSON format file
+ setindentmode(ResData, XML_AUTO)      ! Use automatic indentation
+ save(ResData, Root, "")               ! Display XML format solution on screen
+ jsonsave(ResData, Root, "")           ! Display JSON format solution on screen
+ 
+end-model

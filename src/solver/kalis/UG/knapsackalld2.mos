@@ -1,0 +1,80 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file knapsackalld2.mos
+   ``````````````````````
+   Knapsack problem with additional alldifferent 
+   constraint solved using linear relaxations.
+   - Configuring a linear relaxation -
+
+   (c) 2009 Artelys S.A. and Fair Isaac Corporation
+       Creation: 2009, rev. Mar. 2013, rev. Jun. 2023        
+*****************************************************************!)
+model "Knapsack with side constraints"
+ uses "kalis", "mmsystem"
+
+ declarations
+  VALUES = {1,3,8,9,12}
+  R = 1..4
+  x: array(R) of cpvar              ! Decision variables
+  benefit: cpvar                    ! The objective to minimize
+ end-declarations
+
+! Enable output printing
+ setparam("kalis_verbose_level", 1)
+
+! Setting name of variables for pretty printing
+ forall(i in R) setname(x(i),"x"+i) 
+ setname(benefit,"benefit")
+
+! Set initial domains for variables
+ forall(i in R) setdomain(x(i), VALUES)
+
+! Knapsack constraints
+ 3*x(1) + 5*x(2) + 2*x(3) <= 50
+ 2*x(1) + x(3) + 5*x(4) <= 75
+
+! Additional global constraint
+ all_different(union(i in R) {x(i)})
+
+! Objective function
+ benefit = 5*x(1) + 8*x(2) + 4*x(3) + x(4)
+
+! Initial propagation
+ if not cp_propagate: exit(1)
+
+! Display bounds on objective after constraint propagation 
+ writeln("Constraint propagation objective ", benefit)
+
+
+! **** Linear relaxation ****
+
+ declarations
+  myrelaxall: cplinrelax
+ end-declarations
+
+! Build an automatic 'LP' oriented linear relaxation
+ myrelaxall:= cp_get_linrelax(0)
+  
+! Output the relaxation to the screen
+ cp_show_relax(myrelaxall)  
+
+ mysolver:= get_linrelax_solver(myrelaxall, benefit, KALIS_MAXIMIZE, 
+                KALIS_SOLVE_AS_LP, KALIS_TREENODE_RELAX_SOLVER)
+
+! Define the linear relaxation 
+ cp_add_linrelax_solver(mysolver)
+
+! Define a 'MIP' style branching scheme using the solution of the relaxation
+ cp_set_branching(assign_var(KALIS_LARGEST_REDUCED_COST(mysolver), 
+                             KALIS_NEAREST_RELAXED_VALUE(mysolver)))
+
+! Solve the problem
+ starttime:= gettime
+ if cp_maximize(benefit) then  
+  write(gettime-starttime, "sec. ")
+  cp_show_sol                      ! Output optimal solution to screen
+ end-if
+
+end-model

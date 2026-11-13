@@ -1,0 +1,32 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file doesx2.mos
+   ```````````````
+   Using 'finalize' to turn a dynamic set into 
+   a constant set.
+   
+   (c) 2008 Fair Isaac Corporation
+       author: Bob Daniel, 2001, rev. Sep. 2021
+*******************************************************!)
+
+model doesx2
+ public declarations
+  WHICH: set of integer
+  Obj,C: linctr
+ end-declarations
+
+ initializations from 'doesx.dat'
+  WHICH
+ end-initializations
+
+ public declarations
+  x: array(WHICH) of mpvar        ! Here the array is _not_ dynamic
+ end-declarations                 !  because the set has been finalized
+
+ Obj:= sum(i in WHICH) x(i)
+ C:= sum(i in WHICH) i * x(i) >= 5
+
+ exportprob(0, "", Obj)    ! Display the resulting problem definition in Mosel
+end-model

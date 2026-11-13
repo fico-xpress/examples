@@ -1,0 +1,76 @@
+(!****************************************************************
+   CP example problems
+   ===================
+   
+   file resprofile.mos
+   ```````````````````
+   Scheduling tasks with resource usage profiles.
+
+   (c) 2008 Artelys S.A. and Fair Isaac Corporation
+       Creation: 2008, rev. Apr. 2022        
+*****************************************************************!)
+model "Task resource usage profiles"
+ uses "kalis"
+ 
+ setparam("KALIS_DEFAULT_LB", 0)
+ 
+ forward procedure print_solution 
+
+ declarations
+  TASKS = {"a","b","c","d"}           ! Index set of tasks
+  Profile: array(TASKS) of list of integer   ! Task profiles
+  DUR: array(TASKS) of integer        ! Durations of tasks
+ 
+  task: array(TASKS) of cptask        ! Tasks
+  res: cpresource                     ! Cumulative resource
+ end-declarations 
+
+ DUR::(["a","b","c","d"])[7, 9, 8, 5]
+ Profile("a"):= [12, 12, 6, 2, 2, 2, 2]
+ Profile("b"):= [12, 12, 6, 2, 2, 2, 2, 2, 2]
+ Profile("c"):= [12, 12, 3, 3, 3, 3, 3, 3]
+ Profile("d"):= [6, 6, 6, 6, 6]
+ 
+! Define a discrete resource
+ set_resource_attributes(res, KALIS_DISCRETE_RESOURCE, 18)
+ res.name:="machine"
+ 
+! Define tasks with profiled resource usage 
+ forall(t in TASKS) do
+  task(t).duration:= DUR(t)
+  task(t).name:= t
+  requires(task(t), resusage(res, Profile(t)))   
+ end-do
+
+ cp_set_solution_callback(->print_solution)   
+ starttime:=timestamp
+ 
+! Solve the problem 
+ if cp_schedule(getmakespan)=0 then
+  writeln("No solution")
+  exit(0)
+ end-if
+
+! Solution printing
+ writeln("Schedule with makespan ", getsol(getmakespan), ":")
+ forall(t in TASKS)
+  writeln(t, ": ", getsol(getstart(task(t))), " - ", getsol(getend(task(t))))
+
+! ****************************************************************
+
+! Print solutions during enumeration at the node where they are found. 
+! 'getrequirement' can only be used here to access solution information,
+! not after the enumeration (it returns a value corresponding to the  
+! current state, that is, 0 after the enumeration).
+ procedure print_solution    
+  writeln(timestamp-starttime, "sec. Solution: ", getsol(getmakespan))
+
+  forall(i in 0..getsol(getmakespan)-1) do
+   write(strfmt(i,2), ": ")
+   forall(t in TASKS | getrequirement(task(t), res, i)>0) 
+    write(t, ":", getrequirement(task(t), res, i), "  " )
+   writeln("(total ", sum(t in TASKS) getrequirement(task(t), res, i), ")")
+  end-do   
+ end-procedure
+
+end-model

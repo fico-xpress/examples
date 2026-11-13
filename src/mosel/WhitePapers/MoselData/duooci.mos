@@ -1,0 +1,64 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file duooci.mos
+   ```````````````
+   Two ways of reading sparse data tables from
+   Oracle databases.
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Jan. 2007, rev. Aug. 2023
+*******************************************************!)
+
+model "Duo input (OCI)"
+ uses "mmoci"
+
+ parameters
+  CNCT = 'myname/mypassword@dbname'
+ end-parameters
+
+ declarations
+  A4, A5: dynamic array(range,range) of real
+ end-declarations
+
+! First method: use an initializations block with the oci driver
+ initializations from "mmoci.oci:debug;"+CNCT
+  A4 as 'MyDataTable'
+ end-initializations
+
+! Second method: use SQL statements 
+ OCIlogon(CNCT)
+ if not getparam("OCIsuccess"): setioerr("Database connection failed")
+ OCIexecute("select Index_i,Index_j,Value from MyDataTable", A5)
+ OCIlogoff
+
+! Now let us see what we have
+ writeln('A4 is: ', A4)
+ writeln('A5 is: ', A5)
+
+end-model
+
+
+**************************************************
+
+
+! Creation of the input table in an Oracle database:
+
+ declarations
+  tsucc: array ({false,true}) of string
+ end-declarations
+
+ tsucc(false):="failed"; tsucc(true):="succeeded"
+
+ OCIexecute("create table MyDataTable (Index_i integer, Index_j integer, Value float)")
+ writeln(" - Create MyDataTable (",tsucc(getparam("OCIsuccess")),")")
+
+ declarations
+  A: array(range,range) of real
+ end-declarations
+ A(1,1):=12.5; A(2,3):=5.6; A(10,9):=-7.1; A(3,2):=1 
+
+ OCIexecute("insert into MyDataTable (Index_i, Index_j, Value) values (:1, :2, :3)", A)
+ writeln(" - Insert values in MyDataTable (",tsucc(getparam("OCIsuccess")),",",
+        getparam("OCIrowcnt"),'/',getparam("OCIrowxfr")," rows)")

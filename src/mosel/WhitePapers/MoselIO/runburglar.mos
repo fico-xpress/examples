@@ -1,0 +1,28 @@
+(!*******************************************************
+   Mosel Example Problems 
+   ======================
+
+   file runburglar.mos
+   ```````````````````
+   Running a model from another Mosel model.
+   Save bim file in Mosel's temporary directory.
+       
+   (c) 2013 Fair Isaac Corporation
+       author: S. Heipcke, Mar. 2013
+*******************************************************!)
+
+model "Run model burglar"
+ uses "mmjobs"
+
+ declarations
+  modBurg: Model
+ end-declarations
+
+                                   ! Compile the model, save bim in temp. dir.
+ if compile("", "burglar.mos", "tmp:burglar.bim")<>0 then exit(1); end-if
+ load(modBurg, "tmp:burglar.bim")  ! Load the bim file
+ run(modBurg)                      ! Start model execution
+ wait                              ! Wait for model termination
+ dropnextevent                     ! Ignore termination event message
+
+end-model 

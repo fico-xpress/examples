@@ -1,0 +1,36 @@
+(!******************************************************
+   Mosel Example Problems
+   ======================
+
+   file arc_test.mos
+   `````````````````
+   Using the package 'arcpkg'.
+
+   *** Compile arcpkg.mos before running this model ****
+   
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, Jan. 2007, rev. June 2018
+*******************************************************!)
+
+model "Arcs"
+ uses "arcpkg"
+
+ declarations
+  NODES: set of string                  ! Set of nodes
+  ARC: array(ARCSET:range) of arc       ! Arcs
+ end-declarations
+
+ initializations from 'arcs.dat'
+  ARC
+ end-initializations
+
+! Calculate the set of nodes
+ NODES:=union(a in ARCSET) {ARC(a).Source, ARC(a).Sink}
+ writeln(NODES)
+
+ writeln("Average arc cost: ", sum(a in ARCSET) ARC(a).Cost / getsize(ARCSET) )
+
+ writeln("Neighbors A and F: ", is_neighbor("A","F",ARC))
+ writeln("Neighbors A and B: ", is_neighbor("A","B",ARC))
+
+end-model 

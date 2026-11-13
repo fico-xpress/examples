@@ -1,0 +1,80 @@
+(!****************************************************************
+   Mosel Example Problems
+   ======================
+   
+   file k6queens_ka.mos
+   ````````````````````
+   Placing N queens on an NxN chess board such that
+   they do not attack each other.
+
+   *** This model cannot be run with a Community Licence 
+       for the default data instance ***
+
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, March 2005
+*****************************************************************!)
+model nqueen
+ uses "kalis"
+
+ parameters
+  N = 10                                     ! Number of queens
+  SOL = 10                                   ! Number of solutions
+ end-parameters
+
+ forward procedure print_solution(numsol: integer)
+ 
+ declarations
+  ROWS = 1..N                                ! Rows and columns
+  queen: array(ROWS) of cpvar                ! Position of queen per row
+ end-declarations
+
+! Defining the decision variables
+ forall(i in ROWS) do
+  1 <= queen(i); queen(i) <= N
+ end-do
+
+! One queen per column
+ all_different(queen,KALIS_GEN_ARC_CONSISTENCY)
+
+! No two queens on the same diagonal
+ forall(i in ROWS, j in i+1..N) do
+  queen(i) <> queen(j)
+  queen(i) <> queen(j) + j - i
+  queen(j) <> queen(i) + j - i  
+ end-do
+ 
+
+! Setting enumeration parameters
+ cp_set_branching(assign_var(KALIS_SMALLEST_DOMAIN, KALIS_RANDOM_VALUE, queen))
+ 
+! Solve the problem (generate up to SOL solutions)
+ solct:= 0
+ while (cp_find_next_sol and solct<SOL) do
+  solct+=1
+  print_solution(solct)
+  cp_show_stats
+ end-do
+ 
+
+!****************************************************************
+! **** Solution printing ****
+ procedure print_solution(numsol: integer)  		
+  writeln("Solution ", numsol)
+  ct:=4
+  write("    1  ")
+  while(ct<=N) do
+   write(strfmt(ct,-4))
+   ct+=4
+  end-do
+  writeln
+  
+  forall(r in ROWS) do
+   write(strfmt(r,3), " ")
+   forall(c in ROWS) write(if(c=getsol(queen(r)), "Q", "."))
+   writeln
+  end-do
+  writeln("Positions: ", queen)
+
+ end-procedure
+ 
+end-model

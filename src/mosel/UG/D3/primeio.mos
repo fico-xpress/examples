@@ -1,0 +1,53 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file primeio.mos 
+   ```````````````
+   Data exchange via memory.
+
+   *** Not intended to be run standalone - run from runprimeio.mos ***
+ 
+   (c) 2008 Fair Isaac Corporation
+       author: S. Heipcke, 2005, rev. Jan. 2013
+*******************************************************!)
+
+model "Prime IO" 
+ uses "mmjobs"
+
+ parameters
+  LIMIT=100                     ! Search for prime numbers in 2..LIMIT
+  OUTPUTFILE = "bin:shmem:resdata"
+ end-parameters
+
+ declarations
+  SNumbers: set of integer      ! Set of numbers to be checked
+  SPrime: set of integer        ! Set of prime numbers
+  STOPMOD = 2                   ! "Stop submodel" user event
+  MODREADY = 3                  ! "Submodel ready" user event
+ end-declarations
+
+ send(MODREADY,0)               ! Send "model ready" event 
+
+ SNumbers:={2..LIMIT} 
+ 
+ writeln("Prime numbers between 2 and ", LIMIT, ":")
+
+ n:=2
+ repeat
+   while (not(n in SNumbers)) n+=1
+   SPrime += {n}                ! n is a prime number
+   i:=n
+   while (i<=LIMIT) do          ! Remove n and all its multiples
+     SNumbers-= {i}
+     i+=n
+   end-do
+ until (SNumbers={} or not isqueueempty)     
+ 
+ NumP:= getsize(SPrime)
+ 
+ initializations to OUTPUTFILE
+  NumP  SPrime 
+ end-initializations
+ 
+end-model

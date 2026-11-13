@@ -1,0 +1,231 @@
+(!******************************************************
+   Mosel User Guide Example Problems
+   ================================= 
+
+   file transport_html.mos
+   ```````````````````````
+   Solution output in HTML format, using 
+   XML functionality or as text.
+   
+   (c) 2012 Fair Isaac Corporation
+       author: S.Heipcke, Oct. 2012
+*******************************************************!)
+
+model "Transport (XML)"
+ uses "mmxprs", "mmsystem", "mmxml"
+
+ forward procedure write_html_page
+ forward procedure write_html_text
+
+ declarations
+  REGION: set of string                 ! Set of customer regions
+  PLANT: set of string                  ! Set of plants
+
+  DEMAND: array(REGION) of real         ! Demand at regions
+  PLANTCAP: array(PLANT) of real        ! Production capacity at plants
+  PLANTCOST: array(PLANT) of real       ! Unit production cost at plants
+  TRANSCAP: dynamic array(PLANT,REGION) of real
+                                        ! Capacity on each route plant->region
+  DISTANCE: dynamic array(PLANT,REGION) of real
+                                        ! Distance of each route plant->region
+  FUELCOST: real                        ! Fuel cost per unit distance
+
+  MaxCap: array(PLANT) of linctr        ! Capacity constraints
+  flow: dynamic array(PLANT,REGION) of mpvar    ! Flow on each route
+
+  htmltable,RunDate: string             ! HTML output
+  MincostSol: real
+ end-declarations
+ 
+ initializations from 'transprt.dat'
+  DEMAND
+  [PLANTCAP,PLANTCOST] as 'PLANTDATA'
+  [DISTANCE,TRANSCAP] as 'ROUTES'
+  FUELCOST
+ end-initializations
+
+! Create the flow variables that exist
+ forall(p in PLANT, r in REGION | exists(TRANSCAP(p,r)) ) create(flow(p,r))
+ 
+! Objective: minimize total cost
+ MinCost:= sum(p in PLANT, r in REGION | exists(flow(p,r))) 
+            (FUELCOST * DISTANCE(p,r) + PLANTCOST(p)) * flow(p,r)
+ 
+! Limits on plant capacity
+ forall(p in PLANT) MaxCap(p):= sum(r in REGION) flow(p,r) <= PLANTCAP(p)
+
+! Satisfy all demands
+ forall(r in REGION) sum(p in PLANT) flow(p,r) = DEMAND(r)
+ 
+! Bounds on flows
+ forall(p in PLANT, r in REGION | exists(flow(p,r))) 
+  flow(p,r) <= TRANSCAP(p,r)
+ 
+ minimize(MinCost)                       ! Solve the problem
+
+ 
+ write_html_page                         ! Generate HTML page via XML
+ write_html_text                         ! Generate HTML output as text
+
+!***********************************************************************
+! **** Write HTML output using XML ****
+ procedure write_html_page
+  declarations
+   ResultHTML: xmldoc
+   Root, Head, Body, Style, Title, Table, Row, Cell, Row2, Table2,
+    EmptyRow, EmptyCell: integer
+  end-declarations
+
+  setparam("datetimefmt", "%0d-%N-%y, %0H:%0M:%0S")
+
+  Root:= addnode(ResultHTML, 0, XML_ELT, "html")
+  Head:= addnode(ResultHTML, Root, XML_ELT, "head")
+  Style:= addnode(ResultHTML, Head, XML_ELT, "style",
+    "body {font-family: Verdana, Geneva, Helvetica, Arial, sans-serif; color: 003f5f; background-color: d8e3e9 }\n" +
+    "table td {background-color: e9e3db; color: 003f5f; text-align: right }\n" +
+    "table th {background-color: f7c526; color: 003f5f}")
+  setattr(ResultHTML, Style, "type", "text/css")
+ 
+  Body:= addnode(ResultHTML, Root, XML_LASTCHILD, XML_ELT, "body")
+  TitleCenter:= addnode(ResultHTML, Body, XML_ELT, "center")
+  Title:= addnode(ResultHTML, TitleCenter, XML_ELT, "h2", 
+              "Transportation Plan")
+
+  Table:= addnode(ResultHTML, Body, XML_ELT, "table")
+    setattr(ResultHTML, Table, "width", '100%')
+    setattr(ResultHTML, Table, "cellpadding", '5')
+    setattr(ResultHTML, Table, "cellspacing", '0')
+    setattr(ResultHTML, Table, "border", 0)
+  EmptyRow:= addnode(ResultHTML, Table, XML_LASTCHILD, XML_ELT, "tr")
+  Cell:= addnode(ResultHTML, EmptyRow, XML_ELT, "td")
+    setattr(ResultHTML, Cell, "colspan", 4)
+    setattr(ResultHTML, Cell, "style", 'background-color: ffffff;')
+  CellBr:= addnode(ResultHTML, Cell, XML_ELT, "br")
+
+  Row:= addnode(ResultHTML, Table, XML_ELT, "tr")
+  EmptyCell:= addnode(ResultHTML, Row, XML_ELT, "td")
+    setattr(ResultHTML, EmptyCell, "width", '5%')
+    setattr(ResultHTML, EmptyCell, "style", 'background-color: ffffff;')
+  Cell:= addnode(ResultHTML, Row, "td", "Total cost: " +  textfmt(MinCost.sol,6,2))
+    setattr(ResultHTML, Cell, "width", '65%')
+    setattr(ResultHTML, Cell, "style", 'color: #3c3834; font-weight: bold; text-align: left; background-color: ffffff;')
+  Cell:= addnode(ResultHTML, Cell, XML_DATA, "&#163;")
+
+  Cell:= addnode(ResultHTML, Row, "td", text(datetime(SYS_NOW)))
+    setattr(ResultHTML, Cell, "style", 'color: #3c3834; font-weight: bold; text-align: left; background-color: ffffff;')
+  EmptyCell:= copynode(ResultHTML, EmptyCell, ResultHTML, Row, XML_LASTCHILD)
+  EmptyRow:= copynode(ResultHTML, EmptyRow, ResultHTML, Table, XML_LASTCHILD)
+
+  Row:= addnode(ResultHTML, Table, XML_ELT, "tr")
+  EmptyCell:= copynode(ResultHTML, EmptyCell, ResultHTML, Row, XML_LASTCHILD)
+  Cell:= addnode(ResultHTML, Row, XML_ELT, "td")
+    setattr(ResultHTML, Cell, "colspan", 2)
+    setattr(ResultHTML, Cell, "style", 'background-color: ffffff;')
+
+  Table2:= addnode(ResultHTML, Cell, XML_LASTCHILD, XML_ELT, "table")
+    setattr(ResultHTML, Table2, "width", '100%')
+    setattr(ResultHTML, Table2, "cellpadding", '2')
+    setattr(ResultHTML, Table2, "cellspacing", '1')
+  Row2:= addnode(ResultHTML, Table2, XML_ELT, "tr")
+  Cell:= addnode(ResultHTML, Row2, XML_ELT, "th", 'from \ to')
+    setattr(ResultHTML, Cell, "style", 'font-style: italic')
+  forall(r in REGION) 
+   Cell:= addnode(ResultHTML, Row2, XML_LASTCHILD, XML_ELT, "th", r)
+  Cell:= addnode(ResultHTML, Row2, XML_LASTCHILD, XML_ELT, "th", "Total")
+    setattr(ResultHTML, Cell, "style", 'font-style: italic; background-color: f8981d;')
+  forall(p in PLANT) do
+    Row2:= addnode(ResultHTML, Table2, XML_LASTCHILD, XML_ELT, "tr")
+    Cell:= addnode(ResultHTML, Row2, XML_ELT, "th", p)
+    forall(r in REGION) 
+      Cell:= addnode(ResultHTML, Row2, "td", 
+               if(exists(flow(p,r)) and flow(p,r).sol>0, 
+                  textfmt(flow(p,r).sol,4,1), text("-")))
+    Cell:= addnode(ResultHTML, Row2, "td", textfmt(sum(r in REGION)flow(p,r).sol,4,1))
+     setattr(ResultHTML, Cell, "style", 'font-style: italic; font-weight: bold;')
+  end-do
+  Row2:= addnode(ResultHTML, Table2, XML_LASTCHILD, XML_ELT, "tr")
+  Cell:= addnode(ResultHTML, Row2, "th", "Total")
+    setattr(ResultHTML, Cell, "style", 'font-style: italic; background-color: f8981d;')
+  forall(r in REGION) do
+    Cell:= addnode(ResultHTML, Row2, "td", textfmt(sum(p in PLANT)flow(p,r).sol,4,1))
+     setattr(ResultHTML, Cell, "style", 'font-style: italic; font-weight: bold;')
+  end-do
+  Cell:= addnode(ResultHTML, Row2, XML_LASTCHILD, XML_ELT, "td")
+
+  EmptyCell:= copynode(ResultHTML, EmptyCell, ResultHTML, Row, XML_LASTCHILD)
+  EmptyRow:= copynode(ResultHTML, EmptyRow, ResultHTML, Table, XML_LASTCHILD)
+
+  save(ResultHTML, "transportres.html")           ! Write the HTML file
+  save(ResultHTML, Root, "")                      ! Write the table
+
+ end-procedure
+
+!***********************************************************************
+! **** Generate HTML table in text format ****
+ procedure write_html_text
+  declarations
+   htmltemp: text
+  end-declarations
+
+  setparam("datetimefmt", "%0d-%N-%y, %0H:%0M:%0S")
+
+  htmltemp := "<html>\n"
+  htmltemp += "  <head>\n"
+  htmltemp += '    <style type="text/css">body {font-family: Verdana, Geneva, Helvetica, Arial, sans-serif; color: 003f5f; background-color: d8e3e9 }' + "\n"
+  htmltemp += "table td {background-color: e9e3db; color: 003f5f; text-align: right }\n"
+  htmltemp += "table th {background-color: f7c526; color: 003f5f}</style>\n"
+  htmltemp += "  </head>\n"
+  htmltemp += "  <body>\n"
+  htmltemp += "    <center><h2>Transportation Plan</h2></center>\n"
+  htmltemp += '    <table width="100%" cellpadding="5" cellspacing="0" border="0">'+"\n"
+
+  EmtpyRow:= '      <tr><td colspan="4" style="background-color: ffffff;"><br/></td></tr>' + "\n"
+  htmltemp += EmtpyRow
+  EmptyCell:= '<td width="5%" style="background-color: ffffff;"/>'
+  htmltemp += '      <tr>' + EmptyCell
+  htmltemp += '        <td width="65%" style="color: #3c3834; font-weight: bold; text-align: left; background-color: ffffff;">Total cost: ' + textfmt(MinCost.sol,6,2) + '&#163;</td>'
+  htmltemp += '        <td style="color: #3c3834; font-weight: bold; text-align: left; background-color: ffffff;">' + text(datetime(SYS_NOW)) + '</td>'
+  htmltemp += EmptyCell + '</tr>' + "\n"
+  htmltemp += EmtpyRow
+  htmltemp += '      <tr>'
+  htmltemp += EmptyCell
+  htmltemp += '        <td colspan="2" style="background-color: ffffff;">'+"\n"
+  htmltemp += ' <table width="100%" cellpadding="2" cellspacing="1">'
+  
+  MincostSol:= getobjval
+  RunDate:= string(datetime(SYS_NOW))
+  
+  htmltemp += '<tr><th style="font-style: italic">from \ to</th>' + "\n"
+    
+  forall(r in REGION) htmltemp += '  <th>' + r + '</th>' + "\n"
+  htmltemp += '  <th style="font-style: italic; background-color: f8981d;">Total</th></tr>' + "\n"
+  forall(p in PLANT) do
+    htmltemp += '<tr><th>' + p + '</th>'+ "\n"
+    forall(r in REGION) 
+      htmltemp += '  <td>' +  
+               if(exists(flow(p,r)) and flow(p,r).sol>0, 
+                  textfmt(flow(p,r).sol,4,1), text("-")) + '</td>' + "\n"
+    htmltemp += '  <td style="font-style: italic; font-weight: bold;">' + textfmt(sum(r in REGION)flow(p,r).sol,4,1) + '</td></tr>' + "\n"
+  end-do
+  htmltemp += '<tr><th style="font-style: italic; background-color: f8981d;">Total</th>' + "\n"
+  forall(r in REGION)
+    htmltemp += '  <td style="font-style: italic; font-weight: bold;">' +
+      textfmt(sum(p in PLANT)flow(p,r).sol,4,1) + '</td>' + "\n"
+  htmltemp += "<td/></tr>\n" 
+
+  htmltemp += "      </table></td>"
+  htmltemp += EmptyCell + "</tr>\n"
+  htmltemp += EmtpyRow
+  htmltemp += "    </table>\n"
+  htmltemp += "  </body>\n"
+  htmltemp += '</html>'
+
+  htmltable:= string(htmltemp)
+  writeln("\n\n",htmltable)
+  fopen("transportres2.html", F_OUTPUT)
+  writeln(htmltable)
+  fclose(F_OUTPUT)
+
+ end-procedure
+
+end-model

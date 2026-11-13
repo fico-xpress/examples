@@ -1,0 +1,37 @@
+(!******************************************************
+   Mosel Example Problems
+   ====================== 
+
+   file duodd.mos
+   ``````````````
+   Using the diskdata functionality for reading a simple
+   CSV format file.
+   
+   (c) 2020 Fair Isaac Corporation
+       author: S. Heipcke, Apr. 2020
+*******************************************************!)
+
+model "Duo input (diskdata)"
+ uses "mmetc"
+
+ parameters
+  CNCTIO = "datadd.csv"           ! Use CSV file `datadd.csv'
+ end-parameters
+
+ declarations
+  A7,A8: dynamic array(range,range) of real
+ end-declarations
+
+! Use the diskdata driver for reading the data
+ initializations from "mmetc.diskdata:" 
+  A7 as 'csv(Index_i,Index_j,Value),skiph,'+CNCTIO
+ end-initializations
+
+! Use the diskdata subroutine for reading the data
+ diskdata(ETC_IN+ETC_CSV+ETC_SKIPH, CNCTIO, A8)
+
+! Now let us see what we have
+ writeln('A7 is: ', A7)
+ writeln('A8 is: ', A8)
+
+end-model
